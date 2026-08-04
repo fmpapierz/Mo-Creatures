@@ -67,8 +67,23 @@ public final class MoCConfig {
     public boolean spawnPiranhas;
     /** Mo'Creatures' custom spawner handles/overrides vanilla spawns. Legacy: true. */
     public boolean modifyVanillaSpawns;
-    /** Custom spawner periodically despawns distant vanilla animals so Mo'Creatures fauna has room.
-     * Legacy MoCProperties DespawnVanilla: true. Only takes effect when {@link #modifyVanillaSpawns} is also on. */
+    /**
+     * Custom spawner periodically despawns distant vanilla animals so Mo'Creatures fauna has room.
+     * Only takes effect when {@link #modifyVanillaSpawns} is also on.
+     *
+     * <p>Legacy MoCProperties DespawnVanilla defaulted to true, but legacy also replaced vanilla spawning
+     * wholesale with its own CustomSpawner, so thinning vanilla herds was how it made room. This port spawns
+     * through the vanilla pipeline and now uses spawn weights sized against vanilla's (see
+     * DEFAULT_FREQ_CREATURE), so the cull is no longer needed to leave room — and it is destructive by nature:
+     * vanilla farm animals never despawn on their own, so anything it removes is a permanent loss the player
+     * did not ask for. Defaults to false; the cull additionally refuses to touch any animal that shows a sign
+     * of player investment — named, leashed, ridden, tamed, persistence-flagged, or bred/fed/still a baby
+     * (see MoCMobCap.despawnVanillaAnimals).
+     *
+     * <p><strong>Turning this on is still destructive by design.</strong> An ordinary adult cow has
+     * {@code age == 0} and carries no other marker, so a penned herd the player walked away from <em>will</em>
+     * be removed once it is more than 128 blocks off. Enable it only if you want vanilla herds thinned.</p>
+     */
     public boolean despawnVanilla;
     /** Tamed creatures get an owner; only the owner interacts with them. Legacy MoCProperties: false. */
     public boolean enableOwnership;
@@ -142,13 +157,28 @@ public final class MoCConfig {
     /** Backing store for the whole file, retained for the keyed per-entity spawn lookups. */
     private final Properties props;
 
-    // Uniform fallback weights matching MoCSpawns' current hard-coded values.
+    // Uniform fallback spawn weights, sized against the vanilla weights they actually compete with.
+    //
+    // What matters at chunk generation is weight x average pack size, not weight alone: vanilla's farm animals
+    // all spawn in fixed packs of 4, so a plains biome is 46 points of weight but 182 points of "animals placed"
+    // (sheep 12x4, pig 10x4, chicken 10x4, cow 8x4, horse 5x4, donkey 1x2). Mo'Creatures packs average 2.5
+    // (min 1 / max 4 below), so its weights must be read against that 182, not against 46.
+    //
+    // These used to be creature 8 / insect 10 / water 8. That put ~26 Mo'Creatures species at 218 of the 264
+    // points of CREATURE weight in a plains biome (83%) and crowded vanilla farm animals out of new chunks —
+    // which is the pressure the (destructive) despawnVanilla cull existed to relieve. At creature 3 / insect 4
+    // the mod places 21x3x2.5 + 5x4x2.5 = ~208 against vanilla's 182, i.e. a little over half of the animals in
+    // a new chunk are Mo'Creatures, which is the point of the mod, while vanilla keeps a healthy 47%.
+    //
+    // Monsters were never the problem (8 species x 6 against vanilla's ~400 points of monster weight), and water
+    // at 2 gives the four ocean species 8 points against vanilla ocean's 7. Both are unchanged.
+    // Any server wanting different numbers can set spawn.<id>.frequency in mocreatures.properties.
     private static final int DEFAULT_GROUP_MIN = 1;
     private static final int DEFAULT_GROUP_MAX = 4;
-    private static final int DEFAULT_FREQ_CREATURE = 8;
+    private static final int DEFAULT_FREQ_CREATURE = 3;
     private static final int DEFAULT_FREQ_MONSTER = 6;
-    private static final int DEFAULT_FREQ_WATER = 8;
-    private static final int DEFAULT_FREQ_INSECT = 10;
+    private static final int DEFAULT_FREQ_WATER = 2;
+    private static final int DEFAULT_FREQ_INSECT = 4;
 
     // Ids whose default spawn weight is not the plain creature weight of 8.
     private static final java.util.Set<String> MONSTER_IDS = java.util.Set.of(
@@ -174,7 +204,7 @@ public final class MoCConfig {
         this.attackHorses        = getBool(p, "attackHorses", false);
         this.spawnPiranhas       = getBool(p, "spawnPiranhas", true);
         this.modifyVanillaSpawns = getBool(p, "modifyVanillaSpawns", true);
-        this.despawnVanilla      = getBool(p, "despawnVanilla", true);
+        this.despawnVanilla      = getBool(p, "despawnVanilla", false);
         // Legacy defaults (MoCProxy readConfigValues): ownership OFF out of the box — no owner assignment and
         // no per-player tame cap unless the server opts in. (Existing mocreatures.properties keep their values;
         // this only changes a fresh config.)
@@ -323,42 +353,52 @@ public final class MoCConfig {
             java.util.List.of("forest", "arctic", "normal", "mountain", "jungle", "desert", "swamp");
 
     /**
-     * Curated per-creature default biome groups, transcribed from the legacy {@code MoCProperties.cfg} (the
-     * shipped {@code useDefaultBiomeGroups} table) and restricted to the seven overworld-terrain groups the
-     * port models. Aquatic / monster-category / nether / Wyvern-Lair creatures are intentionally absent — their
-     * legacy groups (OCEAN/RIVER/BEACHES/MOBS/NETHER/WYVERNLAIR) have no overworld-terrain equivalent, so they
-     * keep spawning via their mob category / spawn placement rather than being wrongly restricted.
+     * Curated per-creature default biome groups, seeded from the legacy {@code MoCProperties.cfg}
+     * {@code useDefaultBiomeGroups} table and mapped onto the seven overworld-terrain groups the port models.
+     *
+     * <p>Every group must have a substantial roster, because this is a hard gate: a creature whose groups do
+     * not intersect the biome's is never added to that biome's spawn list at all. The legacy-transcribed table
+     * left {@code desert} with two species (elephant, ostrich) and {@code arctic} with three (bear, bunny, fox),
+     * so deserts, badlands, savannas and snowy biomes read as empty of Mo'Creatures fauna. The assignments below
+     * keep every legacy entry and extend each creature to the terrain it plausibly belongs in — lions and
+     * cheetahs on savanna, rattlesnakes and komodos in the desert, snow leopards and taiga boar in the arctic —
+     * so no group has fewer than ten species.</p>
+     *
+     * <p>Aquatic / monster-category / nether / Wyvern-Lair creatures are intentionally absent: their legacy
+     * groups (OCEAN/RIVER/BEACHES/MOBS/NETHER/WYVERNLAIR) have no overworld-terrain equivalent, so they are
+     * placed by an explicit dimension or water-tag gate in {@code MoCSpawns} instead.</p>
      */
     private static final java.util.Map<String, java.util.List<String>> DEFAULT_BIOME_GROUPS =
             java.util.Map.ofEntries(
-                    java.util.Map.entry("bear", java.util.List.of("forest", "normal", "arctic", "mountain")),
-                    java.util.Map.entry("bee", java.util.List.of("forest", "normal", "jungle")),
-                    java.util.Map.entry("big_cat", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("bird", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("boar", java.util.List.of("forest", "normal", "jungle")),
-                    java.util.Map.entry("bunny", java.util.List.of("forest", "normal", "jungle", "arctic")),
-                    java.util.Map.entry("butterfly", java.util.List.of("normal", "forest", "jungle", "mountain")),
-                    java.util.Map.entry("cricket", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("crocodile", java.util.List.of("swamp")),
-                    java.util.Map.entry("deer", java.util.List.of("forest", "normal")),
-                    java.util.Map.entry("dragonfly", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("duck", java.util.List.of("forest", "normal", "jungle")),
-                    java.util.Map.entry("elephant", java.util.List.of("forest", "normal", "desert")),
-                    java.util.Map.entry("firefly", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("fly", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("fox", java.util.List.of("forest", "jungle", "arctic")),
-                    java.util.Map.entry("goat", java.util.List.of("forest", "normal", "mountain")),
-                    java.util.Map.entry("horse", java.util.List.of("forest", "normal", "mountain")),
-                    java.util.Map.entry("kitty", java.util.List.of("normal")),
-                    java.util.Map.entry("komodo", java.util.List.of("swamp")),
-                    java.util.Map.entry("maggot", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("mouse", java.util.List.of("forest", "jungle", "normal", "mountain")),
+                    java.util.Map.entry("bear", java.util.List.of("forest", "normal", "arctic", "mountain", "jungle")),
+                    java.util.Map.entry("bee", java.util.List.of("forest", "normal", "jungle", "mountain")),
+                    java.util.Map.entry("big_cat", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "arctic")),
+                    java.util.Map.entry("bird", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "arctic", "swamp")),
+                    java.util.Map.entry("boar", java.util.List.of("forest", "normal", "jungle", "mountain", "arctic")),
+                    java.util.Map.entry("bunny", java.util.List.of("forest", "normal", "jungle", "arctic", "mountain", "desert")),
+                    java.util.Map.entry("butterfly", java.util.List.of("normal", "forest", "jungle", "mountain", "swamp")),
+                    java.util.Map.entry("crab", java.util.List.of("normal", "swamp", "jungle", "desert")),
+                    java.util.Map.entry("cricket", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "swamp")),
+                    java.util.Map.entry("crocodile", java.util.List.of("swamp", "jungle")),
+                    java.util.Map.entry("deer", java.util.List.of("forest", "normal", "arctic", "mountain")),
+                    java.util.Map.entry("dragonfly", java.util.List.of("forest", "normal", "jungle", "mountain", "swamp")),
+                    java.util.Map.entry("duck", java.util.List.of("forest", "normal", "jungle", "swamp")),
+                    java.util.Map.entry("elephant", java.util.List.of("forest", "normal", "desert", "jungle")),
+                    java.util.Map.entry("firefly", java.util.List.of("forest", "normal", "jungle", "mountain", "swamp")),
+                    java.util.Map.entry("fly", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "swamp")),
+                    java.util.Map.entry("fox", java.util.List.of("forest", "jungle", "arctic", "normal", "mountain")),
+                    java.util.Map.entry("goat", java.util.List.of("forest", "normal", "mountain", "arctic")),
+                    java.util.Map.entry("horse", java.util.List.of("forest", "normal", "mountain", "desert", "arctic")),
+                    java.util.Map.entry("kitty", java.util.List.of("normal", "forest")),
+                    java.util.Map.entry("komodo", java.util.List.of("swamp", "jungle", "desert")),
+                    java.util.Map.entry("maggot", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "swamp")),
+                    java.util.Map.entry("mouse", java.util.List.of("forest", "jungle", "normal", "mountain", "desert", "arctic", "swamp")),
                     java.util.Map.entry("ostrich", java.util.List.of("normal", "desert")),
-                    java.util.Map.entry("roach", java.util.List.of("normal", "swamp", "mountain", "forest", "jungle")),
-                    java.util.Map.entry("snail", java.util.List.of("forest", "jungle", "normal")),
-                    java.util.Map.entry("snake", java.util.List.of("forest", "jungle", "normal", "mountain")),
-                    java.util.Map.entry("turkey", java.util.List.of("normal")),
-                    java.util.Map.entry("turtle", java.util.List.of("swamp", "jungle")));
+                    java.util.Map.entry("roach", java.util.List.of("normal", "swamp", "mountain", "forest", "jungle", "desert")),
+                    java.util.Map.entry("snail", java.util.List.of("forest", "jungle", "normal", "swamp")),
+                    java.util.Map.entry("snake", java.util.List.of("forest", "jungle", "normal", "mountain", "desert", "swamp")),
+                    java.util.Map.entry("turkey", java.util.List.of("normal", "forest", "desert")),
+                    java.util.Map.entry("turtle", java.util.List.of("swamp", "jungle", "normal")));
 
     public static java.util.List<String> biomeGroupNames() {
         return BIOME_GROUP_NAMES;

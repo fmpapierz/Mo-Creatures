@@ -203,6 +203,18 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
         this.entityData.set(TAMED, tamed);
     }
 
+    /**
+     * Legacy {@code MoCEntityAquatic.canDespawn() == !getIsTamed()}. Vanilla {@link WaterAnimal} inherits
+     * {@code Mob.removeWhenFarAway == true}, so without this a tamed dolphin (or a fishy released from a
+     * bowl, or a hatched shark) is silently discarded the moment the nearest player is more than 128
+     * blocks away — {@code MoCMobCap} protects tamed creatures from the mod's own cap, but not from
+     * vanilla's despawn pass.
+     */
+    @Override
+    public boolean removeWhenFarAway(double distanceSquared) {
+        return !getIsTamed();
+    }
+
     @Override
     public boolean getIsAdult() {
         return this.entityData.get(ADULT);

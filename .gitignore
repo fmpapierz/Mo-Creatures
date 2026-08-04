@@ -20,3 +20,6 @@ classes/
 .settings
 *.launch
 /.architectury-transformer/debug.log
+
+# Dev-run output when a loom run config uses the project root as its working directory.
+logs/

@@ -18,7 +18,6 @@ import net.minecraft.world.item.component.Consumables;
 import net.minecraft.world.item.component.Weapon;
 import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect;
 import net.minecraft.world.item.ToolMaterial;
-import net.minecraft.world.item.equipment.ArmorMaterials;
 import net.minecraft.world.item.equipment.ArmorType;
 
 /** All Mo'Creatures items: spawn eggs + equipment/materials/food + block items. Generated. */
@@ -221,14 +220,17 @@ public final class MoCItems {
     // Fur and hide armor are IRON-tier: legacy furARMOR/hideARMOR were both EnumHelper.addArmorMaterial(..,15,{2,6,5,2},12)
     // — identical to crocARMOR (the reptile set) and to modern IRON's {2,6,5,2} reduction. Not LEATHER ({1,3,2,1}), which
     // would roughly halve the protection DrZhark intended.
+    // The material is MoCArmorMaterials.FUR rather than vanilla ArmorMaterials.IRON: the numbers are the same, but an
+    // ArmorMaterial also carries the EquipmentAsset key that picks the worn texture, and IRON's is minecraft:iron —
+    // which is why every Mo'Creatures set used to render as iron plate on the player. See MoCArmorMaterials.
     public static final RegistrySupplier<Item> FURBOOTS = ITEMS.register("furboots",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.BOOTS).setId(itemKey("furboots"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.FUR, ArmorType.BOOTS).setId(itemKey("furboots"))));
     public static final RegistrySupplier<Item> FURCHEST = ITEMS.register("furchest",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.CHESTPLATE).setId(itemKey("furchest"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.FUR, ArmorType.CHESTPLATE).setId(itemKey("furchest"))));
     public static final RegistrySupplier<Item> FURHELMET = ITEMS.register("furhelmet",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.HELMET).setId(itemKey("furhelmet"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.FUR, ArmorType.HELMET).setId(itemKey("furhelmet"))));
     public static final RegistrySupplier<Item> FURLEGS = ITEMS.register("furlegs",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.LEGGINGS).setId(itemKey("furlegs"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.FUR, ArmorType.LEGGINGS).setId(itemKey("furlegs"))));
     public static final RegistrySupplier<Item> HAYSTACK = ITEMS.register("haystack",
             () -> new Item(new Item.Properties().setId(itemKey("haystack"))));
     public static final RegistrySupplier<Item> HEARTDARKNESS = ITEMS.register("heartdarkness",
@@ -240,13 +242,13 @@ public final class MoCItems {
     public static final RegistrySupplier<Item> HIDE = ITEMS.register("hide",
             () -> new Item(new Item.Properties().setId(itemKey("hide"))));
     public static final RegistrySupplier<Item> HIDEBOOTS = ITEMS.register("hideboots",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.BOOTS).setId(itemKey("hideboots"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.HIDE, ArmorType.BOOTS).setId(itemKey("hideboots"))));
     public static final RegistrySupplier<Item> HIDECHEST = ITEMS.register("hidechest",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.CHESTPLATE).setId(itemKey("hidechest"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.HIDE, ArmorType.CHESTPLATE).setId(itemKey("hidechest"))));
     public static final RegistrySupplier<Item> HIDEHELMET = ITEMS.register("hidehelmet",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.HELMET).setId(itemKey("hidehelmet"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.HIDE, ArmorType.HELMET).setId(itemKey("hidehelmet"))));
     public static final RegistrySupplier<Item> HIDELEGS = ITEMS.register("hidelegs",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.LEGGINGS).setId(itemKey("hidelegs"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.HIDE, ArmorType.LEGGINGS).setId(itemKey("hidelegs"))));
     public static final RegistrySupplier<Item> HORSEARMORCRYSTAL = ITEMS.register("horsearmorcrystal",
             () -> new Item(new Item.Properties().setId(itemKey("horsearmorcrystal"))));
     public static final RegistrySupplier<Item> HORSESADDLE = ITEMS.register("horsesaddle",
@@ -333,51 +335,51 @@ public final class MoCItems {
                             net.minecraft.resources.Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "shuffle")))
                     .setId(itemKey("recordshuffle"))));
     public static final RegistrySupplier<Item> REPTILEBOOTS = ITEMS.register("reptileboots",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.BOOTS).setId(itemKey("reptileboots"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.REPTILE, ArmorType.BOOTS).setId(itemKey("reptileboots"))));
     public static final RegistrySupplier<Item> REPTILEHELMET = ITEMS.register("reptilehelmet",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.HELMET).setId(itemKey("reptilehelmet"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.REPTILE, ArmorType.HELMET).setId(itemKey("reptilehelmet"))));
     public static final RegistrySupplier<Item> REPTILEHIDE = ITEMS.register("reptilehide",
             () -> new Item(new Item.Properties().setId(itemKey("reptilehide"))));
     public static final RegistrySupplier<Item> REPTILELEGS = ITEMS.register("reptilelegs",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.LEGGINGS).setId(itemKey("reptilelegs"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.REPTILE, ArmorType.LEGGINGS).setId(itemKey("reptilelegs"))));
     public static final RegistrySupplier<Item> REPTILEPLATE = ITEMS.register("reptileplate",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.CHESTPLATE).setId(itemKey("reptileplate"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.REPTILE, ArmorType.CHESTPLATE).setId(itemKey("reptileplate"))));
     public static final RegistrySupplier<Item> ROPE = ITEMS.register("rope",
             () -> new drzhark.mocreatures.item.MoCRopeItem(new Item.Properties().setId(itemKey("rope"))));
     public static final RegistrySupplier<Item> SAI = ITEMS.register("sai",
             () -> new Item(new Item.Properties().sword(ToolMaterial.IRON, 3.0F, -2.4F).setId(itemKey("sai"))));
     public static final RegistrySupplier<Item> SCORPBOOTSCAVE = ITEMS.register("scorpbootscave",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.BOOTS).setId(itemKey("scorpbootscave"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_CAVE, ArmorType.BOOTS).setId(itemKey("scorpbootscave"))));
     public static final RegistrySupplier<Item> SCORPBOOTSDIRT = ITEMS.register("scorpbootsdirt",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.BOOTS).setId(itemKey("scorpbootsdirt"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_DIRT, ArmorType.BOOTS).setId(itemKey("scorpbootsdirt"))));
     public static final RegistrySupplier<Item> SCORPBOOTSFROST = ITEMS.register("scorpbootsfrost",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.BOOTS).setId(itemKey("scorpbootsfrost"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_FROST, ArmorType.BOOTS).setId(itemKey("scorpbootsfrost"))));
     public static final RegistrySupplier<Item> SCORPBOOTSNETHER = ITEMS.register("scorpbootsnether",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.BOOTS).setId(itemKey("scorpbootsnether"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_NETHER, ArmorType.BOOTS).setId(itemKey("scorpbootsnether"))));
     public static final RegistrySupplier<Item> SCORPHELMETCAVE = ITEMS.register("scorphelmetcave",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.HELMET).setId(itemKey("scorphelmetcave"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_CAVE, ArmorType.HELMET).setId(itemKey("scorphelmetcave"))));
     public static final RegistrySupplier<Item> SCORPHELMETDIRT = ITEMS.register("scorphelmetdirt",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.HELMET).setId(itemKey("scorphelmetdirt"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_DIRT, ArmorType.HELMET).setId(itemKey("scorphelmetdirt"))));
     public static final RegistrySupplier<Item> SCORPHELMETFROST = ITEMS.register("scorphelmetfrost",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.HELMET).setId(itemKey("scorphelmetfrost"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_FROST, ArmorType.HELMET).setId(itemKey("scorphelmetfrost"))));
     public static final RegistrySupplier<Item> SCORPHELMETNETHER = ITEMS.register("scorphelmetnether",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.HELMET).setId(itemKey("scorphelmetnether"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_NETHER, ArmorType.HELMET).setId(itemKey("scorphelmetnether"))));
     public static final RegistrySupplier<Item> SCORPLEGSCAVE = ITEMS.register("scorplegscave",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.LEGGINGS).setId(itemKey("scorplegscave"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_CAVE, ArmorType.LEGGINGS).setId(itemKey("scorplegscave"))));
     public static final RegistrySupplier<Item> SCORPLEGSDIRT = ITEMS.register("scorplegsdirt",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.LEGGINGS).setId(itemKey("scorplegsdirt"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_DIRT, ArmorType.LEGGINGS).setId(itemKey("scorplegsdirt"))));
     public static final RegistrySupplier<Item> SCORPLEGSFROST = ITEMS.register("scorplegsfrost",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.LEGGINGS).setId(itemKey("scorplegsfrost"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_FROST, ArmorType.LEGGINGS).setId(itemKey("scorplegsfrost"))));
     public static final RegistrySupplier<Item> SCORPLEGSNETHER = ITEMS.register("scorplegsnether",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.LEGGINGS).setId(itemKey("scorplegsnether"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_NETHER, ArmorType.LEGGINGS).setId(itemKey("scorplegsnether"))));
     public static final RegistrySupplier<Item> SCORPPLATECAVE = ITEMS.register("scorpplatecave",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.CHESTPLATE).setId(itemKey("scorpplatecave"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_CAVE, ArmorType.CHESTPLATE).setId(itemKey("scorpplatecave"))));
     public static final RegistrySupplier<Item> SCORPPLATEDIRT = ITEMS.register("scorpplatedirt",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.CHESTPLATE).setId(itemKey("scorpplatedirt"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_DIRT, ArmorType.CHESTPLATE).setId(itemKey("scorpplatedirt"))));
     public static final RegistrySupplier<Item> SCORPPLATEFROST = ITEMS.register("scorpplatefrost",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.CHESTPLATE).setId(itemKey("scorpplatefrost"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_FROST, ArmorType.CHESTPLATE).setId(itemKey("scorpplatefrost"))));
     public static final RegistrySupplier<Item> SCORPPLATENETHER = ITEMS.register("scorpplatenether",
-            () -> new Item(new Item.Properties().humanoidArmor(ArmorMaterials.IRON, ArmorType.CHESTPLATE).setId(itemKey("scorpplatenether"))));
+            () -> new Item(new Item.Properties().humanoidArmor(MoCArmorMaterials.SCORPION_NETHER, ArmorType.CHESTPLATE).setId(itemKey("scorpplatenether"))));
     // Scorpion stings/swords apply their elemental on-hit effect (legacy MoCItemWeapon): dirt=poison,
     // frost=slowdown, nether=fire, cave=confusion. Legacy stings were GOLD-tier + fragile:
     // new MoCItemWeapon(EnumToolMaterial.GOLD, type, true) => maxDamage = GOLD.getMaxUses() = 32, and the

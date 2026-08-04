@@ -11,6 +11,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.chicken.Chicken;
 import net.minecraft.world.entity.animal.cow.Cow;
 import net.minecraft.world.entity.animal.pig.Pig;
@@ -53,8 +54,18 @@ public final class MoCMobCap {
     /** How many server-level ticks between cap sweeps. */
     private static final int INTERVAL_TICKS = 200;
 
-    /** Shared throttle counter across all levels (sweeps run at most once per INTERVAL_TICKS). */
-    private static int tickCounter;
+    /**
+     * Per-level throttle counters, so every {@link ServerLevel} is swept once per {@link #INTERVAL_TICKS}.
+     *
+     * <p>This was previously a single shared {@code static int} incremented on every level's tick. That is not
+     * merely "spreading the sweeps out": with N levels ticking per server tick, the counter reaches
+     * INTERVAL_TICKS on a fixed position in the rotation, so the sweep always lands on the same level and every
+     * other level is never swept at all. A stock install has four levels (overworld, nether, end and the mod's
+     * own {@code mocreatures:wyvern_lair}), and 200 mod 4 == 0, so the overworld — the one level that matters —
+     * was never reached. Only accessed from the server thread, so a plain HashMap is safe.</p>
+     */
+    private static final java.util.Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Integer>
+            TICK_COUNTERS = new java.util.HashMap<>();
 
     private MoCMobCap() {
     }
@@ -68,12 +79,12 @@ public final class MoCMobCap {
     }
 
     private static void onLevelTick(ServerLevel level) {
-        // Throttle: only sweep once per interval. The counter is incremented once per level tick;
-        // with multiple levels this simply spreads sweeps out, which is fine.
-        if (++tickCounter < INTERVAL_TICKS) {
+        // Throttle per level: each ServerLevel gets its own counter, so every level is swept once per interval.
+        int ticks = TICK_COUNTERS.merge(level.dimension(), 1, Integer::sum);
+        if (ticks < INTERVAL_TICKS) {
             return;
         }
-        tickCounter = 0;
+        TICK_COUNTERS.put(level.dimension(), 0);
 
         MoCConfig cfg = MoCConfig.get();
 
@@ -118,7 +129,17 @@ public final class MoCMobCap {
         }
     }
 
-    /** Culls distant, unremarkable vanilla farm animals (cow/sheep/pig/chicken/squid/untamed wolf). */
+    /**
+     * Culls distant, unremarkable vanilla farm animals (cow/sheep/pig/chicken/squid/untamed wolf).
+     *
+     * <p>{@code discard()} is silent and permanent — no death, no drops, no message — and vanilla
+     * {@code Animal.removeWhenFarAway} is hard-coded to {@code false}, so every removal here is one vanilla
+     * would never have made. {@code level.getAllEntities()} reaches out to the whole loaded/tracked area, not
+     * just the spawn radius, so an unguarded sweep wipes penned farms the moment the player walks to the far
+     * edge of their own render distance. The guards below therefore restrict it to animals that carry no sign
+     * of player investment: anything named, leashed, ridden, tamed, persistence-flagged, or bred/aged (an
+     * {@code age} other than 0 means the animal has been fed, is a baby, or is in love) is left alone.</p>
+     */
     private static void despawnVanillaAnimals(ServerLevel level, List<ServerPlayer> players) {
         if (players.isEmpty()) {
             return;
@@ -131,9 +152,7 @@ public final class MoCMobCap {
             }
         }
         for (Entity e : targets) {
-            // Never cull a named, ridden, or tamed vanilla animal (a player's pet cow/wolf stays).
-            if (e.hasCustomName() || e.isVehicle() || e.isPassenger()
-                    || (e instanceof TamableAnimal ta && ta.isTame())) {
+            if (!isCullableVanillaAnimal(e)) {
                 continue;
             }
             double distSq = nearestPlayerDistSq(e, players);
@@ -146,6 +165,27 @@ public final class MoCMobCap {
         }
     }
 
+    /** True only for a wild, unowned, uninvested vanilla animal that no player would miss. */
+    private static boolean isCullableVanillaAnimal(Entity e) {
+        // Named, ridden or riding, or tamed: someone's pet or mount.
+        if (e.hasCustomName() || e.isVehicle() || e.isPassenger()
+                || (e instanceof TamableAnimal ta && ta.isTame())) {
+            return false;
+        }
+        if (e instanceof Mob mob) {
+            // Persistence flag = spawn egg / spawner / name tag / anything vanilla marks as "keep".
+            // requiresCustomPersistence covers leashed and passenger cases.
+            if (mob.isPersistenceRequired() || mob.requiresCustomPersistence() || mob.isLeashed()) {
+                return false;
+            }
+        }
+        // Bred, fed, in love, or still a baby: a farm animal the player is actively raising.
+        if (e instanceof Animal animal && animal.getAge() != 0) {
+            return false;
+        }
+        return true;
+    }
+
     /**
      * True if this Mo'Creatures entity may be culled to satisfy a cap: it must be untamed, not
      * ridden or a rider, not custom-named, and not flagged as requiring custom persistence.
@@ -154,15 +194,23 @@ public final class MoCMobCap {
         if (moc.getIsTamed()) {
             return false;
         }
+        // Never cull a baby. Now that MoCAnimal no longer despawns on its own, this cap is the only thing
+        // removing land animals — and a bred litter (kittens, foals, cubs) is the last thing a player wants
+        // deleted. Babies grow into adults, so they become cullable on their own.
+        if (!moc.getIsAdult()) {
+            return false;
+        }
         if (e.hasCustomName()) {
             return false;
         }
         if (e.isVehicle() || e.isPassenger()) {
             return false;
         }
-        // Every Mo'Creatures entity extends Mob (via Animal / Monster), so requiresCustomPersistence
-        // is always available; guard the cast defensively regardless.
-        if (e instanceof Mob mob && mob.requiresCustomPersistence()) {
+        // Every Mo'Creatures entity extends Mob (via Animal / Monster), so these are always available;
+        // guard the cast defensively regardless. isPersistenceRequired covers spawn-egg / spawner-placed /
+        // name-tagged creatures, requiresCustomPersistence covers leashed and passengers. This matters more
+        // now that MoCAnimal no longer despawns on its own: this cap is the only thing culling land animals.
+        if (e instanceof Mob mob && (mob.requiresCustomPersistence() || mob.isPersistenceRequired())) {
             return false;
         }
         return true;

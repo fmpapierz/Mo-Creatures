@@ -585,13 +585,27 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
     }
 
     /**
-     * Legacy {@code MoCEntityAnimal.canDespawn() == !getIsTamed()}: an untamed MoC animal despawns like a vanilla
-     * wild mob when no player is nearby, while a tamed one persists indefinitely. Vanilla {@code Animal} returns
-     * {@code false} here, so without this every untamed duck/deer/goat/turkey/bird/fox/etc. would pile up forever.
+     * Mo'Creatures land animals persist exactly like vanilla ones ({@code Animal.removeWhenFarAway} is a hard
+     * {@code false} in 26.2), rather than despawning like monsters.
+     *
+     * <p>This used to return {@code !getIsTamed()}, mirroring legacy {@code MoCEntityAnimal.canDespawn()}. That
+     * was faithful to 1.12 but wrong for this port, because legacy paired it with its own CustomSpawner that
+     * continuously re-seeded creatures around the player. Here creatures come from the vanilla pipeline, which
+     * places CREATURE-category mobs almost entirely at chunk generation — so an untamed animal deleted at 128
+     * blocks was never replaced. Measured on a fresh world: Mo'Creatures holds ~55% of the animal spawn weight
+     * at generation, but only 16.6% of the animals actually alive in explored chunks (69 vs 347), because
+     * vanilla cows and pigs stayed and every Mo'Creatures animal beyond the despawn radius was discarded. In
+     * play that reads as "Mo'Creatures mobs don't spawn".</p>
+     *
+     * <p>Population is instead bounded by {@code MoCMobCap}, which is what it was written for: it trims untamed,
+     * un-named, non-persistent Mo'Creatures entities down to {@code maxAnimals} per level and removes the ones
+     * <em>farthest</em> from any player first, so the surviving population concentrates where it can be seen.
+     * Aquatics ({@code MoCAquatic}) and monsters ({@code MoCMob}) keep {@code !getIsTamed()}, which is what
+     * vanilla {@code WaterAnimal} and {@code Monster} do.</p>
      */
     @Override
     public boolean removeWhenFarAway(double distanceSquared) {
-        return !getIsTamed();
+        return false;
     }
 
     @Override

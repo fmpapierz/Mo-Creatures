@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "mocreatures:scorpion_cave"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "mocreatures:scorpion_cave"
+      }
+    ]
+  }
+}

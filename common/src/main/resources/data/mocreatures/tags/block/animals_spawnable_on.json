@@ -1,0 +1,30 @@
+{
+  "values": [
+    "#minecraft:animals_spawnable_on",
+    "#minecraft:rabbits_spawnable_on",
+    "#minecraft:armadillo_spawnable_on",
+    "#minecraft:camels_spawnable_on",
+    "#minecraft:goats_spawnable_on",
+    "#minecraft:foxes_spawnable_on",
+    "#minecraft:frogs_spawnable_on",
+    "minecraft:dirt",
+    "minecraft:coarse_dirt",
+    "minecraft:rooted_dirt",
+    "minecraft:podzol",
+    "minecraft:mycelium",
+    "minecraft:moss_block",
+    "minecraft:pale_moss_block",
+    "minecraft:mud",
+    "minecraft:clay",
+    "minecraft:sand",
+    "minecraft:red_sand",
+    "minecraft:gravel",
+    "minecraft:stone",
+    "minecraft:snow",
+    "minecraft:snow_block",
+    "minecraft:terracotta",
+    "mocreatures:grass_wyvern_lair",
+    "mocreatures:dirt_wyvern_lair",
+    "mocreatures:stone_wyvern_lair"
+  ]
+}

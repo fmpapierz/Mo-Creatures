@@ -7,6 +7,8 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.RegisterCustomEnvironmentEffectRendererEvent;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
+import net.neoforged.neoforge.registries.RegisterEvent;
 
 @Mod(MoCreatures.MOD_ID)
 public final class MoCreaturesNeoForge {
@@ -20,10 +22,26 @@ public final class MoCreaturesNeoForge {
     public MoCreaturesNeoForge(IEventBus modBus, Dist dist) {
         MoCreatures.init();
 
+        // Biome spawn lists: register the serializer for our BiomeModifier. The datapack entry that instantiates
+        // it lives at data/mocreatures/neoforge/biome_modifier/spawns.json. See MoCBiomeSpawnModifier for why
+        // Architectury's BiomeModifications cannot carry these on NeoForge.
+        modBus.addListener(RegisterEvent.class, this::onRegister);
+
         if (dist.isClient()) {
             // Client-only: register the Wyvern Lair twin-suns skybox renderer.
             modBus.addListener(RegisterCustomEnvironmentEffectRendererEvent.class, this::onRegisterSky);
         }
+    }
+
+    /**
+     * MOD-bus. Registers the {@code mocreatures:spawns} biome-modifier serializer so the datapack entry at
+     * {@code data/mocreatures/neoforge/biome_modifier/spawns.json} can be decoded into
+     * {@link MoCBiomeSpawnModifier}.
+     */
+    private void onRegister(RegisterEvent event) {
+        event.register(NeoForgeRegistries.Keys.BIOME_MODIFIER_SERIALIZERS, registry ->
+                registry.register(Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "spawns"),
+                        MoCBiomeSpawnModifier.CODEC));
     }
 
     /**

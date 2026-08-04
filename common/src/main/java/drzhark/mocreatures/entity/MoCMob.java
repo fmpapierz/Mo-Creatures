@@ -104,6 +104,17 @@ public abstract class MoCMob extends Monster implements IMoCEntity {
         this.entityData.set(TAMED, tamed);
     }
 
+    /**
+     * Legacy {@code MoCEntityMob.canDespawn() == !getIsTamed()}. Vanilla {@code Monster} inherits
+     * {@code Mob.removeWhenFarAway == true}, so a tamed Mo'Creatures monster (a tamed wild wolf, a
+     * player-assembled golem, a tamed rat) would otherwise be discarded once the nearest player is more
+     * than 128 blocks away. Untamed ones still despawn normally.
+     */
+    @Override
+    public boolean removeWhenFarAway(double distanceSquared) {
+        return !getIsTamed();
+    }
+
     @Override
     public boolean getIsAdult() {
         return this.entityData.get(ADULT);
