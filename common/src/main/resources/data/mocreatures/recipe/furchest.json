@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "fur_armor",
+  "key": {
+    "X": "mocreatures:fur"
+  },
+  "pattern": [
+    "X X",
+    "XXX",
+    "XXX"
+  ],
+  "result": {
+    "id": "mocreatures:furchest"
+  }
+}

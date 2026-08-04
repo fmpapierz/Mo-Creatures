@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "mocreatures:block/log_ogre_lair"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "drzhark.mocreatures.fabric.mixin",
+  "client": [
+    "SkyRendererMixin",
+    "WorldOpenFlowsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "H": "mocreatures:hide",
+    "W": "minecraft:white_wool",
+    "C": "minecraft:chest"
+  },
+  "pattern": [
+    " W ",
+    "CHC",
+    " W "
+  ],
+  "result": {
+    "id": "mocreatures:elephantchest"
+  }
+}

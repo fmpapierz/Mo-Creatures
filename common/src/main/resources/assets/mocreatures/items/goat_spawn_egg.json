@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "mocreatures:item/goat_spawn_egg",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": 14143949
+      }
+    ]
+  }
+}

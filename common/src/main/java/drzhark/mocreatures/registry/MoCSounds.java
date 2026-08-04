@@ -1,0 +1,186 @@
+package drzhark.mocreatures.registry;
+
+import drzhark.mocreatures.MoCreatures;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import dev.architectury.registry.registries.RegistrySupplier;
+import dev.architectury.registry.registries.DeferredRegister;
+
+/**
+ * All Mo'Creatures sound events, registered under the {@code mocreatures} namespace.
+ * Keys mirror the entries in {@code assets/mocreatures/sounds.json} (the authentic
+ * sound definitions extracted from the original 12.0.5 release).
+ */
+public final class MoCSounds {
+    public static final DeferredRegister<SoundEvent> SOUND_EVENTS =
+            DeferredRegister.create(MoCreatures.MOD_ID, net.minecraft.core.registries.Registries.SOUND_EVENT);
+
+    private MoCSounds() {}
+
+    private static RegistrySupplier<SoundEvent> register(String name) {
+        return SOUND_EVENTS.register(name,
+                () -> SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, name)));
+    }
+
+    public static final RegistrySupplier<SoundEvent> APPEAR = register("appear");
+    public static final RegistrySupplier<SoundEvent> APPEARMAGIC = register("appearmagic");
+    public static final RegistrySupplier<SoundEvent> ARMOROFF = register("armoroff");
+    public static final RegistrySupplier<SoundEvent> ARMORPUT = register("armorput");
+    public static final RegistrySupplier<SoundEvent> BEARDEATH = register("beardeath");
+    public static final RegistrySupplier<SoundEvent> BEARGRUNT = register("beargrunt");
+    public static final RegistrySupplier<SoundEvent> BEARHURT = register("bearhurt");
+    public static final RegistrySupplier<SoundEvent> BEE = register("bee");
+    public static final RegistrySupplier<SoundEvent> BEEUPSET = register("beeupset");
+    public static final RegistrySupplier<SoundEvent> BIRDBLACK = register("birdblack");
+    public static final RegistrySupplier<SoundEvent> BIRDBLUE = register("birdblue");
+    public static final RegistrySupplier<SoundEvent> BIRDGREEN = register("birdgreen");
+    public static final RegistrySupplier<SoundEvent> BIRDRED = register("birdred");
+    public static final RegistrySupplier<SoundEvent> BIRDWHITE = register("birdwhite");
+    public static final RegistrySupplier<SoundEvent> BIRDYELLOW = register("birdyellow");
+    public static final RegistrySupplier<SoundEvent> CRICKET = register("cricket");
+    public static final RegistrySupplier<SoundEvent> CRICKETFLY = register("cricketfly");
+    public static final RegistrySupplier<SoundEvent> CROCDYING = register("crocdying");
+    public static final RegistrySupplier<SoundEvent> CROCGRUNT = register("crocgrunt");
+    public static final RegistrySupplier<SoundEvent> CROCHURT = register("crochurt");
+    public static final RegistrySupplier<SoundEvent> CROCJAWSNAP = register("crocjawsnap");
+    public static final RegistrySupplier<SoundEvent> CROCRESTING = register("crocresting");
+    public static final RegistrySupplier<SoundEvent> CROCROLL = register("crocroll");
+    public static final RegistrySupplier<SoundEvent> CUB = register("cub");
+    public static final RegistrySupplier<SoundEvent> CUBDYING = register("cubdying");
+    public static final RegistrySupplier<SoundEvent> CUBGRUNT = register("cubgrunt");
+    public static final RegistrySupplier<SoundEvent> CUBHURT = register("cubhurt");
+    public static final RegistrySupplier<SoundEvent> DEERBGRUNT = register("deerbgrunt");
+    public static final RegistrySupplier<SoundEvent> DEERDYING = register("deerdying");
+    public static final RegistrySupplier<SoundEvent> DEERFGRUNT = register("deerfgrunt");
+    public static final RegistrySupplier<SoundEvent> DEERHURT = register("deerhurt");
+    public static final RegistrySupplier<SoundEvent> DESTROY = register("destroy");
+    public static final RegistrySupplier<SoundEvent> DOLPHIN = register("dolphin");
+    public static final RegistrySupplier<SoundEvent> DOLPHINDYING = register("dolphindying");
+    public static final RegistrySupplier<SoundEvent> DOLPHINHURT = register("dolphinhurt");
+    public static final RegistrySupplier<SoundEvent> DOLPHINUPSET = register("dolphinupset");
+    public static final RegistrySupplier<SoundEvent> DONKEYDYING = register("donkeydying");
+    public static final RegistrySupplier<SoundEvent> DONKEYGRUNT = register("donkeygrunt");
+    public static final RegistrySupplier<SoundEvent> DONKEYHURT = register("donkeyhurt");
+    public static final RegistrySupplier<SoundEvent> DRAGONFLY = register("dragonfly");
+    public static final RegistrySupplier<SoundEvent> DRINKING = register("drinking");
+    public static final RegistrySupplier<SoundEvent> DUCK = register("duck");
+    public static final RegistrySupplier<SoundEvent> DUCKHURT = register("duckhurt");
+    public static final RegistrySupplier<SoundEvent> DUCKPLOP = register("duckplop");
+    public static final RegistrySupplier<SoundEvent> EATING = register("eating");
+    public static final RegistrySupplier<SoundEvent> ELEPHANTCALF = register("elephantcalf");
+    public static final RegistrySupplier<SoundEvent> ELEPHANTDYING = register("elephantdying");
+    public static final RegistrySupplier<SoundEvent> ELEPHANTGRUNT = register("elephantgrunt");
+    public static final RegistrySupplier<SoundEvent> ELEPHANTHURT = register("elephanthurt");
+    public static final RegistrySupplier<SoundEvent> FIREFLY = register("firefly");
+    public static final RegistrySupplier<SoundEvent> FLY = register("fly");
+    public static final RegistrySupplier<SoundEvent> FOXCALL = register("foxcall");
+    public static final RegistrySupplier<SoundEvent> FOXDYING = register("foxdying");
+    public static final RegistrySupplier<SoundEvent> FOXHURT = register("foxhurt");
+    public static final RegistrySupplier<SoundEvent> GOATDIGG = register("goatdigg");
+    public static final RegistrySupplier<SoundEvent> GOATDYING = register("goatdying");
+    public static final RegistrySupplier<SoundEvent> GOATEATING = register("goateating");
+    public static final RegistrySupplier<SoundEvent> GOATFEMALE = register("goatfemale");
+    public static final RegistrySupplier<SoundEvent> GOATGRUNT = register("goatgrunt");
+    public static final RegistrySupplier<SoundEvent> GOATHURT = register("goathurt");
+    public static final RegistrySupplier<SoundEvent> GOATKID = register("goatkid");
+    public static final RegistrySupplier<SoundEvent> GOATSMACK = register("goatsmack");
+    public static final RegistrySupplier<SoundEvent> GOLEMATTACH = register("golemattach");
+    public static final RegistrySupplier<SoundEvent> GOLEMDYING = register("golemdying");
+    public static final RegistrySupplier<SoundEvent> GOLEMEXPLODE = register("golemexplode");
+    public static final RegistrySupplier<SoundEvent> GOLEMGRUNT = register("golemgrunt");
+    public static final RegistrySupplier<SoundEvent> GOLEMHURT = register("golemhurt");
+    public static final RegistrySupplier<SoundEvent> GOLEMSHOOT = register("golemshoot");
+    public static final RegistrySupplier<SoundEvent> GOLEMWALK = register("golemwalk");
+    public static final RegistrySupplier<SoundEvent> HORSEDYING = register("horsedying");
+    public static final RegistrySupplier<SoundEvent> HORSEDYINGGHOST = register("horsedyingghost");
+    public static final RegistrySupplier<SoundEvent> HORSEDYINGUNDEAD = register("horsedyingundead");
+    public static final RegistrySupplier<SoundEvent> HORSEGRUNT = register("horsegrunt");
+    public static final RegistrySupplier<SoundEvent> HORSEGRUNTGHOST = register("horsegruntghost");
+    public static final RegistrySupplier<SoundEvent> HORSEGRUNTUNDEAD = register("horsegruntundead");
+    public static final RegistrySupplier<SoundEvent> HORSEHURT = register("horsehurt");
+    public static final RegistrySupplier<SoundEvent> HORSEHURTGHOST = register("horsehurtghost");
+    public static final RegistrySupplier<SoundEvent> HORSEHURTUNDEAD = register("horsehurtundead");
+    public static final RegistrySupplier<SoundEvent> HORSEMAD = register("horsemad");
+    public static final RegistrySupplier<SoundEvent> HORSEMADGHOST = register("horsemadghost");
+    public static final RegistrySupplier<SoundEvent> HORSEMADUNDEAD = register("horsemadundead");
+    public static final RegistrySupplier<SoundEvent> KITTENDYING = register("kittendying");
+    public static final RegistrySupplier<SoundEvent> KITTENGRUNT = register("kittengrunt");
+    public static final RegistrySupplier<SoundEvent> KITTENHURT = register("kittenhurt");
+    public static final RegistrySupplier<SoundEvent> KITTYDYING = register("kittydying");
+    public static final RegistrySupplier<SoundEvent> KITTYEATINGF = register("kittyeatingf");
+    public static final RegistrySupplier<SoundEvent> KITTYEATINGM = register("kittyeatingm");
+    public static final RegistrySupplier<SoundEvent> KITTYFOOD = register("kittyfood");
+    public static final RegistrySupplier<SoundEvent> KITTYGRUNT = register("kittygrunt");
+    public static final RegistrySupplier<SoundEvent> KITTYHURT = register("kittyhurt");
+    public static final RegistrySupplier<SoundEvent> KITTYPURR = register("kittypurr");
+    public static final RegistrySupplier<SoundEvent> KITTYTRAPPED = register("kittytrapped");
+    public static final RegistrySupplier<SoundEvent> KITTYUPSET = register("kittyupset");
+    public static final RegistrySupplier<SoundEvent> LIONDEATH = register("liondeath");
+    public static final RegistrySupplier<SoundEvent> LIONGRUNT = register("liongrunt");
+    public static final RegistrySupplier<SoundEvent> LIONHURT = register("lionhurt");
+    public static final RegistrySupplier<SoundEvent> MICEDYING = register("micedying");
+    public static final RegistrySupplier<SoundEvent> MICEGRUNT = register("micegrunt");
+    public static final RegistrySupplier<SoundEvent> MICEHURT = register("micehurt");
+    public static final RegistrySupplier<SoundEvent> OGRE = register("ogre");
+    public static final RegistrySupplier<SoundEvent> OGREDYING = register("ogredying");
+    public static final RegistrySupplier<SoundEvent> OGREHURT = register("ogrehurt");
+    public static final RegistrySupplier<SoundEvent> OSTRICHCHICK = register("ostrichchick");
+    public static final RegistrySupplier<SoundEvent> OSTRICHDYING = register("ostrichdying");
+    public static final RegistrySupplier<SoundEvent> OSTRICHGRUNT = register("ostrichgrunt");
+    public static final RegistrySupplier<SoundEvent> OSTRICHHURT = register("ostrichhurt");
+    public static final RegistrySupplier<SoundEvent> PEGASUS = register("pegasus");
+    public static final RegistrySupplier<SoundEvent> POURINGFOOD = register("pouringfood");
+    public static final RegistrySupplier<SoundEvent> POURINGMILK = register("pouringmilk");
+    public static final RegistrySupplier<SoundEvent> RABBITDEATH = register("rabbitdeath");
+    public static final RegistrySupplier<SoundEvent> RABBITHURT = register("rabbithurt");
+    public static final RegistrySupplier<SoundEvent> RABBITLAND = register("rabbitland");
+    public static final RegistrySupplier<SoundEvent> RABBITLIFT = register("rabbitlift");
+    public static final RegistrySupplier<SoundEvent> RACCOONDYING = register("raccoondying");
+    public static final RegistrySupplier<SoundEvent> RACCOONGRUNT = register("raccoongrunt");
+    public static final RegistrySupplier<SoundEvent> RACCOONHURT = register("raccoonhurt");
+    public static final RegistrySupplier<SoundEvent> RATDYING = register("ratdying");
+    public static final RegistrySupplier<SoundEvent> RATGRUNT = register("ratgrunt");
+    public static final RegistrySupplier<SoundEvent> RATHURT = register("rathurt");
+    public static final RegistrySupplier<SoundEvent> ROPING = register("roping");
+    public static final RegistrySupplier<SoundEvent> SCORPIONCLAW = register("scorpionclaw");
+    public static final RegistrySupplier<SoundEvent> SCORPIONDYING = register("scorpiondying");
+    public static final RegistrySupplier<SoundEvent> SCORPIONGRUNT = register("scorpiongrunt");
+    public static final RegistrySupplier<SoundEvent> SCORPIONHURT = register("scorpionhurt");
+    public static final RegistrySupplier<SoundEvent> SCORPIONSTING = register("scorpionsting");
+    public static final RegistrySupplier<SoundEvent> SHUFFLING = register("shuffling");
+    public static final RegistrySupplier<SoundEvent> SNAKEDYING = register("snakedying");
+    public static final RegistrySupplier<SoundEvent> SNAKEHISS = register("snakehiss");
+    public static final RegistrySupplier<SoundEvent> SNAKEHURT = register("snakehurt");
+    public static final RegistrySupplier<SoundEvent> SNAKERATTLE = register("snakerattle");
+    public static final RegistrySupplier<SoundEvent> SNAKESNAP = register("snakesnap");
+    public static final RegistrySupplier<SoundEvent> SNAKESWIM = register("snakeswim");
+    public static final RegistrySupplier<SoundEvent> SNAKEUPSET = register("snakeupset");
+    public static final RegistrySupplier<SoundEvent> TRANSFORM = register("transform");
+    public static final RegistrySupplier<SoundEvent> TURKEY = register("turkey");
+    public static final RegistrySupplier<SoundEvent> TURKEYHURT = register("turkeyhurt");
+    public static final RegistrySupplier<SoundEvent> TURTLEDYING = register("turtledying");
+    public static final RegistrySupplier<SoundEvent> TURTLEHISSING = register("turtlehissing");
+    public static final RegistrySupplier<SoundEvent> TURTLEHURT = register("turtlehurt");
+    public static final RegistrySupplier<SoundEvent> VANISH = register("vanish");
+    public static final RegistrySupplier<SoundEvent> WEREHUMANDYING = register("werehumandying");
+    public static final RegistrySupplier<SoundEvent> WEREHUMANHURT = register("werehumanhurt");
+    public static final RegistrySupplier<SoundEvent> WERETRANSFORM = register("weretransform");
+    public static final RegistrySupplier<SoundEvent> WEREWOLFDYING = register("werewolfdying");
+    public static final RegistrySupplier<SoundEvent> WEREWOLFGRUNT = register("werewolfgrunt");
+    public static final RegistrySupplier<SoundEvent> WEREWOLFHURT = register("werewolfhurt");
+    public static final RegistrySupplier<SoundEvent> WHIP = register("whip");
+    public static final RegistrySupplier<SoundEvent> WINGFLAP = register("wingflap");
+    public static final RegistrySupplier<SoundEvent> WOLFDEATH = register("wolfdeath");
+    public static final RegistrySupplier<SoundEvent> WOLFGRUNT = register("wolfgrunt");
+    public static final RegistrySupplier<SoundEvent> WOLFHURT = register("wolfhurt");
+    public static final RegistrySupplier<SoundEvent> WRAITH = register("wraith");
+    public static final RegistrySupplier<SoundEvent> WRAITHDYING = register("wraithdying");
+    public static final RegistrySupplier<SoundEvent> WRAITHHURT = register("wraithhurt");
+    public static final RegistrySupplier<SoundEvent> WYVERNDYING = register("wyverndying");
+    public static final RegistrySupplier<SoundEvent> WYVERNGRUNT = register("wyverngrunt");
+    public static final RegistrySupplier<SoundEvent> WYVERNHURT = register("wyvernhurt");
+    public static final RegistrySupplier<SoundEvent> WYVERNPOISONING = register("wyvernpoisoning");
+    public static final RegistrySupplier<SoundEvent> WYVERNWINGFLAP = register("wyvernwingflap");
+    public static final RegistrySupplier<SoundEvent> ZEBRAGRUNT = register("zebragrunt");
+    public static final RegistrySupplier<SoundEvent> ZEBRAHURT = register("zebrahurt");
+}

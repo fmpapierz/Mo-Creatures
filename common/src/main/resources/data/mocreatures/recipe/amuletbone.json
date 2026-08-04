@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "group": "amulet",
+  "key": {
+    "#": "minecraft:bone",
+    "X": "minecraft:gold_nugget",
+    "Z": "minecraft:ender_pearl"
+  },
+  "pattern": [
+    "#X#",
+    "XZX",
+    "#X#"
+  ],
+  "result": {
+    "id": "mocreatures:amuletbone"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "mocreatures:block/log_top_wyvern_lair",
+    "side": "mocreatures:block/log_side_wyvern_lair"
+  }
+}

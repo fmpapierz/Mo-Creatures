@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "scorpion_armor",
+  "key": {
+    "X": "mocreatures:chitinblack"
+  },
+  "pattern": [
+    "X X",
+    "XXX",
+    "XXX"
+  ],
+  "result": {
+    "id": "mocreatures:scorpplatecave"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "tusks",
+  "key": {
+    "X": "minecraft:diamond",
+    "R": "mocreatures:rope"
+  },
+  "pattern": [
+    "X  ",
+    "XR ",
+    "XXX"
+  ],
+  "result": {
+    "id": "mocreatures:tusksdiamond"
+  }
+}

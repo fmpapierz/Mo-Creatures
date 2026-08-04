@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "#": "mocreatures:bigcatclaw",
+    "X": "minecraft:leather",
+    "Z": "minecraft:iron_ingot"
+  },
+  "pattern": [
+    "#X#",
+    "X X",
+    "# Z"
+  ],
+  "result": {
+    "id": "mocreatures:whip"
+  }
+}

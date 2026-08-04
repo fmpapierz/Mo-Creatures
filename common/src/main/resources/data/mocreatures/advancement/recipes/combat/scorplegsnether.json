@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_chitinnether": {
+      "conditions": {
+        "items": [
+          {
+            "items": "mocreatures:chitinnether"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "mocreatures:scorplegsnether"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_chitinnether"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "mocreatures:scorplegsnether"
+    ]
+  }
+}

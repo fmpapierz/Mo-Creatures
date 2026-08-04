@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "group": "scorpion_sword",
+  "ingredients": [
+    "minecraft:diamond_sword",
+    "mocreatures:scorpstingfrost",
+    "mocreatures:scorpstingfrost",
+    "mocreatures:scorpstingfrost"
+  ],
+  "result": {
+    "id": "mocreatures:scorpswordfrost"
+  }
+}

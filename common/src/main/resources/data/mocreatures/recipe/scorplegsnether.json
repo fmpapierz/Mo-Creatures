@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "scorpion_armor",
+  "key": {
+    "X": "mocreatures:chitinnether"
+  },
+  "pattern": [
+    "XXX",
+    "X X",
+    "X X"
+  ],
+  "result": {
+    "id": "mocreatures:scorplegsnether"
+  }
+}

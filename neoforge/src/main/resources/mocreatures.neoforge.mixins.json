@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "drzhark.mocreatures.neoforge.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "WorldOpenFlowsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

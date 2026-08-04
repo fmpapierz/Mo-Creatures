@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "X": "minecraft:sugar"
+  },
+  "pattern": [
+    "XX",
+    "XX"
+  ],
+  "result": {
+    "id": "mocreatures:sugarlump"
+  }
+}

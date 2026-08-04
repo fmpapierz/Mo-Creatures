@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "S": "minecraft:stick",
+    "R": "minecraft:red_wool",
+    "Y": "minecraft:yellow_wool"
+  },
+  "pattern": [
+    "SRS",
+    "RYR",
+    "SRS"
+  ],
+  "result": {
+    "id": "mocreatures:elephanthowdah"
+  }
+}

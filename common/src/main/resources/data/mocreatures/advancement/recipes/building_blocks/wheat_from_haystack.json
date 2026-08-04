@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_haystack": {
+      "conditions": {
+        "items": [
+          {
+            "items": "mocreatures:haystack"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "mocreatures:wheat_from_haystack"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_haystack"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "mocreatures:wheat_from_haystack"
+    ]
+  }
+}

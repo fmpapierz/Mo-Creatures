@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "horse_armor",
+  "key": {
+    "D": "minecraft:diamond",
+    "C": "minecraft:glass"
+  },
+  "pattern": [
+    "  D",
+    "CDC",
+    "DCD"
+  ],
+  "result": {
+    "id": "mocreatures:horsearmorcrystal"
+  }
+}

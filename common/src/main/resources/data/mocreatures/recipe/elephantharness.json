@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "H": "mocreatures:hide",
+    "W": "minecraft:white_wool",
+    "I": "minecraft:iron_ingot"
+  },
+  "pattern": [
+    "HWH",
+    "IWI",
+    "HWH"
+  ],
+  "result": {
+    "id": "mocreatures:elephantharness"
+  }
+}

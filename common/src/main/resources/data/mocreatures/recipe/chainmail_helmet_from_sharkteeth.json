@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "sharktooth_armor",
+  "key": {
+    "X": "mocreatures:sharkteeth"
+  },
+  "pattern": [
+    "XXX",
+    "X X"
+  ],
+  "result": {
+    "id": "minecraft:chainmail_helmet"
+  }
+}

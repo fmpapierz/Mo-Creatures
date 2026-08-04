@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "mocreatures:block/tall_grass_wyvern_lair"
+  }
+}

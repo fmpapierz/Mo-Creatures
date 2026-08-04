@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "horse_armor",
+  "key": {
+    "X": "minecraft:diamond",
+    "Y": "minecraft:blue_wool"
+  },
+  "pattern": [
+    "  X",
+    "XYX",
+    "XXX"
+  ],
+  "result": {
+    "id": "mocreatures:armordiamond"
+  }
+}

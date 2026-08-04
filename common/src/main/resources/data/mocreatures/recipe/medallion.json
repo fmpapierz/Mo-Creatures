@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "group": "medallion",
+  "key": {
+    "#": "minecraft:leather",
+    "Z": "minecraft:diamond",
+    "X": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "# #",
+    "XZX",
+    " X "
+  ],
+  "result": {
+    "id": "mocreatures:medallion"
+  }
+}

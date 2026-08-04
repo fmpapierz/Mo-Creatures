@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    "mocreatures:fur"
+  ],
+  "result": {
+    "id": "minecraft:white_wool"
+  }
+}

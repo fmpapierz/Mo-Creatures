@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "group": "kittybed",
+  "key": {
+    "#": "#minecraft:planks",
+    "X": "minecraft:yellow_wool",
+    "Z": "minecraft:iron_ingot"
+  },
+  "pattern": [
+    "###",
+    "#X#",
+    "Z  "
+  ],
+  "result": {
+    "id": "mocreatures:kittybed_yellow"
+  }
+}

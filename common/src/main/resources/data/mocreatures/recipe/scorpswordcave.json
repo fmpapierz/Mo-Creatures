@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "group": "scorpion_sword",
+  "ingredients": [
+    "minecraft:diamond_sword",
+    "mocreatures:scorpstingcave",
+    "mocreatures:scorpstingcave",
+    "mocreatures:scorpstingcave"
+  ],
+  "result": {
+    "id": "mocreatures:scorpswordcave"
+  }
+}

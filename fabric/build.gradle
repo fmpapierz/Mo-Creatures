@@ -1,0 +1,119 @@
+plugins {
+    id "com.gradleup.shadow"
+}
+
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+loom {
+    runs {
+        clientDebug {
+            client()
+            ideConfigGenerated true
+            name = "Fabric Client"
+            source sourceSets.main
+            property 'mixin.debug', 'true'
+            property "fabric.log.level", "debug"
+        }
+
+        serverDebug {
+            server()
+            ideConfigGenerated true
+            name = "Fabric Server"
+            source sourceSets.main
+            property 'mixin.debug', 'true'
+            property "fabric.log.level", "debug"
+        }
+    }
+}
+
+configurations {
+    common {
+        canBeResolved = true
+        canBeConsumed = false
+    }
+    shadowCommon { // don't use shadow from the shadow plugin since it *excludes* files.
+        canBeResolved = true
+        canBeConsumed = false
+    }
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+}
+
+dependencies {
+    implementation "net.fabricmc:fabric-loader:$fabric_loader_version"
+    // Fabric API: provides the runtime services Mo'Creatures relies on (datapack loading, registry sync).
+    implementation "net.fabricmc.fabric-api:fabric-api:$fabric_api_version"
+
+    // Architectury API (Fabric platform implementation).
+    api "dev.architectury:architectury-fabric:$architectury_api_version"
+
+    common(project(path: ":common")) { transitive false }
+    shadowCommon(project(path: ":common", configuration: "transformProductionFabric"))
+}
+
+// The bundled Fabric mixin (sponge-mixin 0.8.7) only PROCESSES up to Java 21 bytecode (class version 65),
+// but the toolchain compiles to Java 25 (class version 69), so a Java-25 mixin class is silently rejected
+// and never woven. We can't just lower the whole module to release 21 — that sets its JVM-version attribute
+// to 21 and Gradle then refuses the JVM-25 :common dependency. Instead, keep the module at 25 (so :common
+// resolves) and downgrade ONLY the mixin class file's version bytes to 65 after compile. This is safe: the
+// mixin uses no >21 language features, only the mixin PROCESSOR cares about the class version (the JVM loads
+// version-65 classes fine), and non-mixin classes stay 25.
+compileJava.doLast {
+    def classesDir = destinationDirectory.get().asFile
+    def mixinClass = new File(classesDir, "drzhark/mocreatures/fabric/mixin/SkyRendererMixin.class")
+    if (mixinClass.exists()) {
+        byte[] bytes = mixinClass.bytes
+        bytes[6] = 0            // major_version high byte
+        bytes[7] = (byte) 65    // major_version low byte -> class version 65 (Java 21)
+        mixinClass.bytes = bytes
+        logger.lifecycle("Downgraded SkyRendererMixin.class to version 65 so the bundled mixin can weave it.")
+    }
+}
+
+// Minecraft 26.1 is unobfuscated, so Loom no longer produces a remapJar.
+// The shadowJar (common classes merged into the platform jar) is the final artifact.
+shadowJar {
+    exclude "architectury.common.json"
+    exclude "architectury_inject*/**"
+
+    dependsOn jar
+    mainSpec.sourcePaths.clear()
+    from(zipTree(jar.archiveFile))
+    configurations = [project.configurations.shadowCommon]
+    archiveAppendix = project.name
+    archiveClassifier = null
+}
+
+jar {
+    archiveClassifier = "raw"
+}
+
+assemble.dependsOn shadowJar
+
+configurations {
+    apiElements {
+        outgoing.artifacts.clear()
+        outgoing.artifact(shadowJar)
+    }
+    runtimeElements {
+        outgoing.artifacts.clear()
+        outgoing.artifact(shadowJar)
+    }
+}
+
+sourcesJar {
+    def commonSources = project(":common").sourcesJar
+    dependsOn commonSources
+    from commonSources.archiveFile.map { zipTree(it) }
+}
+
+components.java {
+    addVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {}
+    withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
+        skip()
+    }
+}

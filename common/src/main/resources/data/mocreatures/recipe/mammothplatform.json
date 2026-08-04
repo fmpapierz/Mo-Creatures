@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "W": "#minecraft:logs",
+    "R": "mocreatures:rope",
+    "P": "#minecraft:planks"
+  },
+  "pattern": [
+    "WRW",
+    "PPP",
+    "WRW"
+  ],
+  "result": {
+    "id": "mocreatures:mammothplatform"
+  }
+}

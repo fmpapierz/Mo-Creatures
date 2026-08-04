@@ -1,0 +1,54 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_essenceundead": {
+      "conditions": {
+        "items": [
+          {
+            "items": "mocreatures:essenceundead"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_essencefire": {
+      "conditions": {
+        "items": [
+          {
+            "items": "mocreatures:essencefire"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_essencedarkness": {
+      "conditions": {
+        "items": [
+          {
+            "items": "mocreatures:essencedarkness"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "mocreatures:essencelight"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_essenceundead",
+      "has_essencefire",
+      "has_essencedarkness"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "mocreatures:essencelight"
+    ]
+  }
+}

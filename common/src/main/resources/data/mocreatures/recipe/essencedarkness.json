@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "X": "minecraft:ender_pearl",
+    "Y": "mocreatures:heartdarkness",
+    "Z": "minecraft:glass_bottle"
+  },
+  "pattern": [
+    " X ",
+    " Y ",
+    " Z "
+  ],
+  "result": {
+    "id": "mocreatures:essencedarkness"
+  }
+}

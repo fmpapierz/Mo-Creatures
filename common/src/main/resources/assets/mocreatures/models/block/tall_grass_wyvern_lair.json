@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cross",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "cross": "mocreatures:block/tall_grass_wyvern_lair"
+  }
+}

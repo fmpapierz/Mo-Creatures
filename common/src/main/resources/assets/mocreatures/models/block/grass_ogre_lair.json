@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mocreatures:block/grass_top_ogre_lair",
+    "side": "mocreatures:block/grass_side_ogre_lair",
+    "bottom": "mocreatures:block/dirt_ogre_lair"
+  }
+}

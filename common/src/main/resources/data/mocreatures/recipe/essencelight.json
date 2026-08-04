@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "group": "essence_of_light",
+  "key": {
+    "X": "mocreatures:essenceundead",
+    "Y": "mocreatures:essencefire",
+    "Z": "mocreatures:essencedarkness"
+  },
+  "pattern": [
+    "X",
+    "Y",
+    "Z"
+  ],
+  "result": {
+    "id": "mocreatures:essencelight"
+  }
+}

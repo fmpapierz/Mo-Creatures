@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "staff_portal",
+  "key": {
+    "E": "minecraft:ender_eye",
+    "U": "mocreatures:unicornhorn",
+    "R": "minecraft:blaze_rod"
+  },
+  "pattern": [
+    "  E",
+    " U ",
+    "R  "
+  ],
+  "result": {
+    "id": "mocreatures:staffportal"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "group": "kittybed",
+  "ingredients": [
+    "minecraft:yellow_dye",
+    "#mocreatures:kitty_beds"
+  ],
+  "result": {
+    "id": "mocreatures:kittybed_yellow"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "reptile_armor",
+  "key": {
+    "X": "mocreatures:reptilehide"
+  },
+  "pattern": [
+    "XXX",
+    "X X",
+    "X X"
+  ],
+  "result": {
+    "id": "mocreatures:reptilelegs"
+  }
+}

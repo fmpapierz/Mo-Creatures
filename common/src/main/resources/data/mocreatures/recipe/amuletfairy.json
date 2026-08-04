@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "group": "amulet",
+  "key": {
+    "#": "minecraft:fire_charge",
+    "X": "minecraft:gold_nugget",
+    "Z": "mocreatures:unicornhorn"
+  },
+  "pattern": [
+    "#X#",
+    "XZX",
+    "#X#"
+  ],
+  "result": {
+    "id": "mocreatures:amuletfairy"
+  }
+}

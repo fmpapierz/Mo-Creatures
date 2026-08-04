@@ -1,0 +1,550 @@
+====================================================================================================
+  DrZhark's MO'CREATURES  —  Minecraft 26.2  (Fabric + NeoForge multi-loader)
+  FULL QA TEST CHECKLIST
+====================================================================================================
+
+HOW TO USE: work top to bottom. Put an x in the [ ] when a row passes. Do every section on BOTH
+the Fabric client and the NeoForge client (section 17). Status tags tell you what to expect:
+   FULL       = should work end-to-end
+   PARTIAL    = works, with the caveat noted
+   SIMPLIFIED = present but a reduced version of the original 1.12 behaviour (not a bug)
+   INFO       = setup/context, nothing to pass-fail
+
+Companion spreadsheet: MoCreatures_26.2_QA_Checklist.xlsx (same rows, with a Pass column & filters).
+
+====================================================================================================
+  HOW IT ALL WORKS (read first)
+====================================================================================================
+
+* What the mod is
+    DrZhark's Mo'Creatures ported from Minecraft 1.12.2/Forge (release 12.0.5) to Minecraft
+    26.2. It adds 46 creatures, 182 items, 14 blocks, a custom Wyvern Lair dimension, natural
+    spawning, and the core tame/breed/ride/capture interactions.
+
+* Multi-loader design
+    One shared 'common' codebase holds everything; thin 'fabric' and 'neoforge' entrypoints just
+    call MoCreatures.init(). Cross-loader registration uses Architectury API 21.0.2.
+
+* Why it builds for 26.x
+    Minecraft 26.x ships UNOBFUSCATED, so no mappings are needed. The build uses the
+    dev.architectury.loom-no-remap plugin; each platform's shadowJar bundles the common classes
+    into the final jar (no remap step).
+
+* Registration
+    Architectury DeferredRegister/RegistrySupplier register entities, items, blocks, sounds,
+    data components and the creative tab. In 26.2 every item/block/entity-type must carry its
+    registry id at construction (.setId(...)), which the registry classes do explicitly.
+
+* Rendering
+    One generic renderer (MoCMobRenderer) draws all creatures via a render-state; each entity
+    selects its own converted model + texture by sub-type. Renderers/model-layers are registered
+    through Architectury's EntityRendererRegistry / EntityModelLayerRegistry, scheduled client-
+    only via EnvExecutor.
+
+* Entity state
+    Base classes MoCAnimal/MoCMob/MoCAquatic/MoCFlyingInsect keep shared state (sub-type, tamed,
+    adult, age, owner) on synched data, persisted with the 26.2 ValueInput/ValueOutput codec
+    API.
+
+* Spawning
+    Spawn placements via Architectury SpawnPlacementsRegistry; overworld biome spawn entries via
+    Architectury BiomeModifications (replacing NeoForge's loader-specific add_spawns JSON so it
+    works on Fabric too).
+
+* Dimension
+    The Wyvern Lair is a data-driven datapack dimension (dimension_type + dimension + biome)
+    bundled in the jar; the Staff of Portal item teleports the player between it and the
+    Overworld.
+
+
+====================================================================================================
+  0. SETUP & HOW TO RUN
+====================================================================================================
+  How to launch the mod. The deliverable is ONE codebase that builds two jars (Fabric + NeoForge)
+  for Minecraft 26.2. Everything below is identical on both loaders unless a row says otherwise.
+
+  [ ] 0.1  Prerequisites   (INFO)
+        Point : Know what the mod needs to run so loading doesn't silently fail.
+        Do    : Have JDK 25 installed. In a real game instance you need: the mod jar + Architectury
+                API 21.0.2; on Fabric also Fabric API 0.153.0+26.2 and Fabric Loader 0.19.3; on
+                NeoForge 26.2.0.7-beta.
+        Expect: Both jars are at: fabric/build/libs/mocreatures-fabric-26.2.0+26.2.jar and
+                neoforge/build/libs/mocreatures-neoforge-26.2.0+26.2.jar.
+
+  [ ] 0.2  Build both jars   (FULL)
+        Point : Confirm the single codebase compiles and packages for both loaders.
+        Do    : Open a terminal in the project root, set JAVA_HOME to a JDK 25, run:  ./gradlew
+                build
+        Expect: BUILD SUCCESSFUL; both jars (~20 MB each, 113 classes) appear under fabric/ and
+                neoforge/ build/libs.
+
+  [ ] 0.3  Run NeoForge dev client   (FULL)
+        Point : Launch the game with the mod on NeoForge to test in-world.
+        Do    : Run:  ./gradlew :neoforge:runClientDebug   (opens a Minecraft window)
+        Expect: Window opens, reaches the main menu, then a test world. Log: 'initialized with 46
+                creatures'.
+
+  [ ] 0.4  Run Fabric dev client   (FULL)
+        Point : Same, on Fabric — proves cross-loader parity.
+        Do    : Run:  ./gradlew :fabric:runClientDebug
+        Expect: Window opens and loads identically to NeoForge. Log: 'initialized with 46
+                creatures'.
+
+  [ ] 0.5  Run dev servers (optional)   (FULL)
+        Point : Headless validation of registration / world / dimension.
+        Do    : Run:  ./gradlew :neoforge:runServerDebug   then  ./gradlew :fabric:runServerDebug
+                (one at a time; they share port 25565).
+        Expect: Each boots to 'Done (...)!', registers mocreatures:wyvern_lair, no mod errors.
+
+
+====================================================================================================
+  1. MOD LOADS CORRECTLY
+====================================================================================================
+  First thing to confirm in either client: the mod is detected, initialised, and baked without
+  errors.
+
+  [ ] 1.1  Mod detected   (FULL)
+        Point : If the loader doesn't see the mod, nothing else matters.
+        Do    : Check the mod list (NeoForge: Mods button; Fabric: with Mod Menu) or the launch log.
+        Expect: 'DrZhark's Mo'Creatures' version 26.2.0 is listed.
+
+  [ ] 1.2  Init log line   (FULL)
+        Point : Proves common init ran and all creatures registered.
+        Do    : Search the log for 'Mo'Creatures'.
+        Expect: Line: "Mo'Creatures (Architectury multi-loader, MC 26.2) initialized with 46
+                creatures".
+
+  [ ] 1.3  No missing textures/models   (FULL)
+        Point : Every entity/item/block art resolves on the atlas.
+        Do    : Search the log for 'Missing texture' / 'Missing model'.
+        Expect: Zero matches. (Validated: 0 on both loaders.)
+
+  [ ] 1.4  No mod errors/crashes   (FULL)
+        Point : Clean startup.
+        Do    : Scan the log for Exception/ERROR mentioning 'mocreatures'.
+        Expect: None. (Realms 401 and oshi/perf-counter warnings are dev-environment noise, not the
+                mod.)
+
+
+====================================================================================================
+  2. CREATIVE TAB & ITEMS
+====================================================================================================
+  All content is exposed through one creative tab. Mo'Creatures adds 46 spawn eggs + ~136 other
+  items + 14 block items = 182 items.
+
+  [ ] 2.1  Mo'Creatures creative tab   (FULL)
+        Point : Single place to grab every item; proves the tab + icon registered.
+        Do    : Open the creative inventory; find the tab whose icon is a Bunny spawn egg, titled
+                'Mo'Creatures'.
+        Expect: The tab exists and its icon is the bunny spawn egg.
+
+  [ ] 2.2  All 182 items present   (FULL)
+        Point : Confirms MoCItems registered every item with a model.
+        Do    : Scroll the whole tab.
+        Expect: 182 items, each with a proper icon (no black/magenta 'missing' squares).
+
+  [ ] 2.3  Item names   (FULL)
+        Point : Lang file resolves; no raw item.mocreatures.* keys.
+        Do    : Hover items.
+        Expect: Readable English names (e.g. 'Pet Amulet', 'Staff of Portal', 'Katana').
+
+  [ ] 2.4  Spawn-egg tints   (FULL)
+        Point : Each egg is auto-tinted to its creature's average texture colour (legacy behaviour).
+        Do    : Compare a few eggs (bunny vs ogre vs dolphin).
+        Expect: Eggs differ in colour, roughly matching the creature.
+
+
+====================================================================================================
+  3. CREATURES — SPAWNING & RENDERING (all 46)
+====================================================================================================
+  The heart of the mod. One generic renderer (MoCMobRenderer) draws every creature; each entity
+  picks its own converted model + texture by sub-type. Spawn each egg on flat ground and look at
+  the mob.
+
+  [ ] 3.1  Land animals (21)   (FULL)
+        Point : Authentic models/textures for the signature creatures.
+        Do    : Spawn: bear, big cat, bird, boar, crocodile, deer, duck, elephant, fox, goat, horse,
+                kitty, komodo, mouse, ostrich, pet scorpion, snake, turkey, turtle, wyvern, bunny.
+        Expect: Each renders with its Mo'Creatures model + texture, animates, and is solid (no
+                T-pose / invisible).
+
+  [ ] 3.2  Ground bugs (5)   (FULL)
+        Point : Small ambient critters.
+        Do    : Spawn: crab, maggot, snail, cricket, roach.
+        Expect: Each renders small and crawls/idles.
+
+  [ ] 3.3  Aquatic (5)   (FULL)
+        Point : Water creatures.
+        Do    : Spawn in/near water: dolphin, fishy, jellyfish, ray, shark.
+        Expect: Each renders and swims; doesn't suffocate instantly in water.
+
+  [ ] 3.4  Flying insects (5)   (FULL)
+        Point : Airborne ambient.
+        Do    : Spawn: bee, butterfly, dragonfly, firefly, fly.
+        Expect: Each renders and flits through the air.
+
+  [ ] 3.5  Monsters (10)   (FULL)
+        Point : Hostile creatures.
+        Do    : Spawn: golem, ogre, rat, scorpion, wild wolf, werewolf, wraith, hell rat, flame
+                wraith, undead horse (horse mob).
+        Expect: Each renders; monsters track/attack the player.
+
+  [ ] 3.6  Sub-type / colour variants   (FULL)
+        Point : 31 of 46 creatures randomly roll a skin/sub-type on spawn; the rest use a single
+                skin.
+        Do    : Spawn several of the same creature (e.g. several birds, horses, kitties).
+        Expect: Colour/sub-type varies between individuals for those species.
+
+  [ ] 3.7  Baby vs adult   (PARTIAL)
+        Point : Age state is tracked and synced.
+        Do    : Spawn adults (default) and observe size.
+        Expect: Adults render full size. (Babies appear via breeding — see section 6.)
+
+
+====================================================================================================
+  4. CREATURE AI & SOUND
+====================================================================================================
+  Each archetype has appropriate AI and authentic sounds extracted from the original 12.0.5
+  release (296 sound files / 161 sound events).
+
+  [ ] 4.1  Passive AI   (FULL)
+        Point : Animals wander, flee danger, watch you.
+        Do    : Watch a bunny/deer/goat; hit it once.
+        Expect: Strolls and looks around; panics/flees when hit.
+
+  [ ] 4.2  Aquatic AI   (FULL)
+        Point : Water creatures swim and avoid land.
+        Do    : Watch a dolphin/shark in water.
+        Expect: Swims smoothly; stays in water.
+
+  [ ] 4.3  Insect AI   (FULL)
+        Point : Flying insects roam in the air.
+        Do    : Watch a butterfly/dragonfly.
+        Expect: Flies around rather than walking.
+
+  [ ] 4.4  Monster AI   (FULL)
+        Point : Hostiles target and melee the player.
+        Do    : Stand near an ogre/wraith (survival, not creative-flight).
+        Expect: It paths to you and attacks.
+
+  [ ] 4.5  Sounds   (FULL)
+        Point : Immersion; verifies sounds.json + sound events.
+        Do    : Hit and kill a creature; idle near it.
+        Expect: Hurt/death/ambient sounds play (e.g. bear grunt, bird chirp).
+
+
+====================================================================================================
+  5. TAMING
+====================================================================================================
+  Feed a creature its preferred food to tame it (sets you as owner, shows heart particles). NOTE:
+  in this port only four species have a wired food; others spawn/behave but aren't tameable
+  through feeding yet (a known simplification).
+
+  [ ] 5.1  Tame a Bunny   (FULL)
+        Point : Core taming loop, species 1.
+        Do    : Hold a CARROT, right-click an untamed bunny.
+        Expect: Carrot is consumed, 7 heart particles burst, bunny becomes tamed (you are owner).
+
+  [ ] 5.2  Tame a Horse   (FULL)
+        Point : Taming gate for the riding flow.
+        Do    : Hold WHEAT, right-click an untamed horse.
+        Expect: Wheat consumed, hearts, horse tamed.
+
+  [ ] 5.3  Tame a Turtle   (FULL)
+        Point : Species 3.
+        Do    : Hold a MELON SLICE, right-click a turtle.
+        Expect: Consumed, hearts, tamed.
+
+  [ ] 5.4  Tame a Roach   (FULL)
+        Point : Species 4 (rotten-flesh eater).
+        Do    : Hold ROTTEN FLESH, right-click a roach.
+        Expect: Consumed, hearts, tamed.
+
+  [ ] 5.5  Owner is recorded   (FULL)
+        Point : Taming stores your name for later (amulet/naming).
+        Do    : After taming, capture+release with the amulet (section 9) or reload.
+        Expect: Tamed flag and owner persist.
+
+  [ ] 5.6  Other species not feed-tameable   (SIMPLIFIED)
+        Point : Honesty: bigcat/ogre/etc. have no food wired.
+        Do    : Try feeding a big cat etc.
+        Expect: Nothing happens (expected). Use creative for those until per-species foods are
+                added.
+
+
+====================================================================================================
+  6. BREEDING
+====================================================================================================
+  Two fed, tameable adults of the same species produce offspring (vanilla BreedGoal). Horses add
+  coat inheritance.
+
+  [ ] 6.1  Breed bunnies   (FULL)
+        Point : Same-species reproduction.
+        Do    : Tame two bunnies, feed each a carrot near each other.
+        Expect: Hearts, then a baby bunny spawns.
+
+  [ ] 6.2  Horse coat inheritance   (FULL)
+        Point : Signature horse genetics.
+        Do    : Breed two horses of different coats (wheat).
+        Expect: Foal inherits one parent's coat (~50/50) with a small mutation chance.
+
+
+====================================================================================================
+  7. RIDING
+====================================================================================================
+  Tamed, rideable creatures can be mounted and steered (look to turn, W to go). Horse is the full
+  end-to-end path; big cat / ostrich / elephant are coded rideable but have no taming food yet.
+
+  [ ] 7.1  Saddle a horse   (FULL)
+        Point : Riding is saddle-gated like vanilla horses.
+        Do    : On a TAMED horse, right-click with a SADDLE.
+        Expect: Saddle consumed; horse is now saddled.
+
+  [ ] 7.2  Ride the horse   (FULL)
+        Point : Mount + control.
+        Do    : With an EMPTY hand, right-click the saddled horse; then move.
+        Expect: You mount it; it turns to your look and moves forward with W (slower in reverse).
+
+  [ ] 7.3  Dismount   (FULL)
+        Point : Get off.
+        Do    : Press the dismount key (Shift).
+        Expect: You dismount.
+
+  [ ] 7.4  Big cat / ostrich / elephant   (SIMPLIFIED)
+        Point : Rideable in code, not yet feed-tameable.
+        Do    : Tame via creative/amulet, then empty-hand right-click.
+        Expect: Mountable once tamed. (No survival taming path yet = simplification.)
+
+
+====================================================================================================
+  8. NAMING (medallion)
+====================================================================================================
+  Functional naming without a custom GUI (the 26.2 GUI pipeline was rewritten). Rename a medallion
+  in an anvil, then apply it to a tamed creature.
+
+  [ ] 8.1  Rename the medallion   (FULL)
+        Point : Provide the custom name.
+        Do    : Put a MEDALLION in an anvil and type a name; take it out.
+        Expect: Medallion now shows your custom name.
+
+  [ ] 8.2  Name a tamed creature   (FULL)
+        Point : Apply the name in-world.
+        Do    : Right-click a TAMED creature with the renamed medallion.
+        Expect: The creature gets a visible floating name tag.
+
+
+====================================================================================================
+  9. AMULET (capture / release)
+====================================================================================================
+  The Pet Amulet stores a tamed creature (species + sub-type + ownership) in a custom data
+  component, so you can carry it and redeploy it.
+
+  [ ] 9.1  Capture   (FULL)
+        Point : Pocket a pet.
+        Do    : Hold the PET AMULET (petamulet), right-click a TAMED creature.
+        Expect: The creature vanishes into the amulet (the amulet now holds it).
+
+  [ ] 9.2  Release   (FULL)
+        Point : Redeploy, state preserved.
+        Do    : Right-click in the air with the full amulet.
+        Expect: The creature reappears ~2 blocks ahead, still tamed, same sub-type/owner.
+
+  [ ] 9.3  One at a time   (FULL)
+        Point : Component guard.
+        Do    : With a full amulet, try to capture another creature.
+        Expect: Nothing happens until you release the first (expected).
+
+  [ ] 9.4  Survives save/reload   (FULL)
+        Point : Component persistence.
+        Do    : Capture, save & quit, reload, release.
+        Expect: Creature restored correctly.
+
+
+====================================================================================================
+  10. STAFF OF PORTAL & WYVERN LAIR DIMENSION
+====================================================================================================
+  A custom data-driven dimension (mocreatures:wyvern_lair) reached with the Staff of Portal item —
+  a pragmatic replacement for the legacy physical portal frame.
+
+  [ ] 10.1  Travel to the Wyvern Lair   (FULL)
+        Point : Enter the dimension.
+        Do    : Hold the STAFF OF PORTAL (staffportal), right-click.
+        Expect: Portal sound; you teleport to the Wyvern Lair, placed on the surface.
+
+  [ ] 10.2  Wyvern Lair terrain   (FULL)
+        Point : Distinct world generation.
+        Do    : Look around the Lair.
+        Expect: Floating-islands style terrain (minecraft:floating_islands).
+
+  [ ] 10.3  Return to Overworld   (FULL)
+        Point : Toggle back.
+        Do    : Right-click the Staff of Portal again.
+        Expect: You teleport back to the Overworld surface.
+
+  [ ] 10.4  Lair fauna   (PARTIAL)
+        Point : The biome favours wyverns/birds/insects.
+        Do    : Explore the Lair (or wait for spawns).
+        Expect: Wyverns and other lair-appropriate creatures appear.
+
+
+====================================================================================================
+  11. BLOCKS (Wyvern Lair / Ogre Lair set, 14)
+====================================================================================================
+  Decorative building blocks: grass/dirt/stone/log/leaves/planks/tall-grass in Wyvern and Ogre
+  variants.
+
+  [ ] 11.1  Place & render   (FULL)
+        Point : Blockstates + models resolve.
+        Do    : Place each lair block from the creative tab.
+        Expect: Each places with the correct texture (leaves/tall-grass are see-through).
+
+  [ ] 11.2  Break & drop   (FULL)
+        Point : Block items work.
+        Do    : Break a placed lair block.
+        Expect: It breaks and drops its item.
+
+  [ ] 11.3  Block items in tab   (FULL)
+        Point : Registration completeness.
+        Do    : Find the 14 lair block items in the tab.
+        Expect: All present with icons.
+
+
+====================================================================================================
+  12. FOOD ITEMS
+====================================================================================================
+  Edible items restore hunger; cooked versions are more nourishing than raw.
+
+  [ ] 12.1  Eat cooked food   (FULL)
+        Point : Hunger restore.
+        Do    : Eat crabcooked / omelet / ostrichcooked / ratburger / turkeycooked / turtlesoup
+                (survival, hungry).
+        Expect: Eating animation plays; hunger bar refills (cooked = +6 / 0.7 sat).
+
+  [ ] 12.2  Eat raw food   (FULL)
+        Point : Lower nutrition.
+        Do    : Eat crabraw / ostrichraw / ratraw / turtleraw / sugarlump / petfood.
+        Expect: Edible but less filling (+2 / 0.2 sat).
+
+
+====================================================================================================
+  13. ARMOR ITEMS
+====================================================================================================
+  Wearable armour sets: Fur, Hide (leather-tier), Reptile (iron-tier), Scorpion (diamond-tier, 4
+  biome variants). Inventory icons are the authentic art; worn model uses the vanilla overlay.
+
+  [ ] 13.1  Equip armour   (FULL)
+        Point : Protection works.
+        Do    : Equip a full set (e.g. reptilehelmet/plate/legs/boots) in survival; take a hit.
+        Expect: Armour bar shows; damage reduced per tier.
+
+  [ ] 13.2  Authentic icons   (PARTIAL)
+        Point : Item art preserved.
+        Do    : Look at the armour items in the inventory.
+        Expect: Authentic Mo'Creatures inventory icons (worn-on-body texture is the vanilla overlay
+                = simplification).
+
+
+====================================================================================================
+  14. WEAPONS
+====================================================================================================
+  Melee weapons carry sword stats.
+
+  [ ] 14.1  Attack with weapons   (FULL)
+        Point : Damage values.
+        Do    : Hit a mob with bo / katana / nunchaku / sai / sharksword / silversword (iron-tier)
+                or a scorpion sword/sting (diamond-tier).
+        Expect: Deals melee damage with the expected attack speed.
+
+  [ ] 14.2  Special-item weapons   (SIMPLIFIED)
+        Point : Some legacy weapons are plain in this port.
+        Do    : Try whip / nethercannon / staffteleport / builderhammer.
+        Expect: They exist and are holdable but have no special legacy effect yet (simplification).
+
+
+====================================================================================================
+  15. NATURAL SPAWNING
+====================================================================================================
+  Creatures appear in the world without spawn eggs: spawn placements + overworld biome spawn
+  entries (via Architectury BiomeModifications, cross-loader).
+
+  [ ] 15.1  Land spawns   (FULL)
+        Point : Creatures populate the overworld.
+        Do    : Roam overworld biomes at night/day (or /time, increase mob cap).
+        Expect: Mo'Creatures animals/monsters appear naturally.
+
+  [ ] 15.2  Water spawns   (PARTIAL)
+        Point : Aquatics in oceans.
+        Do    : Travel to oceans.
+        Expect: Dolphins/fish/sharks etc. appear in water.
+
+
+====================================================================================================
+  16. PERSISTENCE (save / reload)
+====================================================================================================
+  Custom state survives the codec-based save (ValueInput/ValueOutput).
+
+  [ ] 16.1  Creature state persists   (FULL)
+        Point : No data loss on reload.
+        Do    : Tame, name, ride-saddle a horse; save & quit; reload.
+        Expect: Tamed flag, owner, sub-type, saddled, custom name all retained.
+
+  [ ] 16.2  World survives relog   (FULL)
+        Point : No crash on chunk reload.
+        Do    : Visit the Wyvern Lair, relog.
+        Expect: Dimension and your position load correctly.
+
+
+====================================================================================================
+  17. CROSS-LOADER PARITY
+====================================================================================================
+  The whole point of the multiloader: identical behaviour on Fabric and NeoForge from one
+  codebase.
+
+  [ ] 17.1  Same content both loaders   (FULL)
+        Point : No loader-specific gaps.
+        Do    : Run sections 2-16 on BOTH the Fabric and NeoForge clients.
+        Expect: Identical creatures, items, blocks, dimension, behaviour.
+
+  [ ] 17.2  Registry/spawn parity   (FULL)
+        Point : Architectury bridges both.
+        Do    : Check natural spawning + the creative tab on each.
+        Expect: Same spawns and same 182 items on both.
+
+
+====================================================================================================
+  18. KNOWN SIMPLIFICATIONS (do NOT expect these to fully work)
+====================================================================================================
+  These were intentionally reduced in the port. They are listed so you don't file them as bugs.
+  Each is a candidate for a future pass.
+
+  [ ] 18.1  Taming food   (SIMPLIFIED)
+        Point : Only bunny/horse/turtle/roach have a wired food.
+        Expect: Other creatures can't be tamed by feeding yet (use creative).
+
+  [ ] 18.2  Mount inventories   (SIMPLIFIED)
+        Point : Chest + body-armour slots not implemented.
+        Expect: No horse-armour/chest GUI; riding works, inventory doesn't.
+
+  [ ] 18.3  Big-cat / whip commands   (SIMPLIFIED)
+        Point : Command mechanics not ported.
+        Expect: Whip is a plain item; big cats have no command behaviour.
+
+  [ ] 18.4  Special items plain   (SIMPLIFIED)
+        Point : staffteleport, builderhammer(2), nethercannon, key, scrolls, creaturepedia.
+        Expect: Registered with art but no special legacy effect yet.
+
+  [ ] 18.5  Naming GUI   (SIMPLIFIED)
+        Point : No custom naming screen (26.2 GUI rewrite).
+        Expect: Medallion-in-anvil naming covers it functionally.
+
+  [ ] 18.6  Portal frame block   (SIMPLIFIED)
+        Point : No buildable/ignitable portal.
+        Expect: Travel is via the Staff of Portal item instead.
+
+  [ ] 18.7  Worn armour texture   (SIMPLIFIED)
+        Point : Body overlay is vanilla, not custom art.
+        Expect: Inventory icons are authentic; on-body texture is the vanilla overlay.
+
+====================================================================================================
+  END OF CHECKLIST  —  69 test rows across 19 sections
+====================================================================================================

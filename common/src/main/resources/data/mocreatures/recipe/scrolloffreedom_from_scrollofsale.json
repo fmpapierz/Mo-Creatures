@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "group": "scroll_of_freedom",
+  "ingredients": [
+    "mocreatures:scrollofsale",
+    "minecraft:redstone"
+  ],
+  "result": {
+    "id": "mocreatures:scrolloffreedom"
+  }
+}

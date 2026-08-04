@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "group": "essence_of_light",
+  "ingredients": [
+    "mocreatures:essenceundead",
+    "mocreatures:essencefire",
+    "mocreatures:essencedarkness"
+  ],
+  "result": {
+    "id": "mocreatures:essencelight"
+  }
+}

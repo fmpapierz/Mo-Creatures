@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="GPL-3.0-only"
+issueTrackerURL="${github_repo}/issues"
+
+[[mixins]]
+config="mocreatures.neoforge.mixins.json"
+
+[[mods]]
+modId="mocreatures"
+version="${version}"
+displayName="DrZhark's Mo'Creatures"
+authors="DrZhark, BloodShot, BlockDaddy"
+displayURL="http://www.mocreatures.org"
+description='''
+Mo'Creatures ported to Minecraft 26.2 (Architectury multi-loader).
+'''
+
+[[dependencies.mocreatures]]
+    modId="neoforge"
+    type="required"
+    versionRange="[0,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.mocreatures]]
+    modId="architectury"
+    type="required"
+    versionRange="[0,)"
+    ordering="NONE"
+    side="BOTH"

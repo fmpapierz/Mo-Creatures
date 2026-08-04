@@ -1,0 +1,14 @@
+architectury {
+    common enabled_platforms.split(",")
+    injectInjectables = false
+}
+
+dependencies {
+    // We depend on fabric loader here to use the fabric @Environment annotations and get the mixin dependencies
+    // Do NOT use other classes from fabric loader
+    implementation "net.fabricmc:fabric-loader:$fabric_loader_version"
+
+    // Architectury API (common): cross-loader DeferredRegister, EntityAttributeRegistry,
+    // SpawnPlacementsRegistry, BiomeModifications, Entity{Renderer,ModelLayer}Registry, EnvExecutor.
+    implementation "dev.architectury:architectury:$architectury_api_version"
+}

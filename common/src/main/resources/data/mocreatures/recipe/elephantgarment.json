@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "p": "minecraft:pink_dye",
+    "y": "minecraft:yellow_dye",
+    "g": "minecraft:lime_dye",
+    "R": "minecraft:red_wool",
+    "Y": "minecraft:yellow_wool",
+    "B": "minecraft:blue_wool",
+    "M": "mocreatures:medallion"
+  },
+  "pattern": [
+    "pyg",
+    "RMR",
+    "BYB"
+  ],
+  "result": {
+    "id": "mocreatures:elephantgarment"
+  }
+}

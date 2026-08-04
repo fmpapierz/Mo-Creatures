@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "group": "lair_planks",
+  "ingredients": [
+    "mocreatures:log_wyvern_lair"
+  ],
+  "result": {
+    "count": 4,
+    "id": "mocreatures:planks_wyvern_lair"
+  }
+}
