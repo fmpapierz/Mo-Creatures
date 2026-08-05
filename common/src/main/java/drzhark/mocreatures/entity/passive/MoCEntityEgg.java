@@ -50,6 +50,8 @@ public class MoCEntityEgg extends MoCAnimal {
 
     /** Ticks the egg has spent in a valid hatching environment (in water, or near a light source); it hatches once this passes the threshold. */
     private int hatchTimer;
+    /** Legacy {@code lCounter}: the unattended-lifetime counter that eventually removes a forgotten egg. */
+    private int lifeCounter;
     /** The coat / sub-variant the hatchling should take (0 = random via {@code selectType}). */
     private int variant;
     /**
@@ -154,7 +156,9 @@ public class MoCEntityEgg extends MoCAnimal {
             case TYPE_SCORPION -> 40 + Math.max(1, this.variant);
             case TYPE_WYVERN -> 49 + Math.max(1, this.variant);
             case TYPE_OSTRICH -> this.variant == 5 ? 32 : 31; // legacy onCollideWithPlayer remaps 30 -> 31
-            default -> this.variant >= 1 && this.variant <= 10 ? this.variant : 1; // fishy 1-10
+            // A blank (spoiled) fishy egg has no variant yet, so it round-trips back to item form as a
+            // Spoiled Egg rather than silently becoming a Blue Fish Egg.
+            default -> this.variant >= 1 && this.variant <= 10 ? this.variant : 0; // fishy 1-10, 0 = spoiled
         };
     }
 
@@ -181,6 +185,16 @@ public class MoCEntityEgg extends MoCAnimal {
         // Legacy onUpdate gated incubation on the environment: aquatic eggs (fishy/shark, legacy eggType < 21) only
         // progress while in water; land eggs only progress while near a light source (MoCTools.isNearTorch, 4 blocks:
         // torch / glowstone / lit redstone lamp / jack-o'-lantern). An egg with no torch/water never hatches.
+        // Legacy lCounter (MoCEntityEgg.onUpdate:132-146): a separate counter that ticks on a 1-in-20 roll
+        // regardless of environment; once past 500, an egg with no player within 24 blocks is removed. Without
+        // it an egg that never meets its hatching condition — a land egg with no torch, or a spoiled egg
+        // dropped on land — would litter the world forever, which matters now that MoCAnimal no longer
+        // despawns. Not persisted, exactly as legacy left it: the timer restarts when the chunk reloads.
+        if (this.random.nextInt(20) == 0 && ++this.lifeCounter > 500
+                && level.getNearestPlayer(this, 24.0D) == null) {
+            discard();
+            return;
+        }
         boolean aquatic = getTypeMoC() == TYPE_FISHY || getTypeMoC() == TYPE_SHARK;
         boolean ready = aquatic ? this.isInWater() : isNearTorch(4.0D);
         // Legacy tCounter incremented only on a 1-in-20 roll while in a valid environment and hatched at
@@ -229,10 +243,7 @@ public class MoCEntityEgg extends MoCAnimal {
         if (this.level().isClientSide() || this.tickCount <= 10) {
             return;
         }
-        ItemStack stack = new ItemStack(MoCItems.MOCEGG.get());
-        CompoundTag tag = new CompoundTag();
-        tag.putInt("EggType", getEggType());
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        ItemStack stack = drzhark.mocreatures.item.MoCThrownEggItem.createEgg(getEggType());
         if (player.addItem(stack)) {
             this.level().playSound(null, this.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.NEUTRAL,
                     0.2F, ((this.random.nextFloat() - this.random.nextFloat()) * 0.7F + 1.0F) * 2.0F);

@@ -160,17 +160,8 @@ public class MoCEntityTurtle extends MoCAnimal {
     @Override
     public void tick() {
         super.tick();
-        // Egg-laying: an adult turtle occasionally lays an egg on the ground (uncrowded areas only).
-        if (this.level() instanceof net.minecraft.server.level.ServerLevel level && getIsAdult()
-                && this.onGround() && level.getRandom().nextInt(4000) == 0
-                && level.getEntitiesOfClass(MoCEntityTurtle.class, this.getBoundingBox().inflate(16.0D)).size() < 6) {
-            MoCEntityEgg egg = new MoCEntityEgg(drzhark.mocreatures.registry.MoCEntities.EGG.get(), level);
-            egg.setTypeMoC(MoCEntityEgg.TYPE_TURTLE);
-            egg.setPos(this.getX(), this.getY(), this.getZ());
-            level.addFreshEntity(egg);
-            level.playSound(null, this.blockPosition(), net.minecraft.sounds.SoundEvents.TURTLE_LAY_EGG,
-                    net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F);
-        }
+        // Legacy Mo'Creatures has no turtle egg at all — turtles neither lay nor drop one, and the egg-meta
+        // table (1-54) has no turtle entry. The passive egg-laying that used to be here was a port invention.
 
         if (this.level() instanceof ServerLevel sl) {
             // Advance the flip roll while upside-down so the renderer can play a smooth mid-air tumble.

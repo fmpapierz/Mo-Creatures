@@ -48,6 +48,13 @@ public final class MoCBehavior {
          *  legacy class does NOT override dropFewItems (rat / wild_wolf / wraith / flame_wraith / turtle).
          *  When set, the generic loop ignores min/max/chance and drops 0-2. Only use for single-drop specs. */
         public boolean vanillaDrop = false;
+        /**
+         * This creature can be broken in: legacy let you saddle and mount it while still WILD, and it then
+         * bucked and threw the rider until a temper roll made it submit ({@code MoCEntityAnimal:1096-1142}).
+         * Only the horse, the wyvern and the dolphin worked this way — every other rideable creature had to be
+         * tamed before it could be mounted at all, so this stays off by default.
+         */
+        public boolean rideTames = false;
         public List<Drop> drops = new ArrayList<>();
 
         Spec tame(Tame t) { this.tame = t; return this; }
@@ -55,6 +62,7 @@ public final class MoCBehavior {
         Spec heal(Supplier<Item>... f) { this.healFoods = List.of(f); return this; }
         Spec breed() { this.canBreed = true; return this; }
         Spec ride(boolean needsSaddle) { this.rideable = true; this.rideNeedsSaddle = needsSaddle; return this; }
+        Spec rideTames() { this.rideTames = true; return this; }
         Spec milk() { this.milkable = true; return this; }
         Spec baby() { this.babyScales = true; return this; }
         Spec hostile() { this.wildHostile = true; return this; }
@@ -84,6 +92,14 @@ public final class MoCBehavior {
     }
 
     /** Spawn this creature's faithful death drops. */
+    /**
+     * Builds a {@code mocegg} carrying a legacy composite egg id in CUSTOM_DATA, so it displays with its real
+     * name and hatches the right species. Without this the drop is a blank "Spoiled Egg".
+     */
+    private static net.minecraft.world.item.ItemStack eggStack(int eggType) {
+        return drzhark.mocreatures.item.MoCThrownEggItem.createEgg(eggType);
+    }
+
     public static void dropLoot(net.minecraft.world.entity.Mob e, net.minecraft.server.level.ServerLevel level, Spec spec) {
         // Server-admin loot suppression (legacy destroyDrops / destroyPassiveDrops): drop nothing when the
         // matching flag is set. destroyPassiveDrops targets only passive creatures (MoCAnimal).
@@ -272,7 +288,7 @@ public final class MoCBehavior {
             } else if (level.getDifficulty().getId() > 0 && shark.getMoCAge() > 150) {
                 int k = rand.nextInt(3);                     // 0-2 eggs
                 for (int i1 = 0; i1 < k; i1++) {
-                    e.spawnAtLocation(level, new net.minecraft.world.item.ItemStack(MoCItems.MOCEGG.get(), 1));
+                    e.spawnAtLocation(level, eggStack(11)); // legacy shark-egg meta
                 }
             }
             return;
@@ -280,15 +296,30 @@ public final class MoCBehavior {
 
         // Fishy (legacy MoCEntityFishy.dropFewItems): 70% drop exactly 1 raw fish; otherwise drop
         // rand.nextInt(2) = 0-or-1 fishy egg. Mutually exclusive (never both), ~15% of kills drop nothing.
-        if (e instanceof drzhark.mocreatures.entity.passive.MoCEntityFishy) {
+        if (e instanceof drzhark.mocreatures.entity.passive.MoCEntityFishy fishy) {
             int i = rand.nextInt(100);
             if (i < 70) {
                 e.spawnAtLocation(level, new net.minecraft.world.item.ItemStack(Items.COD, 1));
             } else {
                 int j = rand.nextInt(2);
                 for (int k = 0; k < j; k++) {
-                    e.spawnAtLocation(level, new net.minecraft.world.item.ItemStack(MoCItems.MOCEGG.get(), 1));
+                    e.spawnAtLocation(level, eggStack(Math.max(1, Math.min(10, fishy.getTypeMoC()))));
                 }
+            }
+            return;
+        }
+
+        // Komodo (legacy MoCEntityKomodo.dropFewItems:216-232): an adult (edad > 90) on a 1-in-5 roll drops
+        // 1-2 Komodo Dragon Eggs (meta 33); on every other kill it drops exactly one reptile hide instead.
+        // The two are mutually exclusive — a komodo never drops both.
+        if (e instanceof drzhark.mocreatures.entity.passive.MoCEntityKomodo komodo) {
+            if (komodo.getMoCAge() > 90 && rand.nextInt(5) == 0) {
+                int n = rand.nextInt(2) + 1;                 // 1-2 eggs
+                for (int i = 0; i < n; i++) {
+                    e.spawnAtLocation(level, eggStack(33));
+                }
+            } else {
+                e.spawnAtLocation(level, new net.minecraft.world.item.ItemStack(MoCItems.REPTILEHIDE.get(), 1));
             }
             return;
         }
@@ -381,12 +412,17 @@ public final class MoCBehavior {
         // Their tame/heal food set is broader than this list (any edible; see MoCEntityGoat's food override).
         reg("goat").tame(Tame.FEED).food(v(Items.WHEAT), v(Items.WHEAT_SEEDS), v(Items.SUGAR), v(Items.CAKE), v(Items.EGG))
                 .milk().baby().vanilla().drop(v(Items.LEATHER), 0, 2, 1.0F);
+        // Legacy heal foods are the MOD's sugar lump and haystack, not vanilla sugar and a vanilla hay bale.
         reg("horse").tame(Tame.FEED).food(v(Items.APPLE), v(Items.GOLDEN_APPLE))
-                .heal(v(Items.WHEAT), v(Items.SUGAR), v(Items.BREAD), v(Items.APPLE), v(Items.GOLDEN_APPLE), v(Items.HAY_BLOCK))
-                .breed().ride(true).drop(v(Items.LEATHER), 0, 2, 1.0F);
+                .heal(v(Items.WHEAT), () -> MoCItems.SUGARLUMP.get(), v(Items.BREAD), v(Items.APPLE),
+                        v(Items.GOLDEN_APPLE), () -> MoCItems.HAYSTACK.get())
+                .breed().ride(true).rideTames().drop(v(Items.LEATHER), 0, 2, 1.0F);
         reg("kitty").tame(Tame.MEDALLION).heal(v(Items.COD), v(Items.COOKED_COD), v(Items.CAKE)).baby();
-        reg("komodo").tame(Tame.FEED).food(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get())
-                .ride(true).baby().hostile().drop(() -> MoCItems.REPTILEHIDE.get(), 1, 1, 1.0F);
+        // Legacy komodos are NOT hand-tameable: the only tamed komodo is one hatched from a Komodo Dragon Egg
+        // (MoCEntityEgg). Raw rat / raw turkey stay as heal foods for an already-tamed one. The death drop is
+        // resolved in dropLoot (egg or reptile hide, mutually exclusive), so no .drop() spec here.
+        reg("komodo").tame(Tame.NONE).heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get())
+                .ride(true).baby().hostile();
         reg("mouse").tame(Tame.PICKUP).vanilla().drop(v(Items.WHEAT_SEEDS), 0, 2, 1.0F);
         // Death drop is type-keyed (meat, or a fire/darkness/undead heart or unicorn horn for transformed
         // types 5-8) and resolved per entity in dropLoot; see the ostrich branch there.
@@ -395,7 +431,10 @@ public final class MoCBehavior {
         // ItemFood", so this heal list enumerates the common vanilla foods + the seeds + wheat/sugar/cake/egg
         // as a faithful stopgap. See CROSS-FILE need: a truly "any edible" heal wants MoCEntityOstrich to
         // override the heal-food test with a FOOD-component check, exactly like MoCEntityGoat.isGoatEdible.
-        reg("ostrich").tame(Tame.FEED).food(v(Items.WHEAT), v(Items.WHEAT_SEEDS), v(Items.SUGAR), v(Items.EGG))
+        // Legacy ostriches are NOT hand-tameable either: the only tamed ostrich comes from a STOLEN ostrich egg
+        // (composite id 31 — a wild laid egg, 30, becomes stolen when a player picks it up or places it). The
+        // full feed list stays as heal food for an already-tamed bird.
+        reg("ostrich").tame(Tame.NONE)
                 .heal(v(Items.WHEAT), v(Items.WHEAT_SEEDS), v(Items.MELON_SEEDS), v(Items.PUMPKIN_SEEDS),
                         v(Items.BEETROOT_SEEDS), v(Items.SUGAR), v(Items.CAKE), v(Items.EGG),
                         v(Items.BREAD), v(Items.APPLE), v(Items.GOLDEN_APPLE), v(Items.CARROT), v(Items.GOLDEN_CARROT),
@@ -425,8 +464,9 @@ public final class MoCBehavior {
         // Legacy wyverns have no feed-to-tame interaction — rat/turkey are heal food only, on an already-tamed
         // wyvern. Wild wyverns become tamed by being ridden/named (base tameWithName), not by feeding, so the
         // generic FEED taming is disabled here (the raw rat/turkey heal foods are kept).
+        // Legacy wyverns have no feed-taming: you saddle and mount a WILD one and break it in (rideTames).
         reg("wyvern").tame(Tame.NONE)
-                .ride(true).heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get()).baby();
+                .ride(true).rideTames().heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get()).baby();
         reg("crab").baby().drop(() -> MoCItems.CRABRAW.get(), 1, 1, 1.0F);
         reg("maggot").vanilla().drop(v(Items.SLIME_BALL), 0, 2, 1.0F);
         reg("snail").vanilla().drop(v(Items.SLIME_BALL), 0, 2, 1.0F);
@@ -435,7 +475,7 @@ public final class MoCBehavior {
 
         // =========================================================== AQUATIC (MoCAquatic)
         reg("dolphin").tame(Tame.FEED).food(v(Items.APPLE), v(Items.GOLDEN_APPLE))
-                .heal(v(Items.COD), v(Items.COOKED_COD)).breed().ride(false).baby()
+                .heal(v(Items.COD), v(Items.COOKED_COD)).breed().ride(false).rideTames().baby()
                 .vanilla().drop(v(Items.COD), 0, 2, 1.0F);
         // Fishy death drop is a mutually-exclusive 70%-raw-fish-else-rand(2)-egg roll, resolved per entity in
         // dropLoot (fishy branch), so no type-agnostic .drop() spec here.

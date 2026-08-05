@@ -76,6 +76,9 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
         // Tame a dolphin by feeding it an apple / golden apple.
         if (spec.tame == MoCBehavior.Tame.FEED && !getIsTamed() && MoCBehavior.matches(spec.foods, stack)) {
             if (server) {
+                if (MoCAnimal.exceedsTameCap(this, player)) {
+                    return net.minecraft.world.InteractionResult.SUCCESS;
+                }
                 if (!player.getAbilities().instabuild) stack.shrink(1);
                 setTamed(true);
                 setOwnerName(player.getName().getString());
@@ -92,7 +95,10 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
             }
             return net.minecraft.world.InteractionResult.SUCCESS;
         }
-        // Ride a rideable aquatic (dolphin / manta ray) with an empty hand.
+        // Ride a rideable aquatic (dolphin / manta ray) with an empty hand. Legacy puts NO tamed gate here:
+        // MoCEntityRay.interact:99 mounts a type-1 mantaray outright (rays are not tameable at all), and
+        // MoCEntityDolphin.interact:405 mounts a wild dolphin so it can buck you until it submits. Steering is
+        // what requires taming — see getControllingPassenger.
         if (spec.rideable && stack.isEmpty() && !this.isVehicle()) {
             if (server) player.startRiding(this);
             return net.minecraft.world.InteractionResult.SUCCESS;
@@ -129,7 +135,11 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
 
     @Override
     public net.minecraft.world.entity.@Nullable LivingEntity getControllingPassenger() {
-        if (MoCBehavior.of(this).rideable && getFirstPassenger() instanceof net.minecraft.world.entity.player.Player p) {
+        // A creature that has to be broken in (the dolphin) only answers to the reins once tamed; one that was
+        // never tameable in the first place (the mantaray) steers as soon as you are on it, as legacy did.
+        MoCBehavior.Spec spec = MoCBehavior.of(this);
+        if (spec.rideable && (getIsTamed() || !spec.rideTames)
+                && getFirstPassenger() instanceof net.minecraft.world.entity.player.Player p) {
             return p;
         }
         return super.getControllingPassenger();
@@ -253,6 +263,7 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
         output.putBoolean("Adult", getIsAdult());
         output.putInt("AgeMoC", getMoCAge());
         output.putString("OwnerName", getOwnerName());
+        output.putInt("Temper", this.temper);
     }
 
     @Override
@@ -263,6 +274,60 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
         setAdult(input.getBooleanOr("Adult", true));
         setMoCAge(input.getIntOr("AgeMoC", 50));
         setOwnerName(input.getStringOr("OwnerName", ""));
+        this.temper = input.getIntOr("Temper", 0);
+    }
+
+    /** Legacy {@code temper}: how far a wild dolphin has been won over while being broken in. */
+    private int temper;
+
+    public int getTemper() {
+        return this.temper;
+    }
+
+    public void setTemper(int temper) {
+        this.temper = temper;
+    }
+
+    /** Legacy {@code MoCEntityAquatic.getMaxTemper()} — base difficulty, matching the land animals. */
+    public int getMaxTemper() {
+        return 100;
+    }
+
+    /**
+     * Legacy {@code MoCEntityAquatic}:383-445 — breaking in a wild dolphin. Ride it while untamed and it
+     * thrashes and throws you off, rolling {@code nextInt((maxTemper - temper) * 8) == 0} each tick until it
+     * submits. Feeding it raw fish raises the temper and shortens the odds.
+     */
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        if (this.level().isClientSide() || getIsTamed() || !isVehicle()) {
+            return;
+        }
+        if (!MoCBehavior.of(this).rideTames
+                || !(getFirstPassenger() instanceof net.minecraft.world.entity.player.Player rider)) {
+            return;
+        }
+        if (this.random.nextInt(10) == 0) {
+            setDeltaMovement(getDeltaMovement().add(this.random.nextDouble() / 30.0D,
+                    this.random.nextDouble() / 30.0D, this.random.nextDouble() / 10.0D));
+            this.hurtMarked = true;
+        }
+        if (this.random.nextInt(50) == 0) {
+            rider.stopRiding();
+            rider.setDeltaMovement(rider.getDeltaMovement().add(0.0D, 0.9D, -0.3D));
+            rider.hurtMarked = true;
+            return;
+        }
+        int chance = getMaxTemper() - getTemper();
+        if (chance <= 0) {
+            chance = 5;
+        }
+        if (this.random.nextInt(chance * 8) == 0 && !MoCAnimal.exceedsTameCap(this, rider)) {
+            setTamed(true);
+            setOwnerName(rider.getName().getString());
+            aquaHearts();
+        }
     }
 
     @Override

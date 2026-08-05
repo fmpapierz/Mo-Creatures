@@ -72,7 +72,7 @@ public class MoCEntityElephant extends MoCAnimal {
     private int sprintCounter;
     /** Baby-taming progress (legacy {@code temper}): hand-feeding a wild baby raises this (cake +2, sugar lump +1);
      *  at 10 the baby tames and bonds to the feeder. Persisted so a partly-won baby keeps its progress. */
-    private int temper;
+    // Temper lives on MoCAnimal now (one owner of the "Temper" NBT key).
 
     /** Up to 54 slots; the accessible slice (18/36/45/54) is chosen by the storage tier when the key is used. */
     private final SimpleContainer chest = new SimpleContainer(54);
@@ -281,13 +281,13 @@ public class MoCEntityElephant extends MoCAnimal {
             }
             if (gain > 0) {
                 if (server) {
-                    this.temper += gain;
+                    setTemper(getTemper() + gain);
                     setHealth(getMaxHealth());
                     if (!player.getAbilities().instabuild) {
                         stack.shrink(1);
                     }
                     this.level().playSound(null, blockPosition(), MoCSounds.EATING.get(), SoundSource.NEUTRAL, 1.0F, 1.0F);
-                    if (this.temper >= 10) {
+                    if (getTemper() >= 10) {
                         setTamed(true);
                         setOwnerName(player.getName().getString());
                     }
@@ -568,7 +568,6 @@ public class MoCEntityElephant extends MoCAnimal {
         output.putInt("Storage", getStorage());
         output.putInt("Tusks", getTusks());
         output.putInt("TuskUses", this.tuskUses);
-        output.putInt("Temper", this.temper);
         ValueOutput.ValueOutputList items = output.childrenList("ChestItems");
         for (int i = 0; i < chest.getContainerSize(); i++) {
             ItemStack s = chest.getItem(i);
@@ -587,7 +586,6 @@ public class MoCEntityElephant extends MoCAnimal {
         setStorage(input.getIntOr("Storage", 0));
         setTusks(input.getIntOr("Tusks", 0));
         this.tuskUses = input.getIntOr("TuskUses", 0);
-        this.temper = input.getIntOr("Temper", 0);
         chest.clearContent();
         for (ValueInput child : input.childrenListOrEmpty("ChestItems")) {
             int slot = child.getIntOr("Slot", -1);

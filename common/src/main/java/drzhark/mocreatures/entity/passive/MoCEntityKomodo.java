@@ -19,6 +19,23 @@ public class MoCEntityKomodo extends MoCAnimal {
 
     public MoCEntityKomodo(EntityType<? extends MoCEntityKomodo> type, Level level) {
         super(type, level);
+        // Legacy constructor (MoCEntityKomodo:48-62): 1 in 6 hatch small (30-69), the rest spawn near-grown
+        // (90-119), and none start adult. Without this every komodo sat at the base age of 50 forever, which
+        // is what made the age>90 egg drop unreachable.
+        setAdult(false);
+        setMoCAge(this.random.nextInt(6) == 0 ? 30 + this.random.nextInt(40) : 90 + this.random.nextInt(30));
+    }
+
+    /** Legacy growth (MoCEntityKomodo:176-181): a non-adult ages on a 1-in-500 tick and matures at 120. */
+    @Override
+    public void tick() {
+        super.tick();
+        if (!this.level().isClientSide() && !getIsAdult() && this.random.nextInt(500) == 0) {
+            setMoCAge(getMoCAge() + 1);
+            if (getMoCAge() >= 120) {
+                setAdult(true);
+            }
+        }
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -59,19 +76,6 @@ public class MoCEntityKomodo extends MoCAnimal {
         return hit;
     }
 
-    /** Adult komodos occasionally lay an egg while resting on the ground, capped by local population. */
-    @Override
-    public void tick() {
-        super.tick();
-        if (this.level() instanceof net.minecraft.server.level.ServerLevel level
-                && getIsAdult() && this.onGround() && level.getRandom().nextInt(4000) == 0
-                && level.getEntitiesOfClass(MoCEntityKomodo.class, this.getBoundingBox().inflate(16.0D)).size() < 6) {
-            MoCEntityEgg egg = new MoCEntityEgg(drzhark.mocreatures.registry.MoCEntities.EGG.get(), level);
-            egg.setTypeMoC(MoCEntityEgg.TYPE_KOMODO);
-            egg.setPos(this.getX(), this.getY(), this.getZ());
-            level.addFreshEntity(egg);
-            level.playSound(null, this.blockPosition(), net.minecraft.sounds.SoundEvents.TURTLE_LAY_EGG,
-                    net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F);
-        }
-    }
+    // Legacy komodos never lay eggs while alive — the egg is a death drop only (see MoCBehavior.dropLoot).
+    // The passive egg-laying tick that used to live here was a port invention with no legacy counterpart.
 }

@@ -170,6 +170,9 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         }
     }
 
+    /** Legacy {@code temper}: accrued progress towards taming, raised by feeding and rolled while being ridden. */
+    private int temper;
+
     private void hearts(int count) {
         if (this.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.HEART, getX(), getY() + getBbHeight() * 0.5D, getZ(),
@@ -215,7 +218,10 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
             return InteractionResult.SUCCESS;
         }
         // Pick-up creatures (bunny, bird, mouse, snake, baby pet scorpion): right-click to carry / put down.
-        if (spec.tame == MoCBehavior.Tame.PICKUP && stack.isEmpty()) {
+        // Legacy only ever picked up the SMALL ones — a pet scorpion is carried as a baby and RIDDEN as an
+        // adult (MoCEntityPetScorpion.interact). Without the adult gate the pick-up branch swallows the
+        // interaction and an adult pet scorpion can never be mounted.
+        if (spec.tame == MoCBehavior.Tame.PICKUP && stack.isEmpty() && (!spec.rideable || !getIsAdult())) {
             if (server) {
                 if (this.isPassenger() && this.getVehicle() == player) {
                     this.stopRiding();
@@ -257,7 +263,12 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
                 consume(player, stack);
                 setTamed(true);
                 setOwnerName(player.getName().getString());
-                setAdult(true);
+                // Legacy taming does NOT make the creature an adult — MoCTools.tameWithName only sets tamed +
+                // owner. Feeding nudges growth by one step and the normal age tick matures it from there, so a
+                // tamed foal stays a foal (and stays unrideable) instead of snapping to full size.
+                if (!getIsAdult() && getMoCAge() < 100) {
+                    setMoCAge(getMoCAge() + 1);
+                }
                 heal(getMaxHealth());
                 hearts(7);
             }
@@ -335,7 +346,9 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         }
         // Saddle a tamed rideable creature that needs a saddle (the mod horse-saddle works like the vanilla one).
         // A wyvern must be adult first (legacy edad > 90), matching its barding gate.
-        if (getIsTamed() && spec.rideable && spec.rideNeedsSaddle && !isSaddled() && rideAgeOk
+        // A ride-tameable creature (horse, wyvern) may be saddled while still WILD — that is how you get on it
+        // to break it in (legacy MoCEntityHorse:1328 / MoCEntityWyvern:363 have no tamed gate here).
+        if ((getIsTamed() || spec.rideTames) && spec.rideable && spec.rideNeedsSaddle && !isSaddled() && rideAgeOk
                 && (stack.is(Items.SADDLE) || stack.is(drzhark.mocreatures.registry.MoCItems.HORSESADDLE.get()))) {
             if (server) {
                 consume(player, stack);
@@ -345,7 +358,9 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         }
         // Mount a tamed, rideable creature with an empty hand (a wyvern and a horse must be adult first —
         // legacy wyvern edad > 90, legacy horse getIsAdult() at line 1882).
-        if (getIsTamed() && spec.rideable && stack.isEmpty() && !this.isVehicle() && mountAgeOk
+        // Likewise mounting: a wild ride-tameable creature can be mounted, and then bucks until it submits
+        // (see tickBreakingIn). getControllingPassenger still requires tamed, so a wild one cannot be steered.
+        if ((getIsTamed() || spec.rideTames) && spec.rideable && stack.isEmpty() && !this.isVehicle() && mountAgeOk
                 && (!spec.rideNeedsSaddle || isSaddled())) {
             if (server) {
                 player.startRiding(this);
@@ -391,11 +406,19 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
      * or other dimensions that are not currently ticking are not included in the total.</p>
      */
     protected boolean exceedsTameCap(Player player) {
+        return exceedsTameCap(this, player);
+    }
+
+    /**
+     * Shared with {@link MoCAquatic}: legacy funnelled every tame through {@code MoCTools.tameWithName}, so the
+     * per-player cap applied identically to land creatures, aquatics and monsters.
+     */
+    static boolean exceedsTameCap(net.minecraft.world.entity.Entity self, Player player) {
         MoCConfig config = MoCConfig.get();
         if (!config.enableOwnership) {
             return false;
         }
-        if (!(this.level() instanceof ServerLevel serverLevel)) {
+        if (!(self.level() instanceof ServerLevel serverLevel)) {
             return false;
         }
         MinecraftServer server = serverLevel.getServer();
@@ -545,6 +568,87 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
                 this.hurtMarked = true; // sync the impulse to clients (26.2 uses hurtMarked, not hasImpulse)
             }
         }
+        tickBreakingIn();
+    }
+
+    /**
+     * Legacy {@code MoCEntityAnimal.onLivingUpdate}:1096-1142 — breaking in a wild mount.
+     *
+     * <p>While an untamed ride-tameable creature (horse, wyvern) carries a rider it bucks: it hops, veers, and
+     * on a 1-in-50 tick throws the rider off with its angry sound. Every tick it also rolls
+     * {@code rand.nextInt((maxTemper - temper) * 8) == 0}; when that hits, the creature submits and is tamed.
+     * Feeding it wheat / sugar lump / bread raises its temper and so shortens the odds. This is the ONLY way
+     * legacy tamed a wyvern, and the ordinary way it tamed a wild horse.</p>
+     */
+    private void tickBreakingIn() {
+        if (!(this.level() instanceof ServerLevel serverLevel) || getIsTamed() || !isVehicle()) {
+            return;
+        }
+        if (!MoCBehavior.of(this).rideTames) {
+            return;
+        }
+        if (!(getFirstPassenger() instanceof Player rider)) {
+            return;
+        }
+        // Buck: a hop when grounded, and a sideways lurch.
+        if (this.random.nextInt(5) == 0 && this.onGround()) {
+            setDeltaMovement(getDeltaMovement().x, getCustomJump(), getDeltaMovement().z);
+            this.hurtMarked = true;
+        }
+        if (this.random.nextInt(10) == 0) {
+            setDeltaMovement(getDeltaMovement().add(this.random.nextDouble() / 30.0D, 0.0D,
+                    this.random.nextDouble() / 10.0D));
+            this.hurtMarked = true;
+        }
+        // Throw the rider off.
+        if (this.random.nextInt(50) == 0) {
+            net.minecraft.sounds.SoundEvent mad = getAngrySound();
+            if (mad != null) {
+                serverLevel.playSound(null, this, mad, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F,
+                        1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.2F);
+            }
+            rider.stopRiding();
+            rider.setDeltaMovement(rider.getDeltaMovement().add(0.0D, 0.9D, -0.3D));
+            rider.hurtMarked = true;
+            return;
+        }
+        // Submit? The closer temper is to maxTemper, the shorter the odds.
+        int chance = getMaxTemper() - getTemper();
+        if (chance <= 0) {
+            chance = 5;
+        }
+        // Legacy routed this through MoCTools.tameWithName, which enforces the per-player tamed cap like every
+        // other taming path does.
+        if (this.random.nextInt(chance * 8) == 0 && !exceedsTameCap(rider)) {
+            setTamed(true);
+            setOwnerName(rider.getName().getString());
+            hearts(7);
+        }
+    }
+
+    /** The sound this creature makes when it bucks; null for species with no angry sound. */
+    protected net.minecraft.sounds.@Nullable SoundEvent getAngrySound() {
+        return null;
+    }
+
+    /**
+     * Legacy {@code getTemper()} — how far this creature has been won over. Only meaningful while untamed and
+     * being broken in, or for the zebra's graduated feed taming.
+     */
+    public int getTemper() {
+        return this.temper;
+    }
+
+    public void setTemper(int temper) {
+        this.temper = temper;
+    }
+
+    /**
+     * Legacy {@code getMaxTemper()}: how hard this creature is to tame — higher is harder. Base 100, matching
+     * {@code MoCEntityAnimal.getMaxTemper}; the zebra overrides it to 200.
+     */
+    public int getMaxTemper() {
+        return 100;
     }
 
     public boolean isSitting() {
@@ -651,6 +755,7 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         output.putBoolean("Saddled", isSaddled());
         output.putBoolean("Sitting", isSitting());
         output.putBoolean("HasEaten", getHasEatenMoC());
+        output.putInt("Temper", getTemper());
     }
 
     @Override
@@ -664,6 +769,7 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         setSaddled(input.getBooleanOr("Saddled", false));
         setSitting(input.getBooleanOr("Sitting", false));
         setHasEatenMoC(input.getBooleanOr("HasEaten", false));
+        setTemper(input.getIntOr("Temper", 0));
     }
 
     // -------------------------------------------------------------------------- spawn / breeding

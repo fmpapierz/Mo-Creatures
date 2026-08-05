@@ -15,6 +15,22 @@ public class MoCEntityShark extends MoCAquatic {
 
     public MoCEntityShark(EntityType<? extends MoCEntityShark> type, Level level) {
         super(type, level);
+        // Legacy constructor (MoCEntityShark:27): sharks spawn already part-grown, 100-199. Without this every
+        // shark stayed at the base age of 50, so the age>150 egg drop could never fire.
+        setAdult(false);
+        setMoCAge(100 + this.random.nextInt(100));
+    }
+
+    /** Legacy growth (MoCEntityShark:180-189): a non-adult ages on a 1-in-50 tick and matures at 200. */
+    @Override
+    public void tick() {
+        super.tick();
+        if (!this.level().isClientSide() && !getIsAdult() && this.random.nextInt(50) == 0) {
+            setMoCAge(getMoCAge() + 1);
+            if (getMoCAge() >= 200) {
+                setAdult(true);
+            }
+        }
     }
 
     /**

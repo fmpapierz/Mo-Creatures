@@ -96,9 +96,8 @@ public class MoCEntityHorse extends MoCAnimal {
      * resists taming until it has been won over repeatedly. Each accepted feed raises this; the zebra only
      * tames once it reaches {@link #ZEBRA_MAX_TEMPER}. Ordinary horses ignore temper (they tame in one feed).
      */
-    private int temper;
-    /** Legacy zebra {@code getMaxTemper()}: a wild zebra needs this much accrued temper before it tames. */
-    private static final int ZEBRA_MAX_TEMPER = 200;
+    // Temper itself now lives on MoCAnimal (shared with the ride-until-tamed loop); the zebra just raises
+    // getMaxTemper() so it needs far more of it than an ordinary horse.
 
     public MoCEntityHorse(EntityType<? extends MoCEntityHorse> type, Level level) {
         super(type, level);
@@ -639,6 +638,31 @@ public class MoCEntityHorse extends MoCAnimal {
         if (getTypeMoC() == 60 && !getIsTamed() && zebraThreat() != null) {
             return InteractionResult.PASS;
         }
+        // Legacy MoCEntityHorse.interact:1655/1681/1707 — wheat, a sugar lump or bread each heal the horse a
+        // fixed amount, grow a foal, and (while it is still wild) raise its temper so breaking it in succeeds
+        // sooner: +25 / +25 / +100 temper and +1 / +2 / +3 age. Legacy puts NO tamed gate on this, so it is
+        // also how you grow a tamed foal — which matters now that taming no longer forces adulthood.
+        if ((stack.is(Items.WHEAT) || stack.is(MoCItems.SUGARLUMP.get()) || stack.is(Items.BREAD))
+                && !isMagicHorse() && !isUndead()) {
+            if (!this.level().isClientSide()) {
+                boolean bread = stack.is(Items.BREAD);
+                boolean lump = stack.is(MoCItems.SUGARLUMP.get());
+                if (!player.getAbilities().instabuild) {
+                    stack.shrink(1);
+                }
+                if (!getIsTamed()) {
+                    setTemper(getTemper() + (bread ? 100 : 25));
+                    if (getTemper() > getMaxTemper()) {
+                        setTemper(getMaxTemper() - 5);
+                    }
+                }
+                heal(bread ? 20.0F : lump ? 10.0F : 5.0F);
+                if (!getIsAdult() && getMoCAge() < 100) {
+                    setMoCAge(getMoCAge() + (bread ? 3 : lump ? 2 : 1));
+                }
+            }
+            return InteractionResult.SUCCESS;
+        }
         // Legacy zebra temper (getMaxTemper()==200): a wild zebra does NOT tame from a single feed the way an
         // ordinary horse does. Each accepted feed of its normal food raises temper; the zebra only submits and
         // tames once temper reaches ZEBRA_MAX_TEMPER. This intercepts the base FEED taming so ONLY zebras resist
@@ -651,12 +675,11 @@ public class MoCEntityHorse extends MoCAnimal {
                 if (!player.getAbilities().instabuild) {
                     stack.shrink(1);
                 }
-                this.temper += 40;
+                setTemper(getTemper() + 40);
                 heal(getMaxHealth());
-                if (this.temper >= ZEBRA_MAX_TEMPER) {
+                if (getTemper() >= getMaxTemper()) {
                     setTamed(true);
                     setOwnerName(player.getName().getString());
-                    setAdult(true);
                 }
             }
             return InteractionResult.SUCCESS;
@@ -1052,7 +1075,6 @@ public class MoCEntityHorse extends MoCAnimal {
         output.putInt("HorseArmor", getArmor());
         output.putInt("TransformCounter", this.transformCounter);
         output.putInt("TransformType", this.transformTargetType);
-        output.putInt("Temper", this.temper);
         output.putBoolean("EatenPumpkin", this.eatenPumpkin);
         output.putBoolean("ChestedHorse", hasChest());
         ValueOutput.ValueOutputList items = output.childrenList("ChestItems");
@@ -1072,7 +1094,6 @@ public class MoCEntityHorse extends MoCAnimal {
         setArmor(input.getIntOr("HorseArmor", 0));
         this.transformCounter = input.getIntOr("TransformCounter", 0);
         this.transformTargetType = input.getIntOr("TransformType", 0);
-        this.temper = input.getIntOr("Temper", 0);
         this.eatenPumpkin = input.getBooleanOr("EatenPumpkin", false);
         setHasChest(input.getBooleanOr("ChestedHorse", false));
         this.chest.clearContent();
@@ -1441,6 +1462,28 @@ public class MoCEntityHorse extends MoCAnimal {
             return modelTexture(base + suffix + ".png");
         }
         return modelTexture(base + ".png");
+    }
+
+    /**
+     * Legacy {@code getMaxTemper()}: a zebra (type 60) is far harder to win over than an ordinary horse, so it
+     * needs 200 temper rather than the base 100 — both for the graduated feed taming and for breaking it in.
+     */
+    @Override
+    public int getMaxTemper() {
+        return getTypeMoC() == 60 ? 200 : 100;
+    }
+
+    /** Legacy {@code getMadSound()} — played when a wild horse bucks its rider off. */
+    @Override
+    protected @Nullable SoundEvent getAngrySound() {
+        int t = getTypeMoC();
+        if (t == 23 || t == 24 || t == 25 || t == 26) {
+            return MoCSounds.HORSEMADUNDEAD.get();
+        }
+        if (t == 21 || t == 22) {
+            return MoCSounds.HORSEMADGHOST.get();
+        }
+        return MoCSounds.HORSEMAD.get();
     }
 
     @Override

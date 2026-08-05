@@ -22,29 +22,27 @@ public final class MoCCreativeTabs {
                     .icon(() -> MoCItems.BUNNY_SPAWN_EGG.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
                         MoCItems.ITEMS.forEach(holder -> output.accept(holder.get()));
-                        // Deterministic thrown-egg subtypes: one labelled egg per hatchable species AND coat
-                        // variant, each tagged with the legacy composite EggType so it hatches that exact
-                        // creature (the plain mocegg above stays random). Table (legacy MoCEntityEgg): fishy
-                        // 1-10, shark 11, snakes 21-28, turtle 29, ostrich 30-32, komodo 33, scorpions 41-45,
-                        // wyverns 50-54.
+                        // One labelled egg per hatchable species AND coat variant, tagged with the legacy
+                        // composite EggType so it hatches that exact creature. The plain unlabelled mocegg is
+                        // already emitted by the ITEMS loop above as the blank "Spoiled Egg".
+                        //
+                        // Only the ids legacy actually gave a name are listed (MoCreatures.java:897-935).
+                        // Deliberately omitted, because both would render as a second and third identical white
+                        // "Spoiled Egg" alongside the plain item:
+                        //   29 - turtle. Legacy has no turtle egg at all; nothing lays or drops one.
+                        //   32 - nether/fire ostrich. Redundant: an ordinary ostrich egg incubated in the
+                        //        Nether already hatches the fire ostrich (see MoCEntityEgg.hatch).
                         int[] eggTypes = {
                                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,   // fishy variants
                                 11,                              // shark
                                 21, 22, 23, 24, 25, 26, 27, 28,  // snake variants
-                                29,                              // turtle
-                                30, 31, 32,                      // ostrich: wild / stolen (hatches tamed) / nether (hatches fire ostrich)
+                                30, 31,                          // ostrich: wild / stolen (hatches tamed)
                                 33,                              // komodo
                                 41, 42, 43, 44, 45,              // scorpion variants
                                 50, 51, 52, 53, 54,              // wyvern variants
                         };
                         for (int eggType : eggTypes) {
-                            net.minecraft.world.item.ItemStack egg =
-                                    new net.minecraft.world.item.ItemStack(MoCItems.MOCEGG.get());
-                            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
-                            tag.putInt("EggType", eggType);
-                            egg.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
-                                    net.minecraft.world.item.component.CustomData.of(tag));
-                            output.accept(egg);
+                            output.accept(drzhark.mocreatures.item.MoCThrownEggItem.createEgg(eggType));
                         }
                     })
                     .build());

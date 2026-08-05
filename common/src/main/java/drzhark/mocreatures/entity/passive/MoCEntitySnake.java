@@ -437,13 +437,8 @@ public class MoCEntitySnake extends MoCAnimal {
         }
         int count = this.random.nextInt(3); // 0, 1 or 2 eggs
         for (int i = 0; i < count; i++) {
-            net.minecraft.world.item.ItemStack egg =
-                    new net.minecraft.world.item.ItemStack(drzhark.mocreatures.registry.MoCItems.MOCEGG.get());
-            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
-            tag.putInt("EggType", getTypeMoC() + 20); // legacy composite snake-egg id (21-28)
-            egg.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
-                    net.minecraft.world.item.component.CustomData.of(tag));
-            spawnAtLocation(level, egg);
+            // legacy composite snake-egg id (21-28), keyed to this snake's own variant
+            spawnAtLocation(level, drzhark.mocreatures.item.MoCThrownEggItem.createEgg(getTypeMoC() + 20));
         }
     }
 }

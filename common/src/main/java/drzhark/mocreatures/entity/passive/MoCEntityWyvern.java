@@ -773,6 +773,12 @@ public class MoCEntityWyvern extends MoCAnimal {
         return MoCSounds.WYVERNGRUNT.get();
     }
 
+    /** Played when a wild wyvern throws its rider off while being broken in. */
+    @Override
+    protected @Nullable SoundEvent getAngrySound() {
+        return MoCSounds.WYVERNHURT.get();
+    }
+
     @Override
     protected @Nullable SoundEvent getHurtSound(DamageSource damageSource) {
         return MoCSounds.WYVERNHURT.get();
