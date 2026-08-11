@@ -72,6 +72,11 @@ public class MoCEntityWyvern extends MoCAnimal {
     public MoCEntityWyvern(EntityType<? extends MoCEntityWyvern> type, Level level) {
         super(type, level);
         this.moveControl = new FlyingMoveControl(this, 20, true);
+        // Legacy MoCEntityWyvern:40-52 forces EVERY wyvern to start non-adult at edad 50-99. Every
+        // saddle/ride/barding gate is written against adulthood, so a wyvern that spawned adult would be
+        // instantly rideable — and the class's own growth tick would only ever run on egg-hatched ones.
+        setAdult(false);
+        setMoCAge(50 + this.random.nextInt(50));
     }
 
     @Override

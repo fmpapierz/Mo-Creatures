@@ -192,14 +192,9 @@ public class MoCEntityKittyBed extends MoCAnimal {
         }
         // Otherwise: carry the bed on the player's head, or set it back down (legacy mount toggle).
         if (server) {
-            this.setYRot(player.getYRot());
-            if (this.isPassenger()) {
-                this.stopRiding();
-            } else if (!this.isVehicle() && !player.isPassenger()) {
-                this.startRiding(player);
-            }
-            this.playSound(SoundEvents.CHICKEN_EGG, 1.0F,
-                    (this.random.nextFloat() - this.random.nextFloat()) * 0.2F + 1.0F);
+            // Shared carry toggle. The furniture used the same "ride the player" idiom the pets did, and it
+            // was broken for exactly the same reason: a player cannot be a vehicle on a 26.2 server.
+            toggleCarry(player, false);
         }
         return InteractionResult.SUCCESS;
     }

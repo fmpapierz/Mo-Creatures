@@ -95,6 +95,17 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
             state.ostrichChested = false;
         }
         state.bearState = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityBear bear ? bear.getBearState() : 0;
+        state.moleState = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityMole mole ? mole.getState() : 0;
+        state.riding = entity.isPassenger()
+                || (entity instanceof drzhark.mocreatures.entity.MoCAnimal carried && carried.isBeingCarried());
+        state.sprinting = entity.isSprinting();
+        if (entity instanceof drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton skeleton) {
+            state.silverSkeletonLeftSwing = skeleton.getLeftSwingTick();
+            state.silverSkeletonRightSwing = skeleton.getRightSwingTick();
+        } else {
+            state.silverSkeletonLeftSwing = 0;
+            state.silverSkeletonRightSwing = 0;
+        }
         if (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityTurtle turtle) {
             state.turtleUpsideDown = turtle.getIsUpsideDown();
             state.turtleHiding = turtle.getIsHiding();
@@ -144,6 +155,18 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
             state.kittyTamed = false;
         }
         state.attackSwing = entity.getAttackAnim(partialTick); // 0..1 melee swing progress for attack-lunge poses
+        // Manticore, both forms (wild monster + tameable pet, via the shared IMoCManticore contract): wing
+        // beat, airborne wing/leg pose, the scorpion sting strike, and the big cat jaw drop it reuses.
+        if (entity instanceof drzhark.mocreatures.entity.IMoCManticore manticore) {
+            state.manticoreFlapping = manticore.isWingFlapping();
+            state.manticoreAirborne = !entity.onGround();
+            state.manticoreStinging = manticore.isStingStriking();
+            state.bigcatJawOpen = manticore.getJawOpen();
+        } else {
+            state.manticoreFlapping = false;
+            state.manticoreAirborne = false;
+            state.manticoreStinging = false;
+        }
     }
 
     @Override
@@ -171,6 +194,23 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
         if (f != 1.0F) {
             poseStack.scale(f, f, f);
         }
+    }
+
+    /**
+     * A creature you are carrying sits on your own head, which fills the screen the moment you look up.
+     * Legacy sidestepped this by dropping the carried pet's render offset to the carrier's feet while the
+     * carrier was the local player ({@code MoCEntityBunny.getYOffset}); hiding it outright is the cleaner
+     * equivalent. Other players still see the pet on your head, and third-person still shows it.
+     */
+    @Override
+    public boolean shouldRender(T entity, net.minecraft.client.renderer.culling.Frustum frustum,
+            double camX, double camY, double camZ) {
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        if (entity.getVehicle() != null && entity.getVehicle() == minecraft.getCameraEntity()
+                && minecraft.options.getCameraType().isFirstPerson()) {
+            return false;
+        }
+        return super.shouldRender(entity, frustum, camX, camY, camZ);
     }
 
     @Override

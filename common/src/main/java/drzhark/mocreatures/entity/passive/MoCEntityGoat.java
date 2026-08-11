@@ -158,13 +158,14 @@ public class MoCEntityGoat extends MoCAnimal {
                     if (exceedsTameCap(player)) {
                         return InteractionResult.SUCCESS;
                     }
-                    if (!player.getAbilities().instabuild) {
-                        stack.shrink(1);
-                    }
+                    // Legacy MoCEntityGoat.interact:688-700 is just `tameWithName(...)` — it does NOT consume
+                    // the food, does NOT heal, and never touches adulthood. Forcing adulthood here snapped a
+                    // kid to a full-grown goat (and made a female kid instantly milkable), skipping the whole
+                    // growth phase that every other FEED species preserves.
                     setTamed(true);
                     setOwnerName(player.getName().getString());
-                    setAdult(true);
-                    heal(getMaxHealth());
+                    // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                    drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
                     spawnHearts(7);
                 }
                 return InteractionResult.SUCCESS;

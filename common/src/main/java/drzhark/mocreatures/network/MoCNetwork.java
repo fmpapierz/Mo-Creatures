@@ -32,6 +32,13 @@ public final class MoCNetwork {
                     }
                 }));
 
+        // Server -> client: pop up the naming screen for a creature the player has just tamed.
+        NetworkManager.registerReceiver(NetworkManager.Side.S2C, MoCOpenNamePayload.TYPE, MoCOpenNamePayload.CODEC,
+                (payload, context) -> context.queue(() -> dev.architectury.utils.EnvExecutor.runInEnv(
+                        dev.architectury.utils.Env.CLIENT,
+                        () -> () -> drzhark.mocreatures.client.MoCClientHelper.openNameScreen(
+                                payload.entityId(), payload.currentName()))));
+
         // Client -> server: jump the Mo'Creatures mount the sender is riding (legacy Jump keybind).
         NetworkManager.registerReceiver(NetworkManager.Side.C2S, MoCJumpPayload.TYPE, MoCJumpPayload.CODEC,
                 (payload, context) -> context.queue(() -> {
@@ -50,5 +57,35 @@ public final class MoCNetwork {
                         moc.dismountMoCEntity(serverLevel);
                     }
                 }));
+    }
+
+    /**
+     * Legacy {@code MoCTools.tameWithName}: assigns ownership and immediately prompts the taming player to
+     * name their new pet. Every taming path in the mod funnels through here, so a newly tamed creature is
+     * named the moment it is won over rather than only when a Medallion is right-clicked onto it later.
+     *
+     * @return {@code false} (and does nothing) when the player is already at their tamed-pet cap.
+     */
+    public static boolean tameWithName(IMoCEntity moc, Player player) {
+        if (!(moc instanceof Entity entity) || entity.level().isClientSide()) {
+            return false;
+        }
+        if (drzhark.mocreatures.entity.MoCAnimal.exceedsTameCap(entity, player)) {
+            return false;
+        }
+        moc.setTamed(true);
+        moc.setOwnerName(player.getName().getString());
+        promptName(moc, player);
+        return true;
+    }
+
+    /** Opens the naming screen on {@code player}'s client for a creature they own. Server-side. */
+    public static void promptName(IMoCEntity moc, Player player) {
+        if (!(moc instanceof Entity entity) || !(player instanceof net.minecraft.server.level.ServerPlayer sp)) {
+            return;
+        }
+        NetworkManager.sendToPlayer(sp, new MoCOpenNamePayload(entity.getId(),
+                entity.hasCustomName() && entity.getCustomName() != null
+                        ? entity.getCustomName().getString() : ""));
     }
 }

@@ -5,7 +5,7 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Shared render state for Mo'Creatures entities. Carries the per-entity texture (selected from the
- * entity's {@code type}) so a single generic renderer can serve creatures with many colour variants.
+ * entity's {@code typeMoC}) so a single generic renderer can serve creatures with many colour variants.
  */
 public class MoCEntityRenderState extends LivingEntityRenderState {
     public Identifier texture;
@@ -100,4 +100,30 @@ public class MoCEntityRenderState extends LivingEntityRenderState {
      * golem's synched block ids in {@code MoCGolemRenderer.extractRenderState}.
      */
     public net.minecraft.client.renderer.block.MovingBlockRenderState[] golemCubeBlocks;
+
+    /** Manticore wing beat in progress (legacy {@code wingFlapCounter != 0}) — full-amplitude wing sweep. */
+    public boolean manticoreFlapping;
+    /** Manticore is off the ground — wings unfold and cruise, and all four legs tuck back. */
+    public boolean manticoreAirborne;
+    /** Manticore scorpion tail is mid-strike (legacy {@code swingingTail()}) — the barb whips forward. */
+    public boolean manticoreStinging;
+
+    /** Riding something (legacy {@code getRidingEntity() != null}) — drives seated rider leg poses. */
+    public boolean riding;
+    /** Sprinting (legacy {@code isSprinting}) — drives the silver skeleton's forward charge lean. */
+    public boolean sprinting;
+    /** Silver skeleton per-arm katana swing counters (legacy attackCounterLeft/Right): 0 idle, 1..10 swinging. */
+    public int silverSkeletonLeftSwing;
+    public int silverSkeletonRightSwing;
+    /** Mole burrow state (0 outside, 1 digging in, 2 underground, 3 peek-a-boo) — drives the sink + pitch. */
+    public int moleState;
+    /** Mini golem has an attack target — swaps its head and body to the red-hot skins. */
+    public boolean miniGolemAngry;
+    /** Mini golem is hoisting a ripped-up block overhead — both arms swing straight up. */
+    public boolean miniGolemHasRock;
+    /**
+     * The block the mini golem is hoisting, drawn as a real full-size block above its head by
+     * {@code MoCMiniGolemRenderer}; {@code null} when it is empty-handed.
+     */
+    public net.minecraft.client.renderer.block.MovingBlockRenderState miniGolemHeldBlock;
 }

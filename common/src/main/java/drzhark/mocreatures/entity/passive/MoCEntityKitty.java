@@ -168,6 +168,7 @@ public class MoCEntityKitty extends MoCAnimal {
             if (getKittyState() != STATE_CALM) {
                 setKittyState(STATE_CALM);
             }
+            seekDroppedFish(level);
             return;
         }
 
@@ -238,6 +239,59 @@ public class MoCEntityKitty extends MoCAnimal {
         } else if (!wantsToSleep && getKittyState() == STATE_CALM && getRandom().nextInt(400) == 0) {
             wantsToSleep = true; // night, content: drift off.
         }
+    }
+
+    /** Legacy stage-1 taming: a kitty only accepts a Medallion once it has eaten a dropped cooked fish. */
+    @Override
+    protected boolean requiresFeedingBeforeTaming() {
+        return true;
+    }
+
+    /**
+     * Legacy stage 1 of kitty taming ({@code MoCEntityKitty}:789-820). A hungry WILD kitty looks for a
+     * cooked fish dropped on the ground within 10 blocks, pads over to it and eats it — only then will it
+     * accept a Medallion. Without this a wild kitty is tamed by a single medallion click, skipping the
+     * "win it over with food first" half of the mechanic that the big cat still has.
+     */
+    private void seekDroppedFish(ServerLevel level) {
+        if (getHasEatenMoC() || hungerCounter <= HUNGER_THRESHOLD || getRandom().nextInt(10) != 0) {
+            return;
+        }
+        net.minecraft.world.entity.item.ItemEntity nearestFish = null;
+        double best = Double.MAX_VALUE;
+        for (net.minecraft.world.entity.item.ItemEntity item : level.getEntitiesOfClass(
+                net.minecraft.world.entity.item.ItemEntity.class, getBoundingBox().inflate(10.0D),
+                e -> e.isAlive() && (e.getItem().is(net.minecraft.world.item.Items.COOKED_COD)
+                        || e.getItem().is(net.minecraft.world.item.Items.COOKED_SALMON)))) {
+            double d = item.distanceToSqr(this);
+            if (d < best) {
+                best = d;
+                nearestFish = item;
+            }
+        }
+        if (nearestFish == null) {
+            return;
+        }
+        if (best >= 4.0D) {
+            getNavigation().moveTo(nearestFish, 1.0D);
+            return;
+        }
+        nearestFish.getItem().shrink(1);
+        if (nearestFish.getItem().isEmpty()) {
+            nearestFish.discard();
+        }
+        setHasEatenMoC(true);
+        hungerCounter = 0;
+        setHealth(getMaxHealth());
+        level.playSound(null, blockPosition(), MoCSounds.EATING.get(),
+                net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F,
+                1.0F + (getRandom().nextFloat() - getRandom().nextFloat()) * 0.2F);
+    }
+
+    /** Legacy kittens are born at edad 40 (MoCEntityKitty ctor) and grow to adult at 100. */
+    @Override
+    protected int newbornAge() {
+        return 40;
     }
 
     /**

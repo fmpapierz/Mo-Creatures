@@ -133,6 +133,12 @@ public class MoCEntityBigCat extends MoCAnimal {
         builder.define(OPEN_JAW, false);
     }
 
+    /** Legacy medallion taming needs a cub that has already eaten (see {@link #customServerAiStep}). */
+    @Override
+    protected boolean requiresFeedingBeforeTaming() {
+        return true;
+    }
+
     public boolean getIsHungry() {
         return this.entityData.get(HUNGRY);
     }

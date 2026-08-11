@@ -58,6 +58,12 @@ public class MoCEntityBunny extends MoCAnimal {
         this.goalSelector.addGoal(4, new FollowParentGoal(this, 1.1D));
     }
 
+    /**
+     * Legacy transient {@code pickedUp} flag, tracked so the landing behaviour fires exactly once on the
+     * tick a thrown bunny touches down again (legacy {@code updateEntityActionState}:290-307).
+     */
+    private boolean wasCarried;
+
     @Override
     protected void customServerAiStep(ServerLevel level) {
         super.customServerAiStep(level);
@@ -69,7 +75,37 @@ public class MoCEntityBunny extends MoCAnimal {
                 setAdult(true);
             }
         }
+        tickLanding(level);
         reproduce(level);
+    }
+
+    /** A carried bunny is set down with the {@code rabbitlift} sound (legacy {@code MoCEntityBunny}:179). */
+    @Override
+    protected @Nullable SoundEvent getPutDownSound() {
+        return MoCSounds.RABBITLIFT.get();
+    }
+
+    /**
+     * Legacy {@code updateEntityActionState}:290-307 — the thrown-bunny-as-bait trick. The first time a
+     * bunny that was being carried touches the ground again it thumps down ({@code rabbitland}) and every
+     * hostile mob within 12 blocks turns on it, so a player can lob a bunny to pull a mob off themselves.
+     */
+    private void tickLanding(ServerLevel level) {
+        if (isBeingCarried()) {
+            this.wasCarried = true;
+            return;
+        }
+        if (!this.wasCarried || !this.onGround()) {
+            return;
+        }
+        this.wasCarried = false;
+        level.playSound(null, blockPosition(), MoCSounds.RABBITLAND.get(), SoundSource.NEUTRAL, 1.0F,
+                ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F) + 1.0F);
+        for (net.minecraft.world.entity.Mob mob : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class,
+                getBoundingBox().inflate(12.0D),
+                m -> m instanceof net.minecraft.world.entity.monster.Enemy && m.isAlive())) {
+            mob.setTarget(this);
+        }
     }
 
     /**
@@ -81,7 +117,7 @@ public class MoCEntityBunny extends MoCAnimal {
      * {@code isBreedingItem} returned false).
      */
     private void reproduce(ServerLevel level) {
-        if (!getIsTamed() || !getIsAdult() || this.isPassenger() || countBunnies(level) > BUNNY_LIMIT) {
+        if (!getIsTamed() || !getIsAdult() || isBeingCarried() || countBunnies(level) > BUNNY_LIMIT) {
             return;
         }
         if (this.bunnyReproduceTickerA < 1023) {
@@ -98,7 +134,7 @@ public class MoCEntityBunny extends MoCAnimal {
         }
         for (MoCEntityBunny partner : level.getEntitiesOfClass(MoCEntityBunny.class,
                 this.getBoundingBox().inflate(4.0D, 4.0D, 4.0D))) {
-            if (partner == this || partner.isPassenger()
+            if (partner == this || partner.isBeingCarried()
                     || partner.bunnyReproduceTickerA < 1023 || !partner.getIsAdult()) {
                 continue;
             }
@@ -190,7 +226,7 @@ public class MoCEntityBunny extends MoCAnimal {
      */
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        if (this.isPassenger()) {
+        if (isBeingCarried()) {
             return false;
         }
         return super.hurtServer(level, source, amount);

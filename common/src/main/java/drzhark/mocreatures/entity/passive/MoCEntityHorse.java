@@ -59,6 +59,23 @@ public class MoCEntityHorse extends MoCAnimal {
      */
     private static final EntityDataAccessor<Integer> SPRINT_PHASE =
             SynchedEntityData.defineId(MoCEntityHorse.class, EntityDataSerializers.INT);
+    /**
+     * Essence/dye morph animation counter (legacy {@code transformCounter}). 0 = idle; while &gt; 0 the
+     * server ticks it up and the actual {@code setTypeMoC(getTransformType())} coat swap fires only once it
+     * passes 100 (~5 seconds), with the {@code transform} sound played mid-way at 40.
+     *
+     * <p>This is SYNCHED rather than a server-private field because the morph animation is drawn entirely
+     * from it: legacy {@code MoCEntityHorse.getTexture()}:1030-1122 strobed the horse between its current
+     * coat and the coat it was turning into for as long as the counter ran (slowly at first, then faster),
+     * and that strobe IS the "morph". {@link #getTexture()} is evaluated on the client every frame (see
+     * {@code MoCMobRenderer.extractRenderState}), so a counter the client cannot see leaves it nothing to
+     * draw — the old coat simply snaps to the new one the instant the synched sub-type changes.</p>
+     */
+    private static final EntityDataAccessor<Integer> TRANSFORM_COUNTER =
+            SynchedEntityData.defineId(MoCEntityHorse.class, EntityDataSerializers.INT);
+    /** The coat the pending morph will become (legacy {@code transformType}); synched alongside the counter. */
+    private static final EntityDataAccessor<Integer> TRANSFORM_TYPE =
+            SynchedEntityData.defineId(MoCEntityHorse.class, EntityDataSerializers.INT);
 
     /** Server-side timers holding the graze / rear poses for a short while once triggered. */
     private int eatingTicks;
@@ -69,6 +86,11 @@ public class MoCEntityHorse extends MoCAnimal {
      * to 0 past 300. Drives the sprint speed multiplier and the unicorn/fairy charge-buckle.
      */
     private int sprintCounter;
+    /**
+     * Legacy {@code nightmareInt} (server-side, transient): a whip crack on a ridden nightmare sets this to
+     * 250, and while it counts down the horse lays a trail of fire and shields its rider from burning.
+     */
+    private int nightmareInt;
 
     /**
      * The saddlebag inventory (legacy {@code localhorsechest}). Persisted in NBT and dropped on death only
@@ -77,14 +99,6 @@ public class MoCEntityHorse extends MoCAnimal {
      */
     private final SimpleContainer chest = new SimpleContainer(27);
 
-    /**
-     * Essence-morph animation counter (server-side). 0 = idle; while > 0 it ticks up and the actual
-     * {@code setTypeMoC(transformTargetType)} coat-swap fires only once it passes 100 (~5 seconds),
-     * with the {@code transform} sound played mid-way at 40. Mirrors the legacy {@code transformCounter}.
-     */
-    private int transformCounter;
-    /** The coat type the pending essence morph will become (see {@link #transform(int)}). */
-    private int transformTargetType;
     /**
      * Legacy {@code eatenpumpkin}: set true when a magic/special horse is re-fed its own essence at
      * full adult health. Gates special-type breeding — two special horses only produce a special foal
@@ -111,6 +125,26 @@ public class MoCEntityHorse extends MoCAnimal {
         builder.define(EATING, false);
         builder.define(REARING, false);
         builder.define(SPRINT_PHASE, 0);
+        builder.define(TRANSFORM_COUNTER, 0);
+        builder.define(TRANSFORM_TYPE, 0);
+    }
+
+    /** Legacy {@code transformCounter}: 0 idle, otherwise 1-100 while an essence/dye morph plays out. */
+    public int getTransformCounter() {
+        return this.entityData.get(TRANSFORM_COUNTER);
+    }
+
+    private void setTransformCounter(int counter) {
+        this.entityData.set(TRANSFORM_COUNTER, counter);
+    }
+
+    /** Legacy {@code transformType}: the coat the running morph will finish as, or 0 when idle. */
+    public int getTransformType() {
+        return this.entityData.get(TRANSFORM_TYPE);
+    }
+
+    private void setTransformType(int type) {
+        this.entityData.set(TRANSFORM_TYPE, type);
     }
 
     @Override
@@ -289,19 +323,17 @@ public class MoCEntityHorse extends MoCAnimal {
     }
 
     /**
-     * Begins a ~5-second essence morph into coat {@code t}. An unridden horse plays the animation
-     * (armour is shed up front, {@link #transformCounter} starts and the coat swaps once it finishes
-     * in {@link #tick()}); a ridden horse — which cannot safely animate mid-ride — transforms at once.
-     * Mirrors the legacy {@code transform(int)}.
+     * Begins the ~5-second morph into coat {@code t} (legacy {@code transform(int)}:2810-2815). Only a horse
+     * that is NOT being ridden starts it: it sheds its armour up front, the counter starts, the client strobes
+     * it between the two coats (see {@link #getTexture()}) and the coat actually swaps once the counter passes
+     * 100 in {@link #tick()}. A ridden horse ignores the transform entirely — no coat change and no animation —
+     * even though the essence/dye that triggered it was still consumed by the caller, exactly as in legacy.
      */
     private void transform(int t) {
-        this.transformTargetType = t;
-        // Legacy transform(): only a horse that is NOT being ridden starts the morph (sheds its armour and
-        // begins the ~5s animation). A ridden horse ignores the transform entirely — no coat change and no
-        // animation — even though the essence that triggered it was still consumed by the caller.
+        setTransformType(t);
         if (!this.isVehicle() && t != 0) {
             dropArmor();
-            this.transformCounter = 1;
+            setTransformCounter(1);
         }
     }
 
@@ -388,18 +420,21 @@ public class MoCEntityHorse extends MoCAnimal {
     @Override
     public void tick() {
         super.tick();
-        // Essence morph animation: server drives the counter; the coat only swaps once it finishes (~5s),
-        // with the transform sound played mid-way. Guarded server-side so typeMoC (synched) drives the coat.
-        if (!this.level().isClientSide() && this.transformCounter > 0) {
-            this.transformCounter++;
-            if (this.transformCounter == 40) {
+        // Essence/dye morph animation: the server drives the counter (which is synched, so the client can
+        // strobe the two coats against each other in getTexture()) and the coat only swaps once it finishes
+        // (~5s), with the transform sound played mid-way. Server-guarded so typeMoC stays authoritative.
+        if (!this.level().isClientSide() && getTransformCounter() > 0) {
+            int counter = getTransformCounter() + 1;
+            setTransformCounter(counter);
+            if (counter == 40) {
                 this.level().playSound(null, blockPosition(), MoCSounds.TRANSFORM.get(),
                         SoundSource.NEUTRAL, 1.0F, 1.0F);
             }
-            if (this.transformCounter > 100) {
-                setTypeMoC(this.transformTargetType);
+            if (counter > 100) {
+                setTypeMoC(getTransformType());
                 dropArmor();
-                this.transformCounter = 0;
+                setTransformCounter(0);
+                setTransformType(0);
             }
         }
         // Keep per-tier health/jump attributes matched to the current coat (spawn + breeding/essence changes).
@@ -440,6 +475,12 @@ public class MoCEntityHorse extends MoCAnimal {
                     : (this.sprintCounter > 150 ? 2 : 0);
             if (this.entityData.get(SPRINT_PHASE) != sprintPhase) {
                 this.entityData.set(SPRINT_PHASE, sprintPhase);
+            }
+            // Nightmare fire-trail gallop (legacy onLivingUpdate:2278): while the whip-set counter runs
+            // down, a RIDDEN nightmare lays fire on ~half of its ticks and extinguishes its own rider.
+            if (isNightmare() && this.isVehicle() && this.nightmareInt > 0 && this.random.nextInt(2) == 0
+                    && this.level() instanceof ServerLevel nightmareLevel) {
+                nightmareEffect(nightmareLevel);
             }
             if (this.sprintCounter > 0 && this.sprintCounter < 150 && this.isVehicle() && isUnicornedCoat()
                     && this.level() instanceof ServerLevel sprintLevel) {
@@ -663,6 +704,13 @@ public class MoCEntityHorse extends MoCAnimal {
             }
             return InteractionResult.SUCCESS;
         }
+        // Legacy MoCEntityHorse.interact:1733 gates the apple/golden-apple tame on `!isMagicHorse() &&
+        // !isUndead()`. A unicorn, pegasus, bat horse, ghost, fairy or any undead/skeleton coat could NEVER
+        // be tamed by feeding — the only route was saddling a wild one and breaking it in. Without this
+        // guard the generic FEED branch below tames a wild unicorn with a single apple.
+        if (!getIsTamed() && (isMagicHorse() || isUndead()) && isFood(stack)) {
+            return InteractionResult.PASS;
+        }
         // Legacy zebra temper (getMaxTemper()==200): a wild zebra does NOT tame from a single feed the way an
         // ordinary horse does. Each accepted feed of its normal food raises temper; the zebra only submits and
         // tames once temper reaches ZEBRA_MAX_TEMPER. This intercepts the base FEED taming so ONLY zebras resist
@@ -680,6 +728,8 @@ public class MoCEntityHorse extends MoCAnimal {
                 if (getTemper() >= getMaxTemper()) {
                     setTamed(true);
                     setOwnerName(player.getName().getString());
+                    // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                    drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
                 }
             }
             return InteractionResult.SUCCESS;
@@ -778,6 +828,13 @@ public class MoCEntityHorse extends MoCAnimal {
                     } else { // ESSENCELIGHT
                         applyEssenceLight(server);
                     }
+                    // Re-feeding a magic/undead horse its OWN essence at full adult health is that coat's
+                    // equivalent of the pumpkin (the applyEssence* methods set eatenPumpkin for exactly that
+                    // case), so like the pumpkin it has to start love mode as well — vanilla BreedGoal will
+                    // not court a horse that is merely flagged ready. See the pumpkin branch below.
+                    if (this.eatenPumpkin) {
+                        enterLoveMode(player);
+                    }
 
                     // Consume one essence and give back a single empty bottle (creative keeps its stack).
                     if (!player.getAbilities().instabuild) {
@@ -808,6 +865,30 @@ public class MoCEntityHorse extends MoCAnimal {
             }
         }
 
+        // --- apple / golden apple on a TAMED horse: heal it and start its courtship. Legacy fed apples to
+        //     TAME a wild horse (interact:1733) and the port keeps that in MoCAnimal's FEED branch, but a
+        //     tamed horse's apple must be handled here: MoCAnimal.mobInteract:389 swallows it into the
+        //     heal-only branch whenever the horse is below full health (an apple IS in the horse's heal list,
+        //     MoCBehavior:503), so it never reaches Animal.mobInteract and never sets love mode. Doing both
+        //     here — heal AND setInLove — makes the apple a reliable aphrodisiac at any health, mirroring
+        //     MoCEntityKitty.mobInteract:406-413, which solves the identical problem for the kitty. ---
+        if (getIsTamed() && (stack.is(Items.APPLE) || stack.is(Items.GOLDEN_APPLE))) {
+            if (!this.level().isClientSide()) {
+                heal(getMaxHealth());
+                enterLoveMode(player);
+                // A foal grows a step instead (the same +1 the wheat feed gives it above), so hand-feeding a
+                // youngster still brings it on rather than being swallowed for nothing.
+                if (!getIsAdult() && getMoCAge() < 100) {
+                    setMoCAge(getMoCAge() + 1);
+                }
+                if (!player.getAbilities().instabuild) {
+                    stack.shrink(1);
+                }
+                this.level().playSound(null, blockPosition(), MoCSounds.EATING.get(),
+                        SoundSource.NEUTRAL, 1.0F, 1.0F);
+            }
+            return InteractionResult.SUCCESS;
+        }
         // --- pumpkin / mushroom stew / cake: feed an ADULT ordinary horse (tamed OR wild) to heal it and
         //     flag it ready to breed (legacy eatenpumpkin gate has NO tamed check). Magic/undead horses
         //     refuse this food. Lives outside the tamed block so a wild adult horse can be pre-flagged. ---
@@ -817,6 +898,13 @@ public class MoCEntityHorse extends MoCAnimal {
             if (!this.level().isClientSide()) {
                 this.eatenPumpkin = true;
                 setHealth(getMaxHealth());
+                // The pumpkin IS the legacy breeding trigger, so it must also start vanilla love mode: legacy
+                // had no love state at all (legacy onLivingUpdate:2337-2418 paired two eatenpumpkin horses
+                // purely by proximity + a gestation counter), but this port breeds through vanilla BreedGoal,
+                // whose canUse() bails unless the horse isInLove(). Setting only eatenPumpkin and returning
+                // SUCCESS — which skips Animal.mobInteract, the one place that calls setInLove — left the
+                // legacy trigger and the goal unable to meet, so pumpkin-fed horses never courted at all.
+                enterLoveMode(player);
                 boolean stew = stack.is(Items.MUSHROOM_STEW);
                 if (!player.getAbilities().instabuild) {
                     stack.shrink(1);
@@ -830,6 +918,31 @@ public class MoCEntityHorse extends MoCAnimal {
             return InteractionResult.SUCCESS;
         }
         return super.mobInteract(player, hand);
+    }
+
+    /**
+     * Puts this horse into vanilla love mode (hearts + the 600-tick window {@code BreedGoal} needs), if the
+     * coat is one that can actually breed. Skips the sterile and forbidden coats up front so feeding a mule,
+     * a zorse, an undead or a ghost never emits a courtship it can never act on — {@link #canMate(Animal)}
+     * would reject it anyway via {@link #readyForParenting(MoCEntityHorse)}.
+     *
+     * <p>{@code getAge() == 0} is also required: vanilla {@code Animal.aiStep} wipes {@code inLove} on any
+     * animal whose vanilla age is non-zero, which covers both a foal and a parent still inside its 6000-tick
+     * post-breeding cooldown, so setting love there would silently evaporate on the next tick.</p>
+     */
+    private void enterLoveMode(@Nullable Player player) {
+        if (getIsAdult() && coatCanBreed() && getAge() == 0 && canFallInLove()) {
+            setInLove(player);
+        }
+    }
+
+    /**
+     * The coat half of legacy {@code ReadyforParenting} (legacy MoCEntityHorse:2570-2576): undead, ghost, the
+     * sterile zorse (61) and the sterile mule/zonky (&gt;= 66) never breed, whatever else is true of them.
+     */
+    private boolean coatCanBreed() {
+        int t = getTypeMoC();
+        return !isUndead() && !isGhost() && t != 61 && t < 66;
     }
 
     /** Essence of Undead: heals undead/ghost coats to full, otherwise turns the horse undead by category. */
@@ -1073,8 +1186,8 @@ public class MoCEntityHorse extends MoCAnimal {
     protected void addAdditionalSaveData(ValueOutput output) {
         super.addAdditionalSaveData(output);
         output.putInt("HorseArmor", getArmor());
-        output.putInt("TransformCounter", this.transformCounter);
-        output.putInt("TransformType", this.transformTargetType);
+        output.putInt("TransformCounter", getTransformCounter());
+        output.putInt("TransformType", getTransformType());
         output.putBoolean("EatenPumpkin", this.eatenPumpkin);
         output.putBoolean("ChestedHorse", hasChest());
         ValueOutput.ValueOutputList items = output.childrenList("ChestItems");
@@ -1092,8 +1205,8 @@ public class MoCEntityHorse extends MoCAnimal {
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
         setArmor(input.getIntOr("HorseArmor", 0));
-        this.transformCounter = input.getIntOr("TransformCounter", 0);
-        this.transformTargetType = input.getIntOr("TransformType", 0);
+        setTransformCounter(input.getIntOr("TransformCounter", 0));
+        setTransformType(input.getIntOr("TransformType", 0));
         this.eatenPumpkin = input.getBooleanOr("EatenPumpkin", false);
         setHasChest(input.getBooleanOr("ChestedHorse", false));
         this.chest.clearContent();
@@ -1125,6 +1238,11 @@ public class MoCEntityHorse extends MoCAnimal {
             int coat = (other != null) ? horseGenetics(this, other) : this.getTypeMoC();
             foal.setTypeMoC(coat);
             foal.setAdult(false);
+            // Newborn MoC age (legacy setEdad(1), the same value spawnGhostFoal uses): without it the foal
+            // keeps the shared default of 50, so it renders half-grown and reaches MoC adulthood in half the
+            // intended time — well before its vanilla age counter has climbed back to 0, which is what gates
+            // it from ever falling in love. Starting at 1 lines the two curves up.
+            foal.setMoCAge(1);
             foal.setAge(-24000); // vanilla baby age -> renders as a foal and grows up
             // Legacy onLivingUpdate breeding (setOwner + setTamed(true)): a bred foal is a TAMED pet owned by
             // the parent's owner, so it inherits the owner and — being tamed — persists instead of despawning.
@@ -1138,6 +1256,37 @@ public class MoCEntityHorse extends MoCAnimal {
             }
         }
         return foal;
+    }
+
+    /**
+     * Keeps a pumpkin-fed pair courting until they actually foal.
+     *
+     * <p>Legacy horses had no love timer at all: once a horse had eaten its pumpkin it stayed ready forever,
+     * and legacy {@code onLivingUpdate}:2337-2418 simply looked for another ready horse within a few blocks
+     * and ticked up a gestation counter. Vanilla {@code BreedGoal} instead needs {@link #isInLove()}, which
+     * expires after 600 ticks — so without this a player who fed the second horse its pumpkin half a minute
+     * after the first would find the first one's courtship had already lapsed, and the pair would just stand
+     * there. Re-arming the timer (silently — the visible heart burst stays with the actual feed) restores the
+     * legacy "ready until bred" semantics without leaving lone horses permanently in love.</p>
+     *
+     * <p>Self-limiting: {@link #getBreedOffspring} clears {@code eatenPumpkin} on both parents and vanilla
+     * puts them on a 6000-tick age cooldown, so a foal ends the courtship exactly as legacy did. The entity
+     * scan only runs on a 1-in-20 tick roll, and only for a horse that is already tamed, adult, flagged and
+     * out of love.</p>
+     */
+    @Override
+    protected void customServerAiStep(ServerLevel level) {
+        super.customServerAiStep(level);
+        if (this.random.nextInt(20) != 0 || !this.eatenPumpkin || isInLove() || getAge() != 0
+                || !readyForParenting(this)) {
+            return;
+        }
+        boolean readyPartnerNearby = !level.getEntitiesOfClass(MoCEntityHorse.class,
+                getBoundingBox().inflate(8.0D),
+                other -> other != this && other.eatenPumpkin && readyForParenting(other)).isEmpty();
+        if (readyPartnerNearby) {
+            setInLoveTime(600);
+        }
     }
 
     /**
@@ -1157,9 +1306,8 @@ public class MoCEntityHorse extends MoCAnimal {
     }
 
     private static boolean readyForParenting(MoCEntityHorse h) {
-        int t = h.getTypeMoC();
         return !h.isVehicle() && !h.isPassenger() && h.getIsTamed() && h.eatenPumpkin && h.getIsAdult()
-                && !h.isUndead() && !h.isGhost() && t != 61 && t < 66;
+                && h.coatCanBreed();
     }
 
     /** Legacy {@code HorseGenetics}: the foal's coat type from the two parents' coats. */
@@ -1232,36 +1380,45 @@ public class MoCEntityHorse extends MoCAnimal {
 
     // --------------------------------------------------------------- whip effects (legacy MoCItemWhip)
     /**
-     * Whip crack on a ridden horse (legacy: a ridden nightmare belched a fiery burst — {@code
-     * setNightmareInt(250)} — while any other ridden horse got a sprint kick, {@code sprintCounter = 1}).
-     * Faithful achievable subset: a nightmare (type 38) emits a flame burst AND surges forward; any other
-     * ridden horse just surges forward. Returns {@code true} when the horse was ridden (crack consumed);
-     * {@code false} for an unridden horse, so the whip falls back to its default sit/stay toggle (the
-     * legacy unridden branch toggled an eating state the port lacks). Server-side.
+     * Whip crack on a ridden horse: a nightmare starts its fire-laying gallop ({@code nightmareInt = 250})
+     * and gets no speed boost, while every other ridden horse kicks off a sprint ({@code sprintCounter = 1})
+     * whose acceleration comes from the 1.5x {@code getCustomSpeed} multiplier. Returns {@code true} when
+     * the horse was ridden (crack consumed); {@code false} for an unridden horse, so the whip falls back to
+     * its stay/follow toggle. Server-side.
      */
     public boolean whipCrack() {
         if (!this.isVehicle()) {
             return false; // unridden: let the whip apply its default sit/stay toggle
         }
-        // Legacy whip: a ridden nightmare belches a fiery gallop (nightmareInt) while any OTHER ridden horse
-        // kicks off a sprint (sprintCounter = 1) — the sustained 1.5x charge + unicorn/fairy buckle from tick().
-        if (!isNightmare() && this.sprintCounter == 0) {
+        // Legacy whip (MoCItemWhip:88-95) is an else-if chain: a ridden NIGHTMARE gets setNightmareInt(250)
+        // and deliberately NO sprint, while any other ridden horse gets sprintCounter = 1 — the sustained
+        // 1.5x charge (via getCustomSpeed) plus the unicorn/fairy buckle from tick(). Legacy applied no
+        // velocity impulse of its own; the acceleration is entirely the speed multiplier.
+        if (isNightmare()) {
+            this.nightmareInt = 250;
+        } else if (this.sprintCounter == 0) {
             this.sprintCounter = 1;
         }
-        float yaw = getYRot() * ((float) Math.PI / 180.0F);
-        double push = isNightmare() ? 1.1D : 0.9D;
-        double vx = -Math.sin(yaw) * push;
-        double vz = Math.cos(yaw) * push;
-        setDeltaMovement(getDeltaMovement().add(vx, 0.0D, vz));
-        this.hurtMarked = true;
-        // Nightmare: a fiery burst (legacy nightmareInt gallop). Flame particles + a whiff of fire on the
-        // ground ahead, played server-side so all nearby clients see it.
-        if (isNightmare() && this.level() instanceof ServerLevel server) {
-            server.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
-                    getX() + vx, getY() + getBbHeight() * 0.5D, getZ() + vz,
-                    30, 0.4D, 0.4D, 0.4D, 0.05D);
-        }
         return true;
+    }
+
+    /**
+     * Legacy {@code NightmareEffect()} (MoCEntityHorse:2119-2132): while a whipped nightmare gallops it
+     * lays fire behind itself and keeps its rider from burning. Called on roughly half of the ticks while
+     * {@link #nightmareInt} is counting down, so one crack leaves ~250 fires over ~500 ticks.
+     */
+    private void nightmareEffect(ServerLevel level) {
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(
+                getX() - 1.0D, getBoundingBox().minY, getZ() - 1.0D);
+        if (level.getBlockState(pos).isAir()
+                && level.getBlockState(pos.below()).isFaceSturdy(level, pos.below(),
+                        net.minecraft.core.Direction.UP)) {
+            level.setBlock(pos, net.minecraft.world.level.block.Blocks.FIRE.defaultBlockState(), 3);
+        }
+        if (this.getFirstPassenger() instanceof Player rider && rider.isOnFire()) {
+            rider.clearFire();
+        }
+        this.nightmareInt--;
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -1392,9 +1549,9 @@ public class MoCEntityHorse extends MoCAnimal {
         }
     }
 
-    @Override
-    public Identifier getTexture() {
-        String base = switch (getTypeMoC()) {
+    /** The bare texture file name (no {@code .png}) for a given coat; the fallback is the bug-horse skin. */
+    private static String coatTexture(int type) {
+        return switch (type) {
             case 1 -> "horsewhite";
             case 2 -> "horsecreamy";
             case 3 -> "horsebrown";
@@ -1442,6 +1599,34 @@ public class MoCEntityHorse extends MoCAnimal {
             case 67 -> "horsezonky";
             default -> "horsebug";
         };
+    }
+
+    @Override
+    public Identifier getTexture() {
+        String base = coatTexture(getTypeMoC());
+        // Essence/dye MORPH animation (legacy getTexture:1030-1122). While the transform counter runs the
+        // horse strobes between the coat it has and the coat it is becoming — legacy returned the NEW coat on
+        // every 5th tick, then additionally on every 3rd past tick 50 and every 4th past tick 75, so the flicker
+        // visibly accelerates until the swap lands at 100. Both the counter and the target coat are synched
+        // (see TRANSFORM_COUNTER) precisely so this runs on the client, where getTexture() is evaluated.
+        //
+        // Deliberate deviation from legacy ordering: legacy tested the nightmare flame animation FIRST and
+        // returned from it, so a NIGHTMARE being morphed (essence of light -> unicorn) showed no morph at all.
+        // The strobe is tested first here so every morph animates; a horse turning INTO a nightmare was never
+        // affected either way, since it is still its old coat while the counter runs.
+        int morphCounter = getTransformCounter();
+        int morphTarget = getTransformType();
+        if (morphCounter != 0 && morphTarget != 0) {
+            boolean showTarget = (morphCounter % 5) == 0
+                    || (morphCounter > 50 && (morphCounter % 3) == 0)
+                    || (morphCounter > 75 && (morphCounter % 4) == 0);
+            if (showTarget) {
+                // Legacy showed the plain target skin (a morphing horse has already shed its armour in
+                // transform(), so there is never an armoured variant to pick here), and a horse morphing into
+                // a nightmare flashed the first frame of the flame animation.
+                return modelTexture((morphTarget == 38 ? "horsenightmare1" : coatTexture(morphTarget)) + ".png");
+            }
+        }
         // Nightmare fire flicker (legacy animateTextures): an unarmoured nightmare (type 38) cycles through
         // horsenightmare1-5 for animated flames when the config is on; static horsenightmare.png when off.
         if (getTypeMoC() == 38 && getArmor() == 0

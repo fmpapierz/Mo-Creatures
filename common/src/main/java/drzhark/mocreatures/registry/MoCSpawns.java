@@ -83,6 +83,20 @@ public final class MoCSpawns {
         // any-light rule instead, so they can appear anywhere in the dimension.
         SpawnPlacementsRegistry.register(MoCEntities.HELL_RAT, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkAnyLightMonsterSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.FLAME_WRAITH, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkAnyLightMonsterSpawnRules);
+
+        // ------------------------------------------------ ported from Mo'Creatures 12.0.5
+        SpawnPlacementsRegistry.register(MoCEntities.ANT, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.RACCOON, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.MOLE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.ENT, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.SMALL_FISH, SpawnPlacementTypes.IN_WATER, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkDeepWaterAnimalSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.MEDIUM_FISH, SpawnPlacementTypes.IN_WATER, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkDeepWaterAnimalSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.SILVER_SKELETON, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.MINI_GOLEM, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
+        // MANTICORE is a Nether mob (fire-immune), so it uses the any-light rule its Nether neighbours do
+        // rather than checkMonsterSpawnRules darkness gate. MANTICORE_PET never spawns naturally — the only
+        // way to get one is to hatch a manticore egg.
+        SpawnPlacementsRegistry.register(MoCEntities.MANTICORE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkAnyLightMonsterSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.HORSE_MOB, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
     }
 
@@ -186,6 +200,13 @@ public final class MoCSpawns {
         // host only the four species that name "swamp" explicitly and none of the other two dozen.
         if (bgroups.isEmpty() || (swamp && bgroups.size() == 1)) bgroups.add("normal");
 
+        // ------------------------------------------------ ported from Mo'Creatures 12.0.5
+        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ANT.get());
+        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.RACCOON.get());
+        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.MOLE.get());
+        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ENT.get());
+        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.SILVER_SKELETON.get());
+        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MINI_GOLEM.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BEAR.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BEE.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BIG_CAT.get());
@@ -245,6 +266,10 @@ public final class MoCSpawns {
         }
         if (ocean || river) {
             addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.FISHY.get());
+            // Ported from 12.0.5: the small-fish and medium-fish schools are the ordinary background fish of
+            // both oceans and rivers, exactly like fishy.
+            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.SMALL_FISH.get());
+            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.MEDIUM_FISH.get());
         }
     }
 

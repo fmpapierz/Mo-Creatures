@@ -28,7 +28,8 @@ import java.util.List;
  * meta 54 a "Mother Wyvern Egg", while the bare item name "Spoiled Egg" applied only to the blank meta-0 egg.
  * Item metadata no longer exists in 26.2, so the subtype rides in {@code CUSTOM_DATA} under {@code EggType} and
  * {@link #getName(ItemStack)} resolves it to the matching translation key. That keeps one registered item and
- * one icon, exactly as legacy had, while restoring the 33 distinct names.</p>
+ * one icon, exactly as legacy had, while restoring the 37 distinct names (the 33 of 5.1.5 plus the four
+ * manticore-pet coats 12.0.5 added at ids 62-65).</p>
  *
  * <p>Right-click <em>places</em> the egg at the player's feet with a small random nudge, as legacy did — it is
  * not thrown. A wild ostrich egg (30) becomes a stolen egg (31) when placed, which is what makes the hatchling
@@ -67,8 +68,8 @@ public class MoCThrownEggItem extends Item {
      * The icon tint for an egg subtype.
      *
      * <p>Legacy registered a single shared icon for every egg metadata value ({@code MoCItem.registerIcons}
-     * uses the no-arg {@code getUnlocalizedName()}), so all 33 eggs looked identical and were told apart only
-     * by name. Rather than invent 33 sprites, this keeps the one egg sprite and tints it — the same trick
+     * uses the no-arg {@code getUnlocalizedName()}), so every egg looked identical and they were told apart
+     * only by name. Rather than invent a sprite per subtype, this keeps the one egg sprite and tints it — the same trick
      * vanilla uses for spawn eggs, and the same idea as legacy's own {@code MoCEggColour}, which derived a
      * creature's egg colours from the dominant colours of its texture. These values were sampled from each
      * species' own model texture in {@code textures/models/}, skipping the sheets' flat grey background and
@@ -107,13 +108,19 @@ public class MoCThrownEggItem extends Item {
             case 52 -> 0x773512; // sand wyvern
             case 53 -> 0xF4B743; // savanna wyvern
             case 54 -> 0x9F240F; // mother wyvern
+            // Manticore pet coats, 62-65 == MoCEntityManticorePet type 1-4 (egg id minus 61). Sampled from
+            // bcmanticore / bcmanticoredark / bcmanticoreblue / bcmanticoregreen the same way as the rest.
+            case 62 -> 0x5E0C01; // fire (red) manticore
+            case 63 -> 0x42210D; // dark manticore
+            case 64 -> 0x2F434E; // snow (blue) manticore
+            case 65 -> 0x4A5301; // green manticore
             default -> 0xFFFFFF; // spoiled / unnamed metas stay the plain white egg
         };
     }
 
     /**
      * Legacy {@code MoCItemEgg.getUnlocalizedName(ItemStack)} appended the metadata so each subtype had its own
-     * name. Here the subtype comes from {@code EggType}; metas legacy never named (0, 12-20, 32, 34-40, 46-49)
+     * name. Here the subtype comes from {@code EggType}; ids upstream never named (see {@link #hasOwnName(int)})
      * keep the plain "Spoiled Egg".
      */
     @Override
@@ -123,8 +130,16 @@ public class MoCThrownEggItem extends Item {
     }
 
     /**
-     * The egg ids legacy gave a name to (MoCreatures.java:897-935). Everything else — 0, 12-20, 32, 34-40,
-     * 46-49 and anything past 54 — kept the bare "Spoiled Egg", so those fall through to the base name.
+     * The egg ids legacy gave a name to (MoCreatures.java:897-935) plus the manticore-pet coats 62-65, which
+     * 12.0.5 added and named in {@code assets/mocreatures/lang/en_US.lang:124-127} ("Fire/Dark/Snow Manticore
+     * Egg" and the plain "Manticore Egg"). Everything else — 0, 12-20, 29, 32, 34-40, 46-49, 55-61 and
+     * anything past 65 — kept the bare "Spoiled Egg", so those fall through to the base name.
+     *
+     * <p>The 62-65 arm is the whole reason a manticore egg used to read "Spoiled Egg": the whitelist stopped
+     * at the last wyvern (54), so every manticore stack was denied its own key even though the translations
+     * and {@link MoCEntityEgg#setEggType(int)}'s decode were both already in place. Because they also shared
+     * the untinted default of {@link #eggColour(int)}, the four of them and the blank egg were literally
+     * indistinguishable in the creative tab.</p>
      *
      * <p>This is decided from the id alone rather than by probing the language table, because
      * {@code Component.getString()} resolves against {@code Language.getInstance()}, which on a dedicated
@@ -132,12 +147,13 @@ public class MoCThrownEggItem extends Item {
      * "Spoiled Egg" in multiplayer while looking correct in single-player.</p>
      */
     private static boolean hasOwnName(int type) {
-        return (type >= 1 && type <= 11)     // fishy 1-10, shark 11
+        return (type >= 1 && type <= 11)      // fishy 1-10, shark 11
                 || (type >= 21 && type <= 28) // snakes
                 || type == 30 || type == 31   // ostrich, stolen ostrich
                 || type == 33                 // komodo
                 || (type >= 41 && type <= 45) // scorpions
-                || (type >= 50 && type <= 54); // wyverns
+                || (type >= 50 && type <= 54) // wyverns
+                || (type >= 62 && type <= 65); // manticore pet coats
     }
 
     @Override

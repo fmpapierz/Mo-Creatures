@@ -121,6 +121,33 @@ public final class MoCEntities {
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityHorseMob>> HORSE_MOB = ENTITIES.register("horse_mob",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityHorseMob::new, MobCategory.MONSTER).sized(1.4F, 1.6F).clientTrackingRange(10).build(key("horse_mob")));
 
+    // ------------------------------------------------------------ ported from Mo'Creatures 12.0.5
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityAnt>> ANT = ENTITIES.register("ant",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityAnt::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("ant")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityRaccoon>> RACCOON = ENTITIES.register("raccoon",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRaccoon::new, MobCategory.CREATURE).sized(0.5F, 0.6F).clientTrackingRange(10).build(key("raccoon")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityMole>> MOLE = ENTITIES.register("mole",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMole::new, MobCategory.CREATURE).sized(1.0F, 0.5F).clientTrackingRange(10).build(key("mole")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityEnt>> ENT = ENTITIES.register("ent",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityEnt::new, MobCategory.CREATURE).sized(1.4F, 7.0F).clientTrackingRange(10).build(key("ent")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntitySmallFish>> SMALL_FISH = ENTITIES.register("small_fish",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntitySmallFish::new, MobCategory.WATER_CREATURE).sized(0.3F, 0.3F).clientTrackingRange(10).build(key("small_fish")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityMediumFish>> MEDIUM_FISH = ENTITIES.register("medium_fish",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMediumFish::new, MobCategory.WATER_CREATURE).sized(0.6F, 0.3F).clientTrackingRange(10).build(key("medium_fish")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton>> SILVER_SKELETON = ENTITIES.register("silver_skeleton",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton::new, MobCategory.MONSTER).sized(0.9F, 1.4F).clientTrackingRange(10).build(key("silver_skeleton")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityMiniGolem>> MINI_GOLEM = ENTITIES.register("mini_golem",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityMiniGolem::new, MobCategory.MONSTER).sized(1.0F, 1.0F).clientTrackingRange(10).build(key("mini_golem")));
+    /** Wild Nether manticore. The seat is where legacy {@code getMountedYOffset} put its skeleton rider. */
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityManticore>> MANTICORE = ENTITIES.register("manticore",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityManticore::new, MobCategory.MONSTER).sized(1.4F, 1.6F)
+                    .passengerAttachments(new net.minecraft.world.phys.Vec3(0.0D, 1.1D, 0.0D))
+                    .clientTrackingRange(10).build(key("manticore")));
+    /** Tameable, rideable manticore, hatched from a manticore egg (legacy {@code MoCEntityManticorePet}). */
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityManticorePet>> MANTICORE_PET = ENTITIES.register("manticore_pet",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityManticorePet::new, MobCategory.CREATURE).sized(1.4F, 1.6F)
+                    .passengerAttachments(new net.minecraft.world.phys.Vec3(0.0D, 1.35D, 0.0D))
+                    .clientTrackingRange(10).build(key("manticore_pet")));
     /** Thrown rock projectile (a {@code ThrowableItemProjectile}, MISC category — not a spawnable mob). Hurled by the golem. */
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.projectile.MoCEntityRock>> ROCK = ENTITIES.register("rock",
             () -> EntityType.Builder.<drzhark.mocreatures.entity.projectile.MoCEntityRock>of(drzhark.mocreatures.entity.projectile.MoCEntityRock::new, MobCategory.MISC).sized(0.25F, 0.25F).clientTrackingRange(4).updateInterval(10).build(key("rock")));

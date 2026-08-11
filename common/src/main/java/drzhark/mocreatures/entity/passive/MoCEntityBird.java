@@ -86,7 +86,7 @@ public class MoCEntityBird extends MoCAnimal {
         super.customServerAiStep(level);
         // Legacy parachute (updateEntityActionState): while perched on a player, negate the carrier's fall
         // damage and clamp their downward velocity to -0.1 so the bird slows their descent every tick.
-        if (this.getVehicle() instanceof Player p) {
+        if (getCarrier() instanceof Player p) {
             p.resetFallDistance();
             Vec3 pv = p.getDeltaMovement();
             if (pv.y < -0.1D) {
@@ -97,7 +97,9 @@ public class MoCEntityBird extends MoCAnimal {
         if (!getPreTamed() && !getIsTamed()) {
             for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(8.0D),
                     it -> it.getItem().is(Items.WHEAT_SEEDS) && it.isAlive())) {
-                if (this.distanceToSqr(item) < 2.25D) {
+                // Legacy MoCEntityBird:456-465 required the bird to be within 1 block AND a 1-in-50 roll to
+                // fire, making stage 1 a slow, repeated-approach courtship rather than a one-touch flag flip.
+                if (this.distanceToSqr(item) < 1.0D && this.random.nextInt(50) == 0) {
                     item.getItem().shrink(1);
                     if (item.getItem().isEmpty()) {
                         item.discard();
@@ -119,12 +121,18 @@ public class MoCEntityBird extends MoCAnimal {
             // Stage 2: hand-feed a pre-tamed bird to tame + name it.
             if (!getIsTamed() && getPreTamed()) {
                 if (!this.level().isClientSide()) {
+                    // Legacy tameWithName enforced the per-player pet cap on every taming path.
+                    if (exceedsTameCap(player)) {
+                        return InteractionResult.SUCCESS;
+                    }
                     if (!player.getAbilities().instabuild) {
                         stack.shrink(1);
                     }
                     setTamed(true);
                     setOwnerName(player.getName().getString());
-                    heal(getMaxHealth());
+                    // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                    drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
+                    // Legacy MoCEntityBird:342-353 does NOT heal on the stage-2 tame.
                 }
                 return InteractionResult.SUCCESS;
             }
@@ -146,19 +154,9 @@ public class MoCEntityBird extends MoCAnimal {
         // head (bird rides the player); right-click again to toss it off with a small forward/upward impulse.
         if (getIsTamed() && !stack.is(Items.WHEAT_SEEDS)) {
             if (!this.level().isClientSide()) {
-                if (this.isPassenger() && this.getVehicle() == player) {
-                    // Toss off: dismount and fling in the player's direction of travel (legacy launch impulse).
-                    this.stopRiding();
-                    Vec3 pv = player.getDeltaMovement();
-                    this.setDeltaMovement(pv.x * 5.0D, (pv.y / 2.0D) + 0.5D, pv.z * 5.0D);
-                    this.hurtMarked = true; // sync the impulse to clients (26.2 uses hurtMarked, not hasImpulse)
-                    this.level().playSound(null, this.blockPosition(), SoundEvents.CHICKEN_EGG, SoundSource.NEUTRAL,
-                            1.0F, ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F) + 1.0F);
-                } else if (!this.isVehicle() && !player.isPassenger()) {
-                    // Perch on the player's head.
-                    this.setYRot(player.getYRot());
-                    this.startRiding(player);
-                }
+                // Shared carry toggle: perch on the carrier's head, or toss off with the legacy 5x impulse.
+                // The bird is already tamed to reach this branch, so picking it up never tames.
+                toggleCarry(player, false);
             }
             return InteractionResult.SUCCESS;
         }

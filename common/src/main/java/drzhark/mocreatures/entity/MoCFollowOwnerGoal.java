@@ -52,9 +52,19 @@ public class MoCFollowOwnerGoal extends Goal {
         return null;
     }
 
+    /**
+     * A pet told to stay (whip sit/stay toggle) never follows. {@link MoCSitGoal} already holds the MOVE
+     * flag at a higher priority while sitting, but this check is what stops the long-range snap-to-owner
+     * teleport in {@link #tick()} — which bypasses the navigation the sit goal blocks — from dragging a
+     * stayed pet across the world anyway.
+     */
+    private boolean isStaying() {
+        return mob instanceof MoCAnimal animal && animal.isSitting();
+    }
+
     @Override
     public boolean canUse() {
-        if (!moc.getIsTamed() || mob.isVehicle() || mob.isPassenger()) {
+        if (!moc.getIsTamed() || mob.isVehicle() || mob.isPassenger() || isStaying()) {
             return false;
         }
         Player p = findOwner();
@@ -70,7 +80,7 @@ public class MoCFollowOwnerGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return owner != null && moc.getIsTamed() && !mob.isVehicle() && !mob.isPassenger()
+        return owner != null && moc.getIsTamed() && !mob.isVehicle() && !mob.isPassenger() && !isStaying()
                 && mob.distanceToSqr(owner) > stopDistSqr;
     }
 

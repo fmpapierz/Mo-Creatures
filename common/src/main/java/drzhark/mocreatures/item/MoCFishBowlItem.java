@@ -203,8 +203,13 @@ public class MoCFishBowlItem extends Item {
             fishy.setPos(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);
             fishy.setTypeMoC(this.fishType);
             fishy.selectType();
-            fishy.setTamed(true);
-            fishy.setOwnerName(player.getName().getString());
+            // Legacy tameWithName enforced the per-player pet cap on every taming path, bowl releases included.
+            if (!drzhark.mocreatures.entity.MoCAnimal.exceedsTameCap(fishy, player)) {
+                fishy.setTamed(true);
+                fishy.setOwnerName(player.getName().getString());
+                // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                drzhark.mocreatures.network.MoCNetwork.promptName(fishy, player);
+            }
             level.addFreshEntity(fishy);
             consumeAndGive(player, stack, toItemStack(0));
         }

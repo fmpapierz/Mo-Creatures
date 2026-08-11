@@ -61,6 +61,17 @@ public final class MoCModelLayers {
     public static final ModelLayerLocation HORSE_MOB = layer("horse_mob");
     public static final ModelLayerLocation FISH_BOWL = layer("fish_bowl");
 
+    public static final ModelLayerLocation ANT = layer("ant");
+    public static final ModelLayerLocation RACCOON = layer("raccoon");
+    public static final ModelLayerLocation MOLE = layer("mole");
+    public static final ModelLayerLocation ENT = layer("ent");
+    public static final ModelLayerLocation SMALL_FISH = layer("small_fish");
+    public static final ModelLayerLocation MEDIUM_FISH = layer("medium_fish");
+    public static final ModelLayerLocation SILVER_SKELETON = layer("silver_skeleton");
+    public static final ModelLayerLocation MINI_GOLEM = layer("mini_golem");
+    /** Shared by the wild manticore and its tameable pet form. */
+    public static final ModelLayerLocation MANTICORE = layer("manticore");
+
     private static ModelLayerLocation layer(String name) {
         return new ModelLayerLocation(Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, name), "main");
     }

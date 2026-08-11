@@ -267,11 +267,18 @@ public class MoCEntityBear extends MoCAnimal {
         if (getTypeMoC() == 3 && !getIsTamed()
                 && (stack.is(Items.SUGAR_CANE) || stack.is(MoCItems.SUGARLUMP.get()))) {
             if (!this.level().isClientSide()) {
+                // Legacy routed EVERY tame through MoCTools.tameWithName, which enforced the per-player pet
+                // cap; refuse without consuming the food when the player is already at their limit.
+                if (exceedsTameCap(player)) {
+                    return InteractionResult.SUCCESS;
+                }
                 if (!player.getAbilities().instabuild) {
                     stack.shrink(1);
                 }
                 setTamed(true);
                 setOwnerName(player.getName().getString());
+                // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
                 heal(getMaxHealth());
             }
             return InteractionResult.SUCCESS;

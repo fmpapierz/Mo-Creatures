@@ -55,6 +55,34 @@ public final class MoCBehavior {
          * tamed before it could be mounted at all, so this stays off by default.
          */
         public boolean rideTames = false;
+        /**
+         * Legacy growth curve ({@code edad}). {@code growEvery} is the {@code rand.nextInt(N) == 0}
+         * denominator per server tick — 0 means this species has no growth tick here (either it genuinely
+         * never grows, or its own class already implements one). {@code adultAge} is the age at which
+         * {@code setAdult(true)} fires and {@code maxAge} caps the counter.
+         *
+         * <p>This matters far beyond the render size: nearly every legacy gate is written against adulthood
+         * or age — an elephant can only be tamed while it is a calf, a goat only gives milk as an adult, an
+         * ostrich can only be saddled once grown, a pet scorpion is carried as a baby and ridden as an
+         * adult. Without a growth tick those gates latch shut (or never open) forever.</p>
+         */
+        public int growEvery = 0;
+        public int growStep = 1;
+        public int adultAge = 100;
+        public int maxAge = 100;
+        /** Legacy grew some species only once tamed (the giant turtle). */
+        public boolean growOnlyTamed = false;
+        /**
+         * Most legacy growth loops are gated on {@code !getIsAdult()} and stop the moment the creature
+         * matures. A few keep growing afterwards purely for size (crocodile to 150, ray to 180, tamed
+         * turtle to 300), so those set this.
+         */
+        public boolean growPastAdult = false;
+        /** Legacy {@code setEdad} on spawn; 0 leaves the shared default of 50. */
+        public int spawnAgeMin = 0;
+        public int spawnAgeMax = 0;
+        /** Legacy {@code rand.nextInt(N) == 0 -> setAdult(false)} on natural spawn; 1 = always a baby. */
+        public int babyRoll = 0;
         public List<Drop> drops = new ArrayList<>();
 
         Spec tame(Tame t) { this.tame = t; return this; }
@@ -70,7 +98,56 @@ public final class MoCBehavior {
         Spec drop(Supplier<Item> item, int min, int max, float chance) {
             this.drops.add(new Drop(item, min, max, chance)); return this;
         }
+        Spec grow(int every, int adultAge, int maxAge) {
+            this.growEvery = every; this.adultAge = adultAge; this.maxAge = maxAge; return this;
+        }
+        Spec growStep(int step) { this.growStep = step; return this; }
+        Spec growTamedOnly() { this.growOnlyTamed = true; return this; }
+        Spec growPastAdult() { this.growPastAdult = true; return this; }
+        Spec spawnAge(int min, int max) { this.spawnAgeMin = min; this.spawnAgeMax = max; return this; }
+        Spec babyRoll(int oneInN) { this.babyRoll = oneInN; return this; }
         public List<Supplier<Item>> healOrFood() { return healFoods != null ? healFoods : foods; }
+    }
+
+    /**
+     * Legacy per-tick growth ({@code edad++} then {@code setAdult(true)} at the species' threshold). Call
+     * once per server tick from the entity's AI step; a no-op for species whose spec declares no curve.
+     */
+    public static void tickGrowth(drzhark.mocreatures.entity.IMoCEntity moc,
+            net.minecraft.util.RandomSource random, Spec spec) {
+        if (spec.growEvery <= 0 || (spec.growOnlyTamed && !moc.getIsTamed())
+                || (!spec.growPastAdult && moc.getIsAdult())) {
+            return;
+        }
+        if (moc.getMoCAge() >= spec.maxAge) {
+            if (!moc.getIsAdult() && spec.adultAge <= spec.maxAge) {
+                moc.setAdult(true);
+            }
+            return;
+        }
+        if (random.nextInt(spec.growEvery) != 0) {
+            return;
+        }
+        moc.setMoCAge(Math.min(spec.maxAge, moc.getMoCAge() + spec.growStep));
+        if (!moc.getIsAdult() && moc.getMoCAge() >= spec.adultAge) {
+            moc.setAdult(true);
+        }
+    }
+
+    /**
+     * Legacy spawn-time age/adulthood roll (the {@code setEdad} + {@code rand.nextInt(N) -> setAdult(false)}
+     * pair in each species' constructor). Applied to naturally-spawned creatures only — an egg-hatched,
+     * bred or command-summoned creature sets its own age and must not be overwritten.
+     */
+    public static void applySpawnAge(drzhark.mocreatures.entity.IMoCEntity moc,
+            net.minecraft.util.RandomSource random, Spec spec) {
+        if (spec.spawnAgeMax > 0) {
+            int span = Math.max(0, spec.spawnAgeMax - spec.spawnAgeMin);
+            moc.setMoCAge(spec.spawnAgeMin + (span == 0 ? 0 : random.nextInt(span + 1)));
+        }
+        if (spec.babyRoll > 0 && (spec.babyRoll == 1 || random.nextInt(spec.babyRoll) == 0)) {
+            moc.setAdult(false);
+        }
     }
 
     private static final Spec DEFAULT = new Spec();
@@ -385,7 +462,9 @@ public final class MoCBehavior {
         // stay wild. That panda-only taming lives in MoCEntityBear.mobInteract (which returns before falling
         // through), so the generic FEED taming is disabled here to stop it taming any fed bear. Legacy
         // isMyHealFood is panda + reed (sugar cane), so that is the only heal food.
+        // Legacy MoCEntityBear ctor: edad 55, and 1 spawn in 4 is a cub that grows (rand(250)) to adult at 100.
         reg("bear").tame(Tame.NONE).heal(v(Items.SUGAR_CANE)).baby().hostile()
+                .spawnAge(55, 55).babyRoll(4).grow(250, 100, 100)
                 .vanilla().drop(() -> MoCItems.HIDE.get(), 0, 2, 1.0F);
         reg("big_cat").tame(Tame.MEDALLION).heal(v(Items.PORKCHOP), v(Items.COD)).ride(true).baby().hostile()
                 .vanilla().drop(() -> MoCItems.BIGCATCLAW.get(), 0, 2, 1.0F);
@@ -396,34 +475,46 @@ public final class MoCBehavior {
         // Boar death drop picks ONE item per kill (raw porkchop OR animal hide, 50/50) then drops 0-2 copies,
         // resolved per entity in dropLoot (boar branch), so no type-agnostic .drop() spec here.
         reg("boar").baby().hostile();
-        reg("crocodile").baby().hostile().vanilla().drop(() -> MoCItems.REPTILEHIDE.get(), 0, 2, 1.0F);
+        reg("crocodile").baby().hostile().spawnAge(50, 99).grow(200, 90, 150).growPastAdult()
+                .vanilla().drop(() -> MoCItems.REPTILEHIDE.get(), 0, 2, 1.0F);
         reg("deer").baby().drop(() -> MoCItems.FUR.get(), 1, 1, 1.0F);
-        reg("duck").drop(v(Items.FEATHER), 1, 1, 1.0F);
+        // Ducklings hatched from the port-added duck egg need a growth curve, or they can never lay eggs
+        // themselves (egg-laying is gated on adulthood) and the mechanic does not self-sustain.
+        reg("duck").grow(400, 100, 100).drop(v(Items.FEATHER), 1, 1, 1.0F);
         // Legacy elephants cannot be tamed by a single feed and never tame as adults: interact() only accepts
         // an UNTAMED, NON-ADULT elephant, accumulating temper (cake +2 / sugar-lump +1, full-heal each feed)
         // and taming only once temper>=10 — never setting adult. That temper flow lives in
         // MoCEntityElephant, so the generic FEED taming is disabled here (heal foods are unchanged).
+        // Legacy MoCEntityElephant ctor: edad 50, 1 spawn in 4 is a calf, growing (rand(1000)) to adult at
+        // 100. The calf roll is what makes elephants tameable AT ALL — the temper-feed path below is gated
+        // on !getIsAdult(), so without it every elephant in the world is an unreachable adult.
         reg("elephant").tame(Tame.NONE)
                 .heal(v(Items.BAKED_POTATO), v(Items.BREAD), () -> MoCItems.HAYSTACK.get()).ride(true).baby()
+                .spawnAge(50, 50).babyRoll(4).grow(1000, 100, 100)
                 .drop(() -> MoCItems.HIDE.get(), 1, 3, 1.0F);
         reg("fox").tame(Tame.FEED).food(() -> MoCItems.TURKEYRAW.get()).heal(() -> MoCItems.RATRAW.get()).baby()
                 .drop(() -> MoCItems.FUR.get(), 1, 1, 1.0F);
         // Legacy goats cannot breed (createChild() returns null, isMyAphrodisiac() is false) — no BreedGoal.
         // Their tame/heal food set is broader than this list (any edible; see MoCEntityGoat's food override).
         reg("goat").tame(Tame.FEED).food(v(Items.WHEAT), v(Items.WHEAT_SEEDS), v(Items.SUGAR), v(Items.CAKE), v(Items.EGG))
-                .milk().baby().vanilla().drop(v(Items.LEATHER), 0, 2, 1.0F);
+                .milk().baby().grow(500, 100, 100).vanilla().drop(v(Items.LEATHER), 0, 2, 1.0F);
         // Legacy heal foods are the MOD's sugar lump and haystack, not vanilla sugar and a vanilla hay bale.
         reg("horse").tame(Tame.FEED).food(v(Items.APPLE), v(Items.GOLDEN_APPLE))
                 .heal(v(Items.WHEAT), () -> MoCItems.SUGARLUMP.get(), v(Items.BREAD), v(Items.APPLE),
                         v(Items.GOLDEN_APPLE), () -> MoCItems.HAYSTACK.get())
                 .breed().ride(true).rideTames().drop(v(Items.LEATHER), 0, 2, 1.0F);
-        reg("kitty").tame(Tame.MEDALLION).heal(v(Items.COD), v(Items.COOKED_COD), v(Items.CAKE)).baby();
+        // Legacy MoCEntityKitty ctor: edad 40, kittens grow (rand(200)) to adult at 100. Without it a bred
+        // litter never matures, so it can never breed in turn and the line stops after one generation.
+        reg("kitty").tame(Tame.MEDALLION).heal(v(Items.COD), v(Items.COOKED_COD), v(Items.CAKE)).baby()
+                .grow(200, 100, 100);
         // Legacy komodos are NOT hand-tameable: the only tamed komodo is one hatched from a Komodo Dragon Egg
         // (MoCEntityEgg). Raw rat / raw turkey stay as heal foods for an already-tamed one. The death drop is
         // resolved in dropLoot (egg or reptile hide, mutually exclusive), so no .drop() spec here.
         reg("komodo").tame(Tame.NONE).heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get())
                 .ride(true).baby().hostile();
-        reg("mouse").tame(Tame.PICKUP).vanilla().drop(v(Items.WHEAT_SEEDS), 0, 2, 1.0F);
+        // Legacy mice are never tamed (MoCEntityMouse.interact never calls tameWithName). MoCEntityMouse
+        // overrides mobInteract and returns before super, so this records the real rule.
+        reg("mouse").tame(Tame.NONE).vanilla().drop(v(Items.WHEAT_SEEDS), 0, 2, 1.0F);
         // Death drop is type-keyed (meat, or a fire/darkness/undead heart or unicorn horn for transformed
         // types 5-8) and resolved per entity in dropLoot; see the ostrich branch there.
         // Legacy MoCEntityOstrich.isMyHealFood == isItemEdible: ANY vanilla food item, ANY seeds, plus
@@ -441,15 +532,19 @@ public final class MoCBehavior {
                         v(Items.POTATO), v(Items.BAKED_POTATO), v(Items.BEETROOT), v(Items.COOKIE), v(Items.MELON_SLICE),
                         v(Items.COOKED_BEEF), v(Items.COOKED_PORKCHOP), v(Items.COOKED_CHICKEN), v(Items.COOKED_MUTTON),
                         v(Items.COOKED_RABBIT), v(Items.COOKED_COD), v(Items.COOKED_SALMON))
-                .ride(true).baby();
+                // Legacy grows a type-1 chick (rand(200)) to adult at 100, at which point it re-rolls into a
+                // proper adult sub-type. Without it a chick — including one from a stolen egg, the ONLY route
+                // to a tamed ostrich — stays a chick forever and can never be saddled (equip needs type > 1).
+                .ride(true).baby().grow(200, 100, 100);
         // Death drop is type/age-keyed (silk for babies, per-type sting/chitin 50/50, rotten flesh for undead)
         // and resolved per entity in dropLoot; see the pet-scorpion branch there.
         reg("pet_scorpion").tame(Tame.PICKUP).heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.RATCOOKED.get())
-                .ride(true).baby();
+                .ride(true).baby().spawnAge(20, 20).babyRoll(1).grow(200, 120, 120);
         // Legacy wild snakes CANNOT be tamed or picked up: MoCEntitySnake.interact returns immediately for an
         // untamed snake, so a right-click is ignored entirely; only an egg-hatched TAMED snake can be carried.
         // PICKUP_TAMED carries a tamed snake without ever taming a wild one (see MoCAnimal.mobInteract).
-        reg("snake").tame(Tame.PICKUP_TAMED).heal(() -> MoCItems.RATRAW.get()).baby().hostile();
+        reg("snake").tame(Tame.PICKUP_TAMED).heal(() -> MoCItems.RATRAW.get()).baby().hostile()
+                .spawnAge(50, 99).grow(500, 100, 100).growPastAdult();
         // Turkey death drop picks ONE item per kill (raw turkey OR feather, 50/50) then drops 0-2 copies,
         // resolved per entity in dropLoot (turkey branch), so no type-agnostic .drop() spec here.
         reg("turkey").tame(Tame.FEED).food(v(Items.MELON_SEEDS)).heal(v(Items.PUMPKIN_SEEDS));
@@ -467,21 +562,61 @@ public final class MoCBehavior {
         // Legacy wyverns have no feed-taming: you saddle and mount a WILD one and break it in (rideTames).
         reg("wyvern").tame(Tame.NONE)
                 .ride(true).rideTames().heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get()).baby();
-        reg("crab").baby().drop(() -> MoCItems.CRABRAW.get(), 1, 1, 1.0F);
+        // Legacy crabs spawn at edad 50-99 and render at 0.7 * edad * 0.01, i.e. anywhere from 0.35x to 0.69x.
+        reg("crab").baby().spawnAge(50, 99).drop(() -> MoCItems.CRABRAW.get(), 1, 1, 1.0F);
         reg("maggot").vanilla().drop(v(Items.SLIME_BALL), 0, 2, 1.0F);
         reg("snail").vanilla().drop(v(Items.SLIME_BALL), 0, 2, 1.0F);
         reg("cricket");
         reg("roach").food(v(Items.ROTTEN_FLESH)); // attraction only, NOT tameable
 
+
+        // ============================================== ported from Mo'Creatures 12.0.5
+        // Legacy MoCEntityAnt is not tameable and has no drop; its whole identity is the food-hauling
+        // routine, which lives in MoCEntityAnt itself.
+        reg("ant");
+        // Legacy MoCEntityRaccoon tames/heals on ANY edible (MoCTools.isItemEdible), so the real food test
+        // lives in MoCEntityRaccoon.isFood; these are the non-FOOD-component extras. Ctor: edad 50-64 with
+        // 1 spawn in 3 a kit, growing (rand(300)) to adult at 100. Drop is 0-2 fur via vanilla dropFewItems.
+        reg("raccoon").tame(Tame.FEED)
+                .food(v(Items.WHEAT), v(Items.WHEAT_SEEDS), v(Items.SUGAR), v(Items.CAKE), v(Items.EGG))
+                .baby().spawnAge(50, 64).babyRoll(3).grow(300, 100, 100)
+                .vanilla().drop(() -> MoCItems.FUR.get(), 0, 2, 1.0F);
+        // Legacy moles are NOT tameable (MoCEntityMole overrides neither interact nor isMyHealFood); the
+        // drop is 0-2 fur through vanilla dropFewItems.
+        reg("mole").tame(Tame.NONE).vanilla().drop(() -> MoCItems.FUR.get(), 0, 2, 1.0F);
+        // The Ent cannot be tamed, fed, bred or ridden and never ages; its 4-15 log/stick/sapling drop is
+        // sub-type-keyed, so MoCEntityEnt rolls it itself. NOT .hostile(): an Ent never hunts, it only
+        // rounds on someone who chops it with an axe.
+        reg("ent");
+        // Small fish were tamed only by a fish net, a mechanic the port does not have; medium fish have no
+        // taming or heal food at all. Both resolve their own drops and growth curves in their entity class.
+        reg("small_fish").baby();
+        reg("medium_fish").baby();
+        reg("silver_skeleton");
+        reg("mini_golem");
+        // The wild manticore resolves its per-coat drop (with the rare manticore-egg substitution) itself.
+        reg("manticore");
+        // The pet manticore is a big cat underneath: medallion-tamed as a cub that has already eaten, raw
+        // meat to heal, saddled to ride — but it grows to 130 rather than the big cat 100, and every one
+        // starts as a cub because the only way to get one is hatching a manticore egg.
+        reg("manticore_pet").tame(Tame.MEDALLION).heal(v(Items.PORKCHOP), v(Items.COD)).ride(true).baby().hostile()
+                .spawnAge(30, 30).babyRoll(1).grow(250, 130, 130)
+                .vanilla().drop(() -> MoCItems.BIGCATCLAW.get(), 0, 2, 1.0F);
         // =========================================================== AQUATIC (MoCAquatic)
         reg("dolphin").tame(Tame.FEED).food(v(Items.APPLE), v(Items.GOLDEN_APPLE))
                 .heal(v(Items.COD), v(Items.COOKED_COD)).breed().ride(false).rideTames().baby()
                 .vanilla().drop(v(Items.COD), 0, 2, 1.0F);
         // Fishy death drop is a mutually-exclusive 70%-raw-fish-else-rand(2)-egg roll, resolved per entity in
         // dropLoot (fishy branch), so no type-agnostic .drop() spec here.
-        reg("fishy").baby();
-        reg("jellyfish").baby().drop(v(Items.SLIME_BALL), 0, 1, 0.5F);
-        reg("ray").ride(false).baby();
+        // Legacy MoCEntityFishy: fry grow +2 (rand(100)) to adult at 100; the ctor spawns adults at edad 100.
+        // A fed, tamed, adult pair of the same colour breeds (see MoCEntityFishy.customServerAiStep). The
+        // fed flag comes from its heal food: legacy 5.1.5 declared the flag and the breeding loop but never
+        // set the flag anywhere, leaving the whole mechanic unreachable, so the feed step is supplied here.
+        reg("fishy").baby().heal(v(Items.COD), v(Items.COOKED_COD)).grow(100, 100, 100).growStep(2);
+        reg("jellyfish").baby().spawnAge(50, 99).grow(200, 100, 100).drop(v(Items.SLIME_BALL), 0, 1, 0.5F);
+        // Legacy MoCEntityRay: a mantaray (type 1) is tamed by riding it until it submits, exactly like the
+        // horse and the dolphin; it also keeps growing to 180 well past adulthood (type > 1 stops at 90).
+        reg("ray").ride(false).rideTames().baby().spawnAge(50, 99).grow(50, 90, 180).growPastAdult();
         // Shark death drop is a mutually-exclusive 90%-teeth-else-difficulty/age-gated-egg roll, resolved per
         // entity in dropLoot (shark branch), so no type-agnostic .drop() spec here.
         reg("shark").baby().hostile();
@@ -502,7 +637,7 @@ public final class MoCBehavior {
         // rat / wild_wolf / wraith / flame_wraith: a single item via vanilla dropFewItems (0-2 copies, 0
         // possible) — legacy classes do not override dropFewItems. .vanilla() drives the 0-2 count in dropLoot.
         reg("rat").vanilla().drop(() -> MoCItems.RATRAW.get(), 0, 2, 1.0F);
-        reg("scorpion").baby().drop(() -> MoCItems.CHITIN.get(), 0, 1, 0.5F)
+        reg("scorpion").baby().spawnAge(20, 20).grow(200, 120, 120).drop(() -> MoCItems.CHITIN.get(), 0, 1, 0.5F)
                 .drop(v(Items.STRING), 0, 1, 0.5F);
         reg("wild_wolf").vanilla().drop(() -> MoCItems.FUR.get(), 0, 2, 1.0F);
         reg("werewolf").drop(v(Items.GOLDEN_APPLE), 0, 1, 0.2F);

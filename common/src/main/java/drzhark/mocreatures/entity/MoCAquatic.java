@@ -67,6 +67,20 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
         return new WaterBoundPathNavigation(this, level);
     }
 
+    /**
+     * Legacy ownership lockout ({@code MoCEntityAquatic.interact}:1046): with ownership enforced, only the
+     * owner may handle a tamed dolphin or ray at all. Applied at {@code interact} so subclasses that
+     * override {@code mobInteract} cannot slip past it.
+     */
+    @Override
+    public net.minecraft.world.InteractionResult interact(net.minecraft.world.entity.player.Player player,
+            net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.Vec3 location) {
+        if (!MoCAnimal.canBeHandledBy(this, player)) {
+            return net.minecraft.world.InteractionResult.PASS;
+        }
+        return super.interact(player, hand, location);
+    }
+
     @Override
     public net.minecraft.world.InteractionResult mobInteract(net.minecraft.world.entity.player.Player player,
             net.minecraft.world.InteractionHand hand) {
@@ -82,6 +96,8 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
                 if (!player.getAbilities().instabuild) stack.shrink(1);
                 setTamed(true);
                 setOwnerName(player.getName().getString());
+                // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
                 heal(getMaxHealth());
                 aquaHearts();
             }
@@ -326,6 +342,8 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
         if (this.random.nextInt(chance * 8) == 0 && !MoCAnimal.exceedsTameCap(this, rider)) {
             setTamed(true);
             setOwnerName(rider.getName().getString());
+            // Legacy tameWithName prompted for a name the instant a creature was tamed.
+            drzhark.mocreatures.network.MoCNetwork.promptName(this, rider);
             aquaHearts();
         }
     }

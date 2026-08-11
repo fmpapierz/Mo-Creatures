@@ -287,9 +287,12 @@ public class MoCEntityElephant extends MoCAnimal {
                         stack.shrink(1);
                     }
                     this.level().playSound(null, blockPosition(), MoCSounds.EATING.get(), SoundSource.NEUTRAL, 1.0F, 1.0F);
-                    if (getTemper() >= 10) {
+                    // Legacy tameWithName enforced the per-player pet cap on every taming path.
+                    if (getTemper() >= 10 && !exceedsTameCap(player)) {
                         setTamed(true);
                         setOwnerName(player.getName().getString());
+                        // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                        drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
                     }
                 }
                 return InteractionResult.SUCCESS;

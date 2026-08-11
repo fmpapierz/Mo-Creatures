@@ -176,7 +176,7 @@ public class MoCEntityTurtle extends MoCAnimal {
 
             if (getIsUpsideDown()) {
                 // Flailing: an upside-down turtle rights itself after a short random while.
-                if (!this.isPassenger() && sl.getRandom().nextInt(20) == 0
+                if (!isBeingCarried() && sl.getRandom().nextInt(20) == 0
                         && ++this.flopcounter > sl.getRandom().nextInt(3) + 8) {
                     flipflop(false);
                     sl.playSound(null, blockPosition(), SoundEvents.CHICKEN_EGG, SoundSource.NEUTRAL, 1.0F, 1.0F);
@@ -246,9 +246,12 @@ public class MoCEntityTurtle extends MoCAnimal {
                 food.discard();
             }
             Player owner = sl.getNearestPlayer(this, 24.0D);
-            if (owner != null) {
+            // Legacy tameWithName enforced the per-player pet cap on every taming path.
+            if (owner != null && !exceedsTameCap(owner)) {
                 setTamed(true);
                 setOwnerName(owner.getName().getString());
+                // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                drzhark.mocreatures.network.MoCNetwork.promptName(this, owner);
             }
             setHealth(getMaxHealth());
             sl.playSound(null, blockPosition(), SoundEvents.CHICKEN_EGG, SoundSource.NEUTRAL, 1.0F, 1.0F);
@@ -281,19 +284,8 @@ public class MoCEntityTurtle extends MoCAnimal {
         ItemStack stack = player.getItemInHand(hand);
         if (getIsTamed() && stack.isEmpty()) {
             if (!this.level().isClientSide()) {
-                if (this.isPassenger() && this.getVehicle() == player) {
-                    // Set down: dismount and hop off in the player's direction of travel (legacy motionY/2 + 0.2).
-                    this.stopRiding();
-                    Vec3 pv = player.getDeltaMovement();
-                    this.setDeltaMovement(pv.x * 5.0D, (pv.y / 2.0D) + 0.2D, pv.z * 5.0D);
-                    this.hurtMarked = true; // sync the impulse to clients (26.2 uses hurtMarked, not hasImpulse)
-                } else if (!this.isVehicle() && !player.isPassenger()) {
-                    // Carry on the player's head (legacy chickenplop on mount).
-                    this.setYRot(player.getYRot());
-                    this.startRiding(player);
-                    this.level().playSound(null, this.blockPosition(), SoundEvents.CHICKEN_EGG, SoundSource.NEUTRAL,
-                            1.0F, ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F) + 1.0F);
-                }
+                // Shared carry toggle: carry on the head, or set down with the legacy release impulse.
+                toggleCarry(player, false);
             }
             return InteractionResult.SUCCESS;
         }

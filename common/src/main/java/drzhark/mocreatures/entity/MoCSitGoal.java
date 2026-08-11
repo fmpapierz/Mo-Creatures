@@ -21,7 +21,9 @@ public class MoCSitGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return mob.isSitting();
+        // Same guards as canUse: a pet that is told to stay and is then mounted, or picked up and carried,
+        // must release the goal rather than keep calling getNavigation().stop() against its carrier.
+        return mob.isSitting() && !mob.isVehicle() && !mob.isPassenger();
     }
 
     @Override

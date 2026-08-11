@@ -78,9 +78,12 @@ public class MoCEntityCrab extends MoCAnimal {
         };
     }
 
-    /** Crabs render at 0.7x (legacy {@code getSizeFactor} = 0.7f * edad*0.01, clamped by the age curve). */
+    /**
+     * Legacy {@code getSizeFactor} = {@code 0.7f * edad * 0.01f}, and crabs spawn anywhere in edad 50-99 —
+     * so a population ranges from 0.35x to 0.69x rather than every crab being an identical 0.7x.
+     */
     @Override
     public float getSizeFactor() {
-        return 0.7F;
+        return 0.7F * Math.min(getMoCAge(), 100) * 0.01F;
     }
 }

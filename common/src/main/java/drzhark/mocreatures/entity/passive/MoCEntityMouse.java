@@ -5,8 +5,6 @@ import drzhark.mocreatures.registry.MoCSounds;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
@@ -18,7 +16,6 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -63,22 +60,10 @@ public class MoCEntityMouse extends MoCAnimal {
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         // Legacy interact fired for ANY held item (there was no empty-hand gate) and always handled the
         // right-click, so intercept every hand here — this also fully bypasses the base PICKUP taming path.
-        this.setYRot(player.getYRot());
         if (!this.level().isClientSide()) {
-            if (this.isPassenger()) {
-                // Already carried: put the mouse down and fling it (legacy chickenplop + dismount).
-                this.stopRiding();
-                this.level().playSound(null, this.blockPosition(), SoundEvents.CHICKEN_EGG,
-                        SoundSource.NEUTRAL, 1.0F,
-                        ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F) + 1.0F);
-            } else if (!this.isVehicle()) {
-                // Pick the mouse up onto the player — but never tame/own it.
-                this.startRiding(player);
-            }
-            // Legacy set the launch velocity in both branches; it only visibly matters on release.
-            Vec3 pv = player.getDeltaMovement();
-            this.setDeltaMovement(pv.x * 5.0D, (pv.y / 2.0D) + 0.5D, pv.z * 5.0D);
-            this.hurtMarked = true; // sync the impulse to clients (26.2 uses hurtMarked, not hasImpulse)
+            // Shared carry toggle: pick up / put down + the legacy chickenplop and 5x throw impulse. The
+            // `false` keeps the mouse from ever being tamed or owned, which legacy never did.
+            toggleCarry(player, false);
         }
         return InteractionResult.SUCCESS;
     }

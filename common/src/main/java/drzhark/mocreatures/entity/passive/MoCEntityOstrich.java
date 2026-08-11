@@ -67,6 +67,11 @@ public class MoCEntityOstrich extends MoCAnimal {
             int j = this.random.nextInt(100);
             if (j <= 20) {
                 setTypeMoC(1);
+                // A chick has to actually BE young, or it matures on its first tick and the chick skin is
+                // never seen. Legacy tracked this with edad alone (ctor setEdad(35)); the port keys growth
+                // and render scale off the adult flag, so a chick is flagged non-adult at the same age.
+                setAdult(false);
+                setMoCAge(35);
             } else if (j <= 65) {
                 setTypeMoC(2);
             } else if (j <= 95) {
@@ -226,7 +231,7 @@ public class MoCEntityOstrich extends MoCAnimal {
         // variant. Without this a type-1 ostrich grows to full size but keeps the gear-less chick skin
         // (ostrichc) and can never be saddled/chested/helmeted (equip is gated on type > 1). Females are
         // the most common adult, then males, then the rare albino — matching the natural spawn spread.
-        if (getTypeMoC() == 1 && (getIsAdult() || getMoCAge() >= 100)) {
+        if (getTypeMoC() == 1 && getMoCAge() >= 100) {
             int r = level.getRandom().nextInt(100);
             setTypeMoC(r < 55 ? 2 : (r < 90 ? 3 : 4));
         }

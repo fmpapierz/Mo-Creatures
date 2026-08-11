@@ -106,7 +106,10 @@ public class MoCEntityHorseMob extends MoCMob {
         // skeleton or zombie (boundingBox.expand(4,3,4) scan) climb aboard, forming undead cavalry.
         if (this.level() instanceof ServerLevel serverLevel && this.getVehicle() == null) {
             for (Entity entity : serverLevel.getEntities(this, getBoundingBox().inflate(4.0D, 3.0D, 4.0D))) {
-                if ((entity instanceof Skeleton || entity instanceof Zombie) && entity.getVehicle() == null) {
+                // A silver skeleton counts too — legacy MoCTools.findMobRider scanned for any skeleton-family
+                // mob, and a katana-wielding silver skeleton on an undead horse is the intended cavalry.
+                if ((entity instanceof Skeleton || entity instanceof Zombie
+                        || entity instanceof MoCEntitySilverSkeleton) && entity.getVehicle() == null) {
                     entity.startRiding(this);
                     break;
                 }

@@ -40,6 +40,7 @@ public final class MoCCreativeTabs {
                                 33,                              // komodo
                                 41, 42, 43, 44, 45,              // scorpion variants
                                 50, 51, 52, 53, 54,              // wyvern variants
+                                62, 63, 64, 65,                  // manticore coats (hatch a tameable pet)
                         };
                         for (int eggType : eggTypes) {
                             output.accept(drzhark.mocreatures.item.MoCThrownEggItem.createEgg(eggType));

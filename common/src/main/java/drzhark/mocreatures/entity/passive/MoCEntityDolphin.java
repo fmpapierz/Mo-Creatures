@@ -159,20 +159,40 @@ public class MoCEntityDolphin extends MoCAquatic {
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        // Feeding fish (raw/cooked cod = the dolphin's heal foods) satisfies its hunger; the base class
-        // performs the actual consume + heal, so we only record the fed state on the server before delegating.
-        // Breeding readiness (legacy setHasEaten) required COOKED cod specifically: legacy interact healed +15
-        // for raw fish without ever flagging it, and only the separate cooked-fish branch (tamed && adult)
-        // healed +25 and called setHasEaten(true). Raw cod must therefore only heal, never mark as fed.
+        // Cooked cod on a TAMED ADULT dolphin is the breeding trigger, and it must work at ANY health.
+        // Legacy MoCEntityDolphin.interact:381-391 is `if (fishCooked && getIsTamed() && getIsAdult())` with
+        // no health condition at all. Delegating to super instead does not work, because the shared aquatic
+        // feed branch (MoCAquatic:107) is gated on `getHealth() < getMaxHealth()` — it exists to heal a hurt
+        // dolphin, not to feed a healthy one. A full-health dolphin therefore matched nothing, super returned
+        // PASS, and HasEaten could never be set; worse, on a non-Success result the client's startUseItem
+        // falls through to USING the held item, so the player ate their own cod. Same defect the fishy had.
+        if (stack.is(Items.COOKED_COD) && getIsTamed() && getIsAdult()) {
+            if (!this.level().isClientSide()) {
+                if (!player.getAbilities().instabuild) {
+                    stack.shrink(1);
+                }
+                heal(25.0F);          // legacy: cooked fish healed +25 on a tamed adult
+                setHasEaten(true);
+                setIsHungry(false);
+                this.level().playSound(null, blockPosition(), drzhark.mocreatures.registry.MoCSounds.EATING.get(),
+                        net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F,
+                        1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.2F);
+            }
+            return InteractionResult.SUCCESS;
+        }
+        // Raw cod (and cooked cod on a wild or juvenile dolphin) still goes through the shared heal path:
+        // it satisfies hunger and raises a wild dolphin's temper, but never flags it ready to breed —
+        // legacy healed +15 for raw fish without ever calling setHasEaten.
         boolean fedFish = (stack.is(Items.COD) || stack.is(Items.COOKED_COD))
                 && getHealth() < getMaxHealth();
-        // Capture the cooked-only flag BEFORE super: super may shrink the stack to empty, losing the item id.
-        boolean fedCooked = stack.is(Items.COOKED_COD) && getHealth() < getMaxHealth();
         InteractionResult result = super.mobInteract(player, hand);
         if (fedFish && !this.level().isClientSide() && result.consumesAction()) {
             setIsHungry(false);
-            if (fedCooked && getIsTamed() && getIsAdult()) {
-                setHasEaten(true);
+            // Legacy MoCEntityDolphin.interact:339-367 raised temper by 25 per fish, capped just below
+            // getMaxTemper(). Temper is what shortens the ride break-in roll in MoCAquatic — without it a
+            // wild dolphin's submit odds stay pinned at their worst value no matter how much fish you feed.
+            if (!getIsTamed()) {
+                setTemper(Math.min(getMaxTemper() - 1, getTemper() + 25));
             }
         }
         return result;

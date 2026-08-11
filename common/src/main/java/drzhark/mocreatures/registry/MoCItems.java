@@ -123,6 +123,27 @@ public final class MoCItems {
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.FLAME_WRAITH.get()).setId(itemKey("flame_wraith_spawn_egg"))));
     public static final RegistrySupplier<SpawnEggItem> HORSE_MOB_SPAWN_EGG = ITEMS.register("horse_mob_spawn_egg",
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.HORSE_MOB.get()).setId(itemKey("horse_mob_spawn_egg"))));
+    // ------------------------------------------- spawn eggs for the creatures ported from 12.0.5
+    public static final RegistrySupplier<SpawnEggItem> ANT_SPAWN_EGG = ITEMS.register("ant_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.ANT.get()).setId(itemKey("ant_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> RACCOON_SPAWN_EGG = ITEMS.register("raccoon_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.RACCOON.get()).setId(itemKey("raccoon_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> MOLE_SPAWN_EGG = ITEMS.register("mole_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MOLE.get()).setId(itemKey("mole_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> ENT_SPAWN_EGG = ITEMS.register("ent_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.ENT.get()).setId(itemKey("ent_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> SMALL_FISH_SPAWN_EGG = ITEMS.register("small_fish_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.SMALL_FISH.get()).setId(itemKey("small_fish_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> MEDIUM_FISH_SPAWN_EGG = ITEMS.register("medium_fish_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MEDIUM_FISH.get()).setId(itemKey("medium_fish_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> SILVER_SKELETON_SPAWN_EGG = ITEMS.register("silver_skeleton_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.SILVER_SKELETON.get()).setId(itemKey("silver_skeleton_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> MINI_GOLEM_SPAWN_EGG = ITEMS.register("mini_golem_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MINI_GOLEM.get()).setId(itemKey("mini_golem_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> MANTICORE_SPAWN_EGG = ITEMS.register("manticore_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MANTICORE.get()).setId(itemKey("manticore_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> MANTICORE_PET_SPAWN_EGG = ITEMS.register("manticore_pet_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MANTICORE_PET.get()).setId(itemKey("manticore_pet_spawn_egg"))));
     public static final RegistrySupplier<Item> AMULETBONE = ITEMS.register("amuletbone",
             () -> new Item(new Item.Properties().setId(itemKey("amuletbone"))));
     // Full special-horse amulets store the captured horse (coat + name) and release it on use, returning the

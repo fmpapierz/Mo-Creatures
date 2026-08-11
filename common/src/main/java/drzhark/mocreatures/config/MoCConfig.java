@@ -183,9 +183,10 @@ public final class MoCConfig {
     // Ids whose default spawn weight is not the plain creature weight of 8.
     private static final java.util.Set<String> MONSTER_IDS = java.util.Set.of(
             "golem", "ogre", "rat", "scorpion", "wildwolf", "wild_wolf", "werewolf", "wraith",
-            "hellrat", "hell_rat", "flamewraith", "flame_wraith", "horsemob", "horse_mob");
+            "hellrat", "hell_rat", "flamewraith", "flame_wraith", "horsemob", "horse_mob",
+            "silver_skeleton", "mini_golem", "manticore");
     private static final java.util.Set<String> WATER_IDS = java.util.Set.of(
-            "dolphin", "fishy", "jellyfish", "ray", "shark");
+            "dolphin", "fishy", "jellyfish", "ray", "shark", "small_fish", "medium_fish");
     private static final java.util.Set<String> INSECT_IDS = java.util.Set.of(
             "bee", "butterfly", "dragonfly", "firefly", "fly");
 

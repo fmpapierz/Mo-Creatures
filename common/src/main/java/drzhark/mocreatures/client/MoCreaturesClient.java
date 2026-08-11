@@ -66,6 +66,16 @@ public final class MoCreaturesClient {
         EntityModelLayerRegistry.register(MoCModelLayers.FLAME_WRAITH, drzhark.mocreatures.client.model.MoCModelFlameWraith::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.HORSE_MOB, drzhark.mocreatures.client.model.MoCModelHorseMob::createBodyLayer);
 
+        EntityModelLayerRegistry.register(MoCModelLayers.ANT, drzhark.mocreatures.client.model.MoCModelAnt::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.RACCOON, drzhark.mocreatures.client.model.MoCModelRaccoon::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.MOLE, drzhark.mocreatures.client.model.MoCModelMole::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.ENT, drzhark.mocreatures.client.model.MoCModelEnt::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.SMALL_FISH, drzhark.mocreatures.client.model.MoCModelSmallFish::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.MEDIUM_FISH, drzhark.mocreatures.client.model.MoCModelMediumFish::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.SILVER_SKELETON, drzhark.mocreatures.client.model.MoCModelSilverSkeleton::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.MINI_GOLEM, drzhark.mocreatures.client.model.MoCModelMiniGolem::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.MANTICORE, drzhark.mocreatures.client.model.MoCModelManticore::createBodyLayer);
+
         EntityRendererRegistry.register(MoCEntities.BUNNY, context -> new MoCMobRenderer<>(context, MoCModelLayers.BUNNY, drzhark.mocreatures.client.model.MoCModelBunny::new, 0.4F));
         EntityRendererRegistry.register(MoCEntities.BEAR, context -> new MoCMobRenderer<>(context, MoCModelLayers.BEAR, drzhark.mocreatures.client.model.MoCModelBear::new, 0.45F));
         EntityRendererRegistry.register(MoCEntities.BIG_CAT, context -> new MoCMobRenderer<>(context, MoCModelLayers.BIG_CAT, drzhark.mocreatures.client.model.MoCModelBigCat::new, 0.45F));
@@ -120,6 +130,19 @@ public final class MoCreaturesClient {
         EntityRendererRegistry.register(MoCEntities.KITTY_BED, context -> new drzhark.mocreatures.client.renderer.MoCKittyBedRenderer(context, MoCModelLayers.KITTY_BED, drzhark.mocreatures.client.model.MoCModelKittyBed::new, 0.0F));
         EntityRendererRegistry.register(MoCEntities.LITTER_BOX, context -> new MoCMobRenderer<>(context, MoCModelLayers.LITTER_BOX, drzhark.mocreatures.client.model.MoCModelLitterBox::new, 0.0F));
         EntityRendererRegistry.register(MoCEntities.FISH_BOWL, context -> new MoCMobRenderer<>(context, MoCModelLayers.FISH_BOWL, drzhark.mocreatures.client.model.MoCModelFishBowl::new, 0.3F));
+
+
+        // ------------------------------------------------------ ported from Mo'Creatures 12.0.5
+        EntityRendererRegistry.register(MoCEntities.ANT, context -> new MoCMobRenderer<>(context, MoCModelLayers.ANT, drzhark.mocreatures.client.model.MoCModelAnt::new, 0.3F));
+        EntityRendererRegistry.register(MoCEntities.RACCOON, context -> new MoCMobRenderer<>(context, MoCModelLayers.RACCOON, drzhark.mocreatures.client.model.MoCModelRaccoon::new, 0.4F));
+        EntityRendererRegistry.register(MoCEntities.MOLE, context -> new MoCMobRenderer<>(context, MoCModelLayers.MOLE, drzhark.mocreatures.client.model.MoCModelMole::new, 0.4F));
+        EntityRendererRegistry.register(MoCEntities.ENT, context -> new MoCMobRenderer<>(context, MoCModelLayers.ENT, drzhark.mocreatures.client.model.MoCModelEnt::new, 0.5F));
+        EntityRendererRegistry.register(MoCEntities.SMALL_FISH, drzhark.mocreatures.client.renderer.MoCSmallFishRenderer::new);
+        EntityRendererRegistry.register(MoCEntities.MEDIUM_FISH, drzhark.mocreatures.client.renderer.MoCMediumFishRenderer::new);
+        EntityRendererRegistry.register(MoCEntities.SILVER_SKELETON, context -> new MoCMobRenderer<>(context, MoCModelLayers.SILVER_SKELETON, drzhark.mocreatures.client.model.MoCModelSilverSkeleton::new, 0.6F));
+        EntityRendererRegistry.register(MoCEntities.MINI_GOLEM, drzhark.mocreatures.client.renderer.MoCMiniGolemRenderer::new);
+        EntityRendererRegistry.register(MoCEntities.MANTICORE, context -> new MoCMobRenderer<>(context, MoCModelLayers.MANTICORE, drzhark.mocreatures.client.model.MoCModelManticore::new, 0.7F));
+        EntityRendererRegistry.register(MoCEntities.MANTICORE_PET, context -> new MoCMobRenderer<>(context, MoCModelLayers.MANTICORE, drzhark.mocreatures.client.model.MoCModelManticore::new, 0.7F));
 
         // Pet HUD overlay (legacy displayPetName / displayPetHealth): draws a crosshair-target
         // readout for the local player's tamed Mo'Creatures pets.

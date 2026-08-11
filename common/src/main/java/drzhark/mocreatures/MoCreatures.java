@@ -52,13 +52,31 @@ public final class MoCreatures {
         dev.architectury.event.events.common.CommandRegistrationEvent.EVENT.register(
                 (dispatcher, registration, selection) -> drzhark.mocreatures.command.MoCCommand.register(dispatcher));
 
+        // NOTE: there is deliberately no PLAYER_QUIT hook for carried pets. Carrying does not use the
+        // vanilla passenger system (a player cannot be a vehicle on a 26.2 server — EntityType.PLAYER is
+        // noSave(), so Entity.startRiding rejects it), so a carried pet is an ordinary world entity that
+        // saves normally and keeps a persisted claim on its carrier's UUID. Dropping it on logout would
+        // discard that claim, which is exactly the "quit to title and the bunny falls off" bug; instead
+        // MoCAnimal re-attaches it the moment the carrier is back in the world.
+
         // Client-only rendering registration; only loads MoCreaturesClient on the physical client.
         EnvExecutor.runInEnv(Env.CLIENT, () -> drzhark.mocreatures.client.MoCreaturesClient::init);
 
-        LOGGER.info("Mo'Creatures (Architectury multi-loader, MC 26.2) initialized with {} creatures", 46);
+        LOGGER.info("Mo'Creatures (Architectury multi-loader, MC 26.2) initialized with {} creatures", 56);
     }
 
     private static void registerEntityAttributes() {
+        // ------------------------------------------------ ported from Mo'Creatures 12.0.5
+        EntityAttributeRegistry.register(MoCEntities.ANT, drzhark.mocreatures.entity.passive.MoCEntityAnt::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.RACCOON, drzhark.mocreatures.entity.passive.MoCEntityRaccoon::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.MOLE, drzhark.mocreatures.entity.passive.MoCEntityMole::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.ENT, drzhark.mocreatures.entity.passive.MoCEntityEnt::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.SMALL_FISH, drzhark.mocreatures.entity.passive.MoCEntitySmallFish::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.MEDIUM_FISH, drzhark.mocreatures.entity.passive.MoCEntityMediumFish::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.SILVER_SKELETON, drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.MINI_GOLEM, drzhark.mocreatures.entity.monster.MoCEntityMiniGolem::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.MANTICORE, drzhark.mocreatures.entity.monster.MoCEntityManticore::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.MANTICORE_PET, drzhark.mocreatures.entity.passive.MoCEntityManticorePet::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.BUNNY, drzhark.mocreatures.entity.passive.MoCEntityBunny::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.BEAR, drzhark.mocreatures.entity.passive.MoCEntityBear::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.BIG_CAT, drzhark.mocreatures.entity.passive.MoCEntityBigCat::createAttributes);

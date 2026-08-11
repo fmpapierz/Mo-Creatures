@@ -47,6 +47,8 @@ public class MoCEntityEgg extends MoCAnimal {
     public static final int TYPE_WYVERN = 6;
     public static final int TYPE_FISHY = 7;
     public static final int TYPE_SHARK = 8;
+    /** Manticore egg (legacy composite ids 62-65) — the only legacy source of a tameable pet manticore. */
+    public static final int TYPE_MANTICORE = 9;
 
     /** Ticks the egg has spent in a valid hatching environment (in water, or near a light source); it hatches once this passes the threshold. */
     private int hatchTimer;
@@ -80,7 +82,7 @@ public class MoCEntityEgg extends MoCAnimal {
     public float getSizeFactor() {
         return switch (getTypeMoC()) {
             case TYPE_WYVERN -> 1.4F;                          // big wyvern egg
-            case TYPE_OSTRICH, TYPE_KOMODO, TYPE_SHARK -> 1.1F; // large birds/reptiles
+            case TYPE_OSTRICH, TYPE_KOMODO, TYPE_SHARK, TYPE_MANTICORE -> 1.1F; // large birds/reptiles/cats
             case TYPE_SNAKE, TYPE_SCORPION, TYPE_FISHY -> 0.7F; // small critters
             default -> 0.9F;                                    // turtle etc.
         };
@@ -124,6 +126,9 @@ public class MoCEntityEgg extends MoCAnimal {
         } else if (eggType >= 41 && eggType <= 45) {  // scorpion variants 1-5
             setTypeMoC(TYPE_SCORPION);
             this.variant = eggType - 40;
+        } else if (eggType >= 62 && eggType <= 65) {  // manticore coats 1-4 (legacy "62 - 65")
+            setTypeMoC(TYPE_MANTICORE);
+            this.variant = eggType - 61;
         } else if (eggType >= 50 && eggType <= 54) {  // wyvern variants 1-5
             setTypeMoC(TYPE_WYVERN);
             this.variant = eggType - 49;
@@ -155,6 +160,7 @@ public class MoCEntityEgg extends MoCAnimal {
             case TYPE_KOMODO -> 33;
             case TYPE_SCORPION -> 40 + Math.max(1, this.variant);
             case TYPE_WYVERN -> 49 + Math.max(1, this.variant);
+            case TYPE_MANTICORE -> 61 + Math.max(1, this.variant);
             case TYPE_OSTRICH -> this.variant == 5 ? 32 : 31; // legacy onCollideWithPlayer remaps 30 -> 31
             // A blank (spoiled) fishy egg has no variant yet, so it round-trips back to item form as a
             // Spoiled Egg rather than silently becoming a Blue Fish Egg.
@@ -274,6 +280,7 @@ public class MoCEntityEgg extends MoCAnimal {
             case TYPE_WYVERN -> new MoCEntityWyvern(MoCEntities.WYVERN.get(), level);
             case TYPE_FISHY -> new MoCEntityFishy(MoCEntities.FISHY.get(), level);
             case TYPE_SHARK -> new MoCEntityShark(MoCEntities.SHARK.get(), level);
+            case TYPE_MANTICORE -> new MoCEntityManticorePet(MoCEntities.MANTICORE_PET.get(), level);
             default -> new MoCEntityOstrich(MoCEntities.OSTRICH.get(), level);
         };
         baby.setPos(this.getX(), this.getY(), this.getZ());
@@ -293,7 +300,7 @@ public class MoCEntityEgg extends MoCAnimal {
             if (getTypeMoC() != TYPE_SCORPION) {
                 moc.setMoCAge(switch (getTypeMoC()) {
                     case TYPE_SNAKE -> 50;
-                    case TYPE_FISHY, TYPE_SHARK, TYPE_KOMODO, TYPE_WYVERN -> 30;
+                    case TYPE_FISHY, TYPE_SHARK, TYPE_KOMODO, TYPE_WYVERN, TYPE_MANTICORE -> 30;
                     default -> 35; // ostrich, turtle
                 });
             }
@@ -301,9 +308,13 @@ public class MoCEntityEgg extends MoCAnimal {
             // EXCEPT wild/Nether ostrich eggs (only the stolen ostrich egg, id 31, hatches a tamed ostrich).
             if (getTypeMoC() != TYPE_OSTRICH || this.stolen) {
                 Player owner = level.getNearestPlayer(this, 24.0D);
-                if (owner != null) {
+                // Legacy tameWithName enforced the per-player pet cap on every taming path, hatches included.
+                if (owner != null
+                        && !drzhark.mocreatures.entity.MoCAnimal.exceedsTameCap(baby, owner)) {
                     moc.setTamed(true);
                     moc.setOwnerName(owner.getName().getString());
+                    // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                    drzhark.mocreatures.network.MoCNetwork.promptName(moc, owner);
                 }
             }
         }

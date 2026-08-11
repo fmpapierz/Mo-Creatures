@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -9,6 +11,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -25,10 +28,64 @@ import net.minecraft.util.Mth;
  * is the saddle group (saddle pad, girth straps, stirrups, bit and head-stall), which the legacy
  * {@code render()} drew only when the horse was saddled. {@link #setupAnim} reproduces that by
  * toggling the saddle parts' {@code visible} from {@code state.saddled}.
+ *
+ * <p><b>Wings.</b> The mesh holds two mutually-exclusive wing sets that share texture space — the
+ * feathered pegasus wing (inner/mid/outer per side) and the flat fairy membranes (butterfly_l/_r).
+ * Legacy never drew both on one horse, and neither does {@link #setupAnim}; see the wing block there
+ * and {@link #animatePegasusWings} / {@link #animateButterflyWings} for the gating and the beat.
+ * The fairy membranes are the one place where the port's geometry departs from legacy's cube list:
+ * legacy's single zero-height box relied on 1.12's back-face culling to keep its two coincident faces
+ * apart, and 26.2's default entity pipeline has culling switched off, so each membrane is built as two
+ * single-face boxes a quarter-unit apart instead — see {@link #MEMBRANE_UPPER_FACE} and
+ * {@link #BUTTERFLY_PIVOT_Y}.
  */
 public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+
+    /**
+     * Face selectors for the fairy membranes. A fairy wing is a zero-height box, and
+     * {@link ModelPart.Cube} builds <em>all six</em> faces of every box (ModelPart.java:299-323): with
+     * {@code height == 0} the DOWN quad (built at {@code minY}) and the UP quad (built at {@code maxY})
+     * land on the same plane, and the four side quads collapse to zero area. Legacy got away with that
+     * because 1.12 rendered entities with GL back-face culling on, so exactly one of the twins survived
+     * per viewing side. 26.2 does not: {@code EntityModel(ModelPart)} defaults to
+     * {@code RenderTypes::entityCutout}, whose pipeline is declared {@code .withCull(false)}
+     * (RenderPipelines.java:248-256). Both twins therefore rasterise, at bit-identical depth — the
+     * reported strobe. Splitting the membrane into two single-face boxes lets each painted face be
+     * placed on its own plane; see {@link #createBodyLayer}.
+     */
+    // Model space is Y-down (the renderer flips it), so the box's DOWN quad is the surface you see from
+    // above the horse and its UP quad is the underside. The names below are in *world* terms.
+    private static final Set<Direction> MEMBRANE_UPPER_FACE = Set.of(Direction.DOWN);
+    private static final Set<Direction> MEMBRANE_LOWER_FACE = Set.of(Direction.UP);
+
+    /**
+     * Half the gap between a fairy membrane's two painted faces, in model units (0.25 total, i.e. a
+     * quarter of one texture pixel &mdash; 1/64 of a block). Large enough that the depth buffer separates
+     * them at any sane view distance, far too small to read as thickness on a 26x30 wing.
+     */
+    private static final float MEMBRANE_HALF_GAP = 0.125F;
+
+    /**
+     * Y of the fairy wing pivot. Legacy used {@code 3F} (legacy MoCModelNewHorse.java:344/349, restated
+     * every frame at :850-855) &mdash; which is <em>exactly</em> the body's top face: the body box is
+     * {@code addBox(-5,-8,-19, 10,10,24)} at {@code offset(0,11,9)}, so its top plane is
+     * {@code 11 - 8 = 3}, and the saddle pad's underside is that same y=3. Both butterfly boxes start one
+     * unit <em>inboard</em> of their own pivot ({@code minX = -1} / {@code maxX = +1}), so that overhang
+     * sits inside the body's x-footprint; whenever the flap angle carried the membrane back through
+     * horizontal it became exactly coplanar with the horse's back over a 1.5 x 24 strip. Lifting the
+     * pivot half a unit clear (smaller y is higher: the renderer flips the model) means a horizontal
+     * membrane rests at y=2.5 and can never be coplanar with either y=3 face; at every other angle it
+     * crosses the back transversally, which is a clean intersection rather than a fight.
+     */
+    private static final float BUTTERFLY_PIVOT_Y = 2.5F;
+
+    /**
+     * Ceiling on how far a fairy membrane may fold, in radians (85&deg;). See
+     * {@link #animateButterflyWings} for why legacy's raw range let the two wings meet at the mid-line.
+     */
+    private static final float BUTTERFLY_MAX_FOLD = 85.0F * DEG_TO_RAD;
 
     private final ModelPart head;
     private final ModelPart uMouth;
@@ -315,12 +372,36 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 82).addBox(-22.0F, 0.0F, 0.0F, 22.0F, 2.0F, 11.0F),
                 PartPose.offsetAndRotation(-17.0F, 3.0F, -6.0F, 0.0F, 0.3228859F, 0.0F));
 
+        // Fairy membranes. Legacy declared each wing as ONE zero-height box —
+        //   ButterflyL: new ModelRenderer(this, 0, 98); addBox(-1F, 0F, -14F, 26, 0, 30);   (legacy
+        //               MoCModelNewHorse.java:342-345)
+        //   ButterflyR: new ModelRenderer(this, 0, 68); addBox(-25F, 0F, -14F, 26, 0, 30);  (:347-350)
+        // — and every cube, texture offset and UV tile below is byte-for-byte that box. What changed is
+        // that the single box is now expressed as two SINGLE-FACE boxes straddling the legacy plane by
+        // +/-MEMBRANE_HALF_GAP, because 26.2 renders entities un-culled and would otherwise draw the two
+        // coincident faces on top of each other (see MEMBRANE_UPPER_FACE).
+        //
+        // The UV tiles are unchanged by the split: ModelPart.Cube derives them from texOffs + w/h/d only
+        // (ModelPart.java:289-304), never from the box origin, so the DOWN quad still samples
+        // u [texU+30, texU+56] and the UP quad u [texU+56, texU+82] exactly as before. Those two tiles do
+        // NOT hold the same picture — on every horsefairy*.png they hold two different butterfly wings
+        // (the DOWN tile's wing is painted into the front half of the 30-deep plane, the UP tile's into
+        // the rear half), which is why the fight read as "wings clipping through themselves": two unrelated
+        // wing silhouettes were tearing through one another in the same pixels. Split apart they simply
+        // render as the top and underside of the membrane, which is what the sheet was drawn for.
+        //
+        // Dropping the four side faces is free: with height 0 they are zero-area quads that rasterise
+        // nothing, and their UV strips ran off the 30-deep tile along v=128, the last row of the sheet.
         root.addOrReplaceChild("butterfly_l",
-                CubeListBuilder.create().texOffs(0, 98).addBox(-1.0F, 0.0F, -14.0F, 26.0F, 0.0F, 30.0F),
-                PartPose.offsetAndRotation(4.5F, 3.0F, -2.0F, 0.0F, 0.0F, -0.78539F));
+                CubeListBuilder.create().texOffs(0, 98)
+                        .addBox(-1.0F, -MEMBRANE_HALF_GAP, -14.0F, 26.0F, 0.0F, 30.0F, MEMBRANE_UPPER_FACE)
+                        .addBox(-1.0F, MEMBRANE_HALF_GAP, -14.0F, 26.0F, 0.0F, 30.0F, MEMBRANE_LOWER_FACE),
+                PartPose.offsetAndRotation(4.5F, BUTTERFLY_PIVOT_Y, -2.0F, 0.0F, 0.0F, -0.78539F));
         root.addOrReplaceChild("butterfly_r",
-                CubeListBuilder.create().texOffs(0, 68).addBox(-25.0F, 0.0F, -14.0F, 26.0F, 0.0F, 30.0F),
-                PartPose.offsetAndRotation(-4.5F, 3.0F, -2.0F, 0.0F, 0.0F, 0.78539F));
+                CubeListBuilder.create().texOffs(0, 68)
+                        .addBox(-25.0F, -MEMBRANE_HALF_GAP, -14.0F, 26.0F, 0.0F, 30.0F, MEMBRANE_UPPER_FACE)
+                        .addBox(-25.0F, MEMBRANE_HALF_GAP, -14.0F, 26.0F, 0.0F, 30.0F, MEMBRANE_LOWER_FACE),
+                PartPose.offsetAndRotation(-4.5F, BUTTERFLY_PIVOT_Y, -2.0F, 0.0F, 0.0F, 0.78539F));
 
         return LayerDefinition.create(mesh, 128, 128);
     }
@@ -433,53 +514,185 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
         this.saddleMouthLineR.visible = saddled;
         this.headSaddle.visible = saddled;
 
-        // Wings render only on flyer types (pegasus / fairy / bat / ghost / undead-pegasus) and the unicorn
-        // horn only on unicorned types (unicorn / fairy / undead-unicorn / unicorn-skeleton) — computed from
-        // the synched type so a regular horse never shows garbled wing/horn geometry from its texture.
+        // The unicorn horn shows only on the horned coats (unicorn / fairy / undead-unicorn /
+        // unicorn-skeleton), computed from the synched type — legacy {@code isUnicorned()}.
         int type = state.typeMoC;
-        boolean flyer = type == 39 || type == 40 || (type >= 45 && type < 60) || type == 32
-                || type == 21 || type == 25 || type == 28;
         boolean unicorned = type == 36 || (type >= 45 && type < 60) || type == 27 || type == 24;
-        this.midWing.visible = flyer;
-        this.innerWing.visible = flyer;
-        this.outerWing.visible = flyer;
-        this.innerWingR.visible = flyer;
-        this.midWingR.visible = flyer;
-        this.outerWingR.visible = flyer;
         this.unicorn.visible = unicorned;
 
-        // Wing flap. The wing segments (inner / mid / outer for each side) are all direct children of
-        // root — they are flat, not nested — and their rest PartPose carries only a yRot sweep (the fan
-        // shape) with zero zRot. The wings extend sideways along the X axis, so the axis that raises and
-        // lowers a wing is zRot: a negative zRot lifts the left wing's outboard tip (toward +X) upward,
-        // and the mirrored positive zRot lifts the right. We leave yRot alone (preserving the baked fan)
-        // and drive zRot only.
+        // ---------------------------------------------------------------- wings
+        // The horse sheet carries TWO mutually-exclusive wing sets that deliberately SHARE the same
+        // corner of the 128x128 layout, because no coat ever wears both:
         //
-        // When airborne the wings spread (a base zRot offset) and beat with a cosine cycle; the inner,
-        // mid and outer segments get progressively larger, phase-shifted amplitudes so the whole wing
-        // articulates rather than swinging rigidly. When grounded we restore the folded rest pose by
-        // clearing zRot back to the layer's baked value of 0.
-        if (state.flying) {
-            float flap = Mth.cos(state.ageInTicks * 0.5F) * 0.5F;
-            float spread = 20.0F * DEG_TO_RAD;
+        //   * the feathered pegasus wing — inner_wing (0,96), mid_wing (82,68), outer_wing (0,68) and
+        //     their mirrors inner_wing_r (0,110), mid_wing_r (82,82), outer_wing_r (0,82);
+        //   * the flat fairy/butterfly membranes — butterfly_l (0,98) and butterfly_r (0,68), each a
+        //     26 x 0 x 30 quad whose up/down faces alone span u 30..82.
+        //
+        // butterfly_r's quad therefore samples exactly the same texels as outer_wing, and butterfly_l's
+        // overlaps inner_wing / inner_wing_r. Legacy kept them apart purely by never drawing both:
+        // {@code MoCModelNewHorse.render()} (legacy MoCModelNewHorse.java:462-486) draws the feathered
+        // set for {@code isFlyer() && !isGhost() && type < 45} (white/dark pegasus 39/40, bat horse 32,
+        // undead/skeleton pegasus 25/28) and the butterfly quads for the fairy coats (45-59) and the
+        // ghost coats — never both on one horse.
+        //
+        // {@link ModelPart#visible} defaults to {@code true} and {@code resetPose()} does not clear it,
+        // so a part that is never gated draws on EVERY horse. That is what produced the reported
+        // "2D wing image floating offset from the actual wings": butterfly_l/butterfly_r were never
+        // gated at all, so a pegasus rendered two big flat 26x30 planes cocked at +/-45 degrees that
+        // sampled the feathered wing's own texels — a ghost copy of the wing art hanging off the flanks.
+        // A fairy horse got the converse: the feathered cubes drawn on top of its butterfly membranes,
+        // sampling the fairy sheet's butterfly art.
+        boolean ghost = type == 21 || type == 22;
+        boolean featheredWings = type == 39 || type == 40 || type == 32 || type == 25 || type == 28;
+        boolean butterflyWings = (type >= 45 && type < 60) || ghost;
+        this.midWing.visible = featheredWings;
+        this.innerWing.visible = featheredWings;
+        this.outerWing.visible = featheredWings;
+        this.innerWingR.visible = featheredWings;
+        this.midWingR.visible = featheredWings;
+        this.outerWingR.visible = featheredWings;
+        this.butterflyL.visible = butterflyWings;
+        this.butterflyR.visible = butterflyWings;
 
-            // Left wing (extends toward +X): negative zRot lifts it up.
-            this.innerWing.zRot = -(spread + flap);
-            this.midWing.zRot = -(spread + flap * 1.35F);
-            this.outerWing.zRot = -(spread + Mth.cos(state.ageInTicks * 0.5F + 0.6F) * 0.5F * 1.7F);
-
-            // Right wing (extends toward -X): mirror the sign.
-            this.innerWingR.zRot = spread + flap;
-            this.midWingR.zRot = spread + flap * 1.35F;
-            this.outerWingR.zRot = spread + Mth.cos(state.ageInTicks * 0.5F + 0.6F) * 0.5F * 1.7F;
-        } else {
-            // Folded rest pose (baked layer zRot is 0 on every wing segment).
-            this.innerWing.zRot = 0.0F;
-            this.midWing.zRot = 0.0F;
-            this.outerWing.zRot = 0.0F;
-            this.innerWingR.zRot = 0.0F;
-            this.midWingR.zRot = 0.0F;
-            this.outerWingR.zRot = 0.0F;
+        if (featheredWings) {
+            animatePegasusWings(state);
+        } else if (butterflyWings) {
+            animateButterflyWings(state, ghost);
         }
+    }
+
+    /**
+     * Feathered pegasus wing beat, converted from legacy {@code setRotationAngles} (legacy
+     * MoCModelNewHorse.java:737-824).
+     *
+     * <p>The three segments of each wing are <em>siblings</em>, not a parent/child chain: inner and mid
+     * pivot at the shoulder (x = &plusmn;5) while outer pivots 12 units further out (x = &plusmn;17).
+     * Spinning all three about their own baked pivots — which is what the first port pass did — tears the
+     * wing into three disconnected slabs the moment the flap angle leaves zero, because the outer segment
+     * orbits a point that never moves. Legacy solved it by walking the outer pivot around the arc of the
+     * inner one every frame:
+     * <pre>
+     *   OuterWing.rotationPointX = InnerWing.rotationPointX + cos(WingRot) * 12F;
+     *   OuterWing.rotationPointY = InnerWing.rotationPointY + sin(WingRot) * 12F;
+     * </pre>
+     * so the elbow stays welded to the shoulder at every angle. That translation is reproduced below and
+     * is the fix for the "wings render wrong while flapping" half of the report.
+     *
+     * <p>Sign convention: model space is Y-down (the renderer flips it), so a <em>positive</em> zRot
+     * raises the left wing (which extends toward +X) and the mirrored <em>negative</em> zRot raises the
+     * right — legacy drives {@code MidWing/InnerWing/OuterWing.rotateAngleZ = WingRot} and the R parts
+     * with {@code -WingRot}. The first port pass had this inverted, so the wings beat downward through
+     * the horse's ribs.
+     *
+     * <p>Grounded, legacy does not merely zero the flap: it <em>folds</em> the wing (legacy
+     * MoCModelNewHorse.java:786-791) by forcing {@code WingRot} to 60&deg; — which drops the elbow
+     * {@code sin(60) * 12 = 10.4} units down the flank — and swinging the outer segment 90&deg; back
+     * along the body. Only while airborne does it fan out and beat.
+     *
+     * <p><b>Deviations from legacy, and why.</b> Legacy split the airborne case on
+     * {@code wingFlapCounter != 0} (a deliberate beat, triggered by the rider pressing jump) versus
+     * cruising (a 0.1 rad tremor). The port's render state carries no such counter for the horse, so an
+     * airborne winged horse always beats at the legacy flap cadence
+     * {@code cos(ageInTicks * 0.3 + PI) * 1.2}. Legacy also copied {@code Body.rotateAngleX} onto every
+     * wing segment and shifted the shoulder to (y -5, z 4) while rearing; both existed to compensate for
+     * a body-only pitch, and the port pitches the whole horse at the renderer instead
+     * ({@code MoCMobRenderer.setupRotations}), so the wings already inherit the rear and need neither.
+     */
+    private void animatePegasusWings(MoCEntityRenderState state) {
+        float wingRot;
+        if (state.flying) {
+            // Legacy: WingRot = cos((f2 * 0.3F) + PI) * 1.2F, with the outer segment's fan angle
+            // opening and closing at half the beat amplitude around its baked -0.3228859 sweep.
+            wingRot = Mth.cos(state.ageInTicks * 0.3F + (float) Math.PI) * 1.2F;
+            this.outerWing.yRot = -0.3228859F + (wingRot / 2.0F);
+            this.outerWingR.yRot = 0.3228859F - (wingRot / 2.0F);
+        } else {
+            // Legacy folded pose: 60 degrees of droop, outer primaries swept 90 degrees back.
+            wingRot = 60.0F * DEG_TO_RAD;
+            this.outerWing.yRot = -90.0F * DEG_TO_RAD;
+            this.outerWingR.yRot = 90.0F * DEG_TO_RAD;
+        }
+
+        // Keep the elbow on the shoulder's arc (the 12-unit inner->outer pivot separation).
+        float armX = Mth.cos(wingRot) * 12.0F;
+        float armY = Mth.sin(wingRot) * 12.0F;
+        this.outerWing.x = this.innerWing.x + armX;
+        this.outerWingR.x = this.innerWingR.x - armX;
+        this.outerWing.y = this.innerWing.y + armY;
+        this.outerWingR.y = this.innerWingR.y + armY;
+        this.outerWing.z = this.innerWing.z;
+        this.outerWingR.z = this.innerWing.z;
+        this.midWing.y = this.innerWing.y;
+        this.midWingR.y = this.innerWing.y;
+        this.midWing.z = this.innerWing.z;
+        this.midWingR.z = this.innerWing.z;
+
+        this.innerWing.zRot = wingRot;
+        this.midWing.zRot = wingRot;
+        this.outerWing.zRot = wingRot;
+        this.innerWingR.zRot = -wingRot;
+        this.midWingR.zRot = -wingRot;
+        this.outerWingR.zRot = -wingRot;
+    }
+
+    /**
+     * Fairy-horse (and ghost-horse) membrane flutter, converted from legacy {@code setRotationAngles}
+     * (legacy MoCModelNewHorse.java:846-935).
+     *
+     * <p>The two quads pivot at the withers and open/close about Z from a 30&deg; base spread
+     * ({@code 0.52359}); legacy overwrites the layer's baked &plusmn;45&deg; rest angle outright, which
+     * is why the resting spread here is 30&deg; and not the 0.78539 baked into {@link #createBodyLayer}.
+     * The cadence has three legacy branches: a fast cruise flutter while airborne
+     * ({@code cos(f2 * 0.6662F) * 0.5F}), and on the ground a slow idle stretch that only runs during
+     * ticks 40-60 of every 100 ({@code cos(f2 * 0.15F) * 1.20F}) and otherwise holds the wings still.
+     * The ghost coats use a lazier {@code cos(f2 * 0.1F)} about a zero base, so their wings sweep all the
+     * way from folded to flat.
+     *
+     * <p><b>Deviation 1 — fold ceiling.</b> The membranes are mirror images about x=0: the left one spans
+     * local x -1..25 off a pivot at x=+4.5, the right one -25..1 off x=-4.5, and legacy rotates them by
+     * equal and opposite Z angles. Solving the two swept lines against each other, they cross when
+     * {@code cos(zRot) <= -0.18}. Legacy's grounded idle branch is
+     * {@code -0.52359 + cos(f2 * 0.15F) * 1.20F}, i.e. down to <b>-98.7&deg;</b> where
+     * {@code cos = -0.153}: the wing tips swing over the mid-line to x = &plusmn;0.68 and pass within
+     * <em>1.4 model units</em> (0.09 blocks) of each other, a hair short of a real intersection but
+     * indistinguishable from one on screen — the reported "wings clip through each other". (Legacy's own
+     * to-do at MoCModelNewHorse.java:796-799 wants the idle motion to run "from closing up to
+     * horizontal", so folding upright is intended; meeting at the mid-line is not.) Clamping the fold to
+     * {@link #BUTTERFLY_MAX_FOLD} keeps {@code cos(zRot)} positive, which makes the two planes provably
+     * divergent at every angle: at the new extreme the tips stand 13.4 units apart and the wing still
+     * reads as a closed butterfly.
+     *
+     * <p><b>Deviation 2 — the {@code wingFlapCounter} beat.</b> Legacy's fourth branch
+     * ({@code cos(f2 * 0.9F) * 0.9F}) has no counterpart in the port's render state and is folded into
+     * the cruise branch. Legacy also drew the fairy membranes blended at 1.3x scale (legacy
+     * MoCModelNewHorse.java:456-464); that is renderer-level and not reproduced here.
+     *
+     * <p>Not reproduced, deliberately: legacy shoved the pivot to (y -2.5, z 6.5) while rearing (legacy
+     * MoCModelNewHorse.java:849-855) to compensate for a body-only pitch. The port pitches the whole
+     * horse at the renderer ({@code MoCMobRenderer.setupRotations}), so the wings already inherit it —
+     * the same reasoning as {@link #animatePegasusWings}.
+     */
+    private void animateButterflyWings(MoCEntityRenderState state, boolean ghost) {
+        float wingRot;
+        float baseAngle;
+        if (ghost) {
+            wingRot = Mth.cos(state.ageInTicks * 0.1F);
+            baseAngle = 0.0F;
+        } else {
+            baseAngle = 0.52359F;
+            if (state.flying) {
+                wingRot = Mth.cos(state.ageInTicks * 0.6662F) * 0.5F;
+            } else {
+                float phase = state.ageInTicks % 100.0F;
+                wingRot = (phase > 40.0F && phase < 60.0F) ? Mth.cos(state.ageInTicks * 0.15F) * 1.20F : 0.0F;
+            }
+        }
+        // Legacy drives ButterflyL by -baseAngle + WingRot and ButterflyR by +baseAngle - WingRot
+        // (MoCModelNewHorse.java:870-871), i.e. one angle mirrored; clamp that single angle so neither
+        // wing can ever sweep to the mid-line.
+        float fold = Mth.clamp(baseAngle - wingRot, -BUTTERFLY_MAX_FOLD, BUTTERFLY_MAX_FOLD);
+        this.butterflyL.zRot = -fold;
+        this.butterflyR.zRot = fold;
     }
 }

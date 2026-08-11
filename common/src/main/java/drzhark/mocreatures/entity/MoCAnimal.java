@@ -180,6 +180,225 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         }
     }
 
+    // ------------------------------------------------------------------------- pick up / carry a pet
+
+    /**
+     * The network id of the player carrying this creature, or -1. Synched so the client can position and
+     * pose the creature on its carrier's head.
+     *
+     * <p><b>Why this is not the vanilla riding system.</b> Legacy did {@code mountEntity(entityplayer)} —
+     * the pet literally became the player's passenger. That is impossible on a 26.2 server:
+     * {@code Entity.startRiding} bails out at {@code !entityToRide.type.canSerialize()}, and
+     * {@code EntityType.PLAYER} is built with {@code .noSave()}, so {@code canSerialize()} is false and a
+     * mob can NEVER be a passenger of a player. The check sits above the {@code force} branch, so
+     * {@code startRiding(player, true, true)} does not get around it either. Carrying is therefore driven
+     * by this field instead: the creature stays an ordinary world entity and is simply pinned to the
+     * carrier's head each tick — which, as a bonus, means it saves and loads normally rather than being
+     * silently discarded the way a passenger of a non-serializable vehicle is.</p>
+     */
+    private static final EntityDataAccessor<Integer> CARRIER =
+            SynchedEntityData.defineId(MoCAnimal.class, EntityDataSerializers.INT);
+
+    /**
+     * The persisted claim on this creature: the UUID of the player carrying it, or {@code null}.
+     *
+     * <p>{@link #CARRIER} holds a network entity id, which is only meaningful for as long as that player
+     * is online — it is reassigned on every join and is useless across a save. So the id is treated as a
+     * live cache and this UUID is the durable record: on reload (or when the carrier logs back in) the
+     * creature re-attaches itself to the same player, and you get your pet back on your head instead of
+     * finding it on the floor where you left the world.</p>
+     */
+    private java.util.@Nullable UUID carrierUuid;
+
+    /** True while this creature is being carried by a player (legacy {@code pickedUp}). */
+    public boolean isBeingCarried() {
+        return this.entityData.get(CARRIER) != -1;
+    }
+
+    /** The player carrying this creature, or {@code null}. Resolved from the synched carrier id. */
+    public @Nullable Player getCarrier() {
+        int id = this.entityData.get(CARRIER);
+        return id != -1 && this.level().getEntity(id) instanceof Player player ? player : null;
+    }
+
+    /**
+     * Re-points the live carrier id at the claimed player, or clears it while they are offline. Server
+     * side; run every tick so a carrier who logs back in (or reloads the world) picks their pet straight
+     * back up.
+     */
+    private void refreshCarrierLink() {
+        if (this.carrierUuid == null) {
+            if (this.entityData.get(CARRIER) != -1) {
+                this.entityData.set(CARRIER, -1);
+            }
+            return;
+        }
+        Player claimed = this.level().getPlayerByUUID(this.carrierUuid);
+        int live = claimed != null && claimed.isAlive() && !claimed.isRemoved() ? claimed.getId() : -1;
+        if (this.entityData.get(CARRIER) != live) {
+            this.entityData.set(CARRIER, live);
+            if (live == -1) {
+                this.setNoGravity(false); // carrier offline: let it rest on the ground until they return
+            }
+        }
+    }
+
+    /** The sound made when the creature is set down; legacy used {@code mob.chickenplop} for most species. */
+    protected net.minecraft.sounds.@Nullable SoundEvent getPutDownSound() {
+        return net.minecraft.sounds.SoundEvents.CHICKEN_EGG;
+    }
+
+    /** How far below the top of the carrier's head the creature sits, so it nestles rather than floats. */
+    protected double carriedHeadSink() {
+        return 0.15D;
+    }
+
+    /**
+     * Legacy pick-up / put-down toggle ({@code MoCEntityBunny.interact}). Right-click a small creature to
+     * carry it on your head; right-click again — or sneak — to set it down, and if you are running or
+     * jumping as you do, to throw it, since legacy applied the carrier's momentum at 5x on release.
+     * Server-side only; returns {@code true} when the interaction was consumed.
+     */
+    protected boolean toggleCarry(Player player, boolean tameOnPickup) {
+        if (isBeingCarried()) {
+            if (getCarrier() != player) {
+                return false;
+            }
+            putDown(player);
+            return true;
+        }
+        // One pet at a time, and never off another creature's back.
+        if (this.isVehicle() || this.isPassenger() || carriedBySomeone(player)) {
+            return false;
+        }
+        if (tameOnPickup && !getIsTamed()) {
+            if (exceedsTameCap(player)) {
+                return true; // consumed, but refused
+            }
+            setTamed(true);
+            setOwnerName(player.getName().getString());
+            // Legacy tameWithName prompted for a name the instant a creature was tamed.
+            drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
+            hearts(7);
+        }
+        // Legacy snapped the pet to the carrier's facing on pick-up (MoCEntityBunny:161).
+        this.setYRot(player.getYRot());
+        this.yRotO = this.getYRot();
+        this.setYBodyRot(player.getYRot());
+        this.setYHeadRot(player.getYRot());
+        this.carrierUuid = player.getUUID();
+        this.entityData.set(CARRIER, player.getId());
+        this.getNavigation().stop();
+        return true;
+    }
+
+    /** Whether {@code player} is already carrying some other Mo'Creature. */
+    private boolean carriedBySomeone(Player player) {
+        for (Entity entity : player.level().getEntities(player, player.getBoundingBox().inflate(3.0D))) {
+            if (entity != this && entity instanceof MoCAnimal moc && moc.getCarrier() == player) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Sets the creature down, applying the legacy release impulse — the carrier's momentum at 5x, so
+     * dropping one while sprinting or jumping hurls it (legacy {@code MoCEntityBunny}:187-189).
+     */
+    public void putDown(@Nullable Player carrier) {
+        this.carrierUuid = null;
+        this.entityData.set(CARRIER, -1);
+        this.setNoGravity(false);
+        if (carrier != null) {
+            Vec3 pv = carrier.getDeltaMovement();
+            this.setDeltaMovement(pv.x * 5.0D, (pv.y / 2.0D) + 0.5D, pv.z * 5.0D);
+            this.hurtMarked = true; // 26.2 syncs impulses via hurtMarked, not hasImpulse
+        }
+        net.minecraft.sounds.SoundEvent sound = getPutDownSound();
+        if (sound != null && !this.level().isClientSide()) {
+            this.level().playSound(null, this.blockPosition(), sound,
+                    net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F,
+                    ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F) + 1.0F);
+        }
+    }
+
+    /**
+     * Pins a carried creature to its carrier's head, on both sides so it does not jitter. Runs from
+     * {@link #tick()} before the AI so the creature never fights the position. Sneaking sets it down —
+     * without that there is no way to release one in first person, where it is deliberately not rendered.
+     */
+    private void tickCarried() {
+        if (!this.level().isClientSide()) {
+            refreshCarrierLink();
+        }
+        Player carrier = getCarrier();
+        if (carrier == null) {
+            // Either nothing is carrying this creature, or its carrier is offline. In the second case the
+            // claim is KEPT: quitting to the title screen and coming back must hand the pet straight back,
+            // not leave it on the floor. refreshCarrierLink re-establishes the link when they return.
+            return;
+        }
+        if (!this.level().isClientSide() && carrier.isShiftKeyDown()) {
+            putDown(carrier);
+            return;
+        }
+        // On the client the server is ALSO streaming this creature's position and rotation, and
+        // LivingEntity.aiStep replays those packets through its InterpolationHandler
+        // (mc262-ref LivingEntity.java:3018-3020). Two authorities disagreeing every time a packet lands is
+        // an irregular wobble on top of everything else, so the replay is cancelled while carried: the pin
+        // below is the only thing allowed to place a carried pet.
+        if (this.level().isClientSide() && this.getInterpolation().hasActiveInterpolation()) {
+            this.getInterpolation().cancel();
+        }
+        this.setNoGravity(true);
+        this.setDeltaMovement(Vec3.ZERO);
+        this.fallDistance = 0.0F;
+        this.setPos(carrier.getX(),
+                carrier.getY() + carrier.getBbHeight() - carriedHeadSink(),
+                carrier.getZ());
+        // Face the way the carrier does (legacy re-synced this every tick for the mouse).
+        //
+        // Deliberately NOT touching yRotO / yBodyRotO / yHeadRotO. The renderer draws the creature at
+        // Mth.rotLerp(partialTick, <field>O, <field>) — yHeadRot at
+        // mc262-ref LivingEntityRenderer.java:247, yBodyRot at :323 — and those *O fields hold the previous
+        // tick's value, captured by Entity.setOldPosAndRot() (Entity.java:1802) which both
+        // ServerLevel.java:827 and ClientLevel.java:471 call BEFORE ticking the entity. Assigning the new
+        // yaw over yRotO collapsed that interval to zero, so the creature snapped once per tick at 20 Hz
+        // while the camera turned at frame rate — the reported left/right jitter. Leaving them alone is
+        // what makes the turn interpolate.
+        this.setYRot(carrier.getYRot());
+        this.setYBodyRot(carrier.getYRot());
+        this.setYHeadRot(carrier.getYRot());
+        if (!this.level().isClientSide()) {
+            this.getNavigation().stop();
+            this.setTarget(null);
+        }
+    }
+
+    /** A carried pet is baggage: it must not shove its carrier around. */
+    @Override
+    public boolean isPushable() {
+        return !isBeingCarried() && super.isPushable();
+    }
+
+    /**
+     * The carry pin runs AFTER the superclass tick, and that ordering matters.
+     *
+     * <p>{@code LivingEntity.aiStep} eases the body rotation toward the AI's target every tick —
+     * {@code tickHeadTurn} (mc262-ref LivingEntity.java:3000-3008) moves {@code yBodyRot} 30% of the way
+     * there and then clamps the head to within 50 degrees of it — and it replays server position packets
+     * through the interpolation handler (:3018-3020). Pinning before {@code super.tick()} therefore had the
+     * superclass drag the creature part of the way back every single tick, which is a second source of the
+     * stutter on top of the destroyed rotation interpolation. Placing it last makes the pin the final word
+     * on where a carried pet is and which way it faces.</p>
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        tickCarried();
+    }
+
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
@@ -223,20 +442,7 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         // interaction and an adult pet scorpion can never be mounted.
         if (spec.tame == MoCBehavior.Tame.PICKUP && stack.isEmpty() && (!spec.rideable || !getIsAdult())) {
             if (server) {
-                if (this.isPassenger() && this.getVehicle() == player) {
-                    this.stopRiding();
-                } else if (!this.isVehicle() && !player.isPassenger()) {
-                    if (!getIsTamed()) {
-                        // Enforce the tamed-per-player cap before taming.
-                        if (exceedsTameCap(player)) {
-                            return InteractionResult.SUCCESS;
-                        }
-                        setTamed(true);
-                        setOwnerName(player.getName().getString());
-                        hearts(7);
-                    }
-                    this.startRiding(player);
-                }
+                toggleCarry(player, true);
             }
             return InteractionResult.SUCCESS;
         }
@@ -245,11 +451,7 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         // one falls through so its heal/name interactions still run; only empty-hand carry is gated on tamed.
         if (spec.tame == MoCBehavior.Tame.PICKUP_TAMED && stack.isEmpty() && getIsTamed()) {
             if (server) {
-                if (this.isPassenger() && this.getVehicle() == player) {
-                    this.stopRiding();
-                } else if (!this.isVehicle() && !player.isPassenger()) {
-                    this.startRiding(player);
-                }
+                toggleCarry(player, false);
             }
             return InteractionResult.SUCCESS;
         }
@@ -263,6 +465,8 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
                 consume(player, stack);
                 setTamed(true);
                 setOwnerName(player.getName().getString());
+                // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
                 // Legacy taming does NOT make the creature an adult — MoCTools.tameWithName only sets tamed +
                 // owner. Feeding nudges growth by one step and the normal age tick matures it from there, so a
                 // tamed foal stays a foal (and stays unrideable) instead of snapping to full size.
@@ -279,9 +483,12 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         // eats a dropped raw pork/fish, so a freshly-spawned cat — and every adult, which never eats and
         // so never sets the flag — cannot be tamed until raised and fed. Other medallion creatures (kitty)
         // keep their instant medallion taming.
+        // The same two-stage rule applies to the kitty: legacy MoCEntityKitty.interact:615 only accepted a
+        // medallion at kittyState 2, which a wild kitty reaches by finding and eating a dropped cooked fish
+        // (legacy :789-820). Both medallion species must therefore have eaten first.
         if (spec.tame == MoCBehavior.Tame.MEDALLION && !getIsTamed()
                 && stack.is(MoCItems.MEDALLION.get()) && !stack.has(DataComponents.CUSTOM_NAME)
-                && (!(this instanceof drzhark.mocreatures.entity.passive.MoCEntityBigCat) || getHasEatenMoC())) {
+                && (!requiresFeedingBeforeTaming() || getHasEatenMoC())) {
             if (server) {
                 // Enforce the tamed-per-player cap; refuse without consuming the medallion.
                 if (exceedsTameCap(player)) {
@@ -290,6 +497,8 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
                 consume(player, stack);
                 setTamed(true);
                 setOwnerName(player.getName().getString());
+                // Legacy tameWithName prompted for a name the instant a creature was tamed.
+                drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
                 heal(getMaxHealth());
                 hearts(7);
             }
@@ -410,10 +619,41 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
     }
 
     /**
+     * Legacy ownership lockout ({@code MoCEntityAnimal.interact}:491-495, {@code MoCEntityAquatic}:1046,
+     * {@code MoCEntityKitty}:612): with {@link MoCConfig#enableOwnership} on, only the owner may interact
+     * with a tamed creature at all. Without it any player can feed, heal, saddle, re-equip, mount or ride
+     * someone else's horse, big cat, elephant or wyvern — the port already blocked them from HURTING it.
+     */
+    static boolean canBeHandledBy(IMoCEntity moc, Player player) {
+        if (!MoCConfig.get().enableOwnership || !moc.getIsTamed()) {
+            return true;
+        }
+        String owner = moc.getOwnerName();
+        return owner == null || owner.isEmpty() || owner.equals(player.getName().getString());
+    }
+
+    protected boolean canBeHandledBy(Player player) {
+        return canBeHandledBy(this, player);
+    }
+
+    /**
+     * The lockout is applied at {@code interact}, not {@code mobInteract}, so it covers every subclass —
+     * a dozen species override {@code mobInteract} and act before delegating to super, and a check placed
+     * there would let each of them slip through.
+     */
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand, Vec3 location) {
+        if (!canBeHandledBy(player)) {
+            return InteractionResult.PASS; // someone else's pet — hands off
+        }
+        return super.interact(player, hand, location);
+    }
+
+    /**
      * Shared with {@link MoCAquatic}: legacy funnelled every tame through {@code MoCTools.tameWithName}, so the
      * per-player cap applied identically to land creatures, aquatics and monsters.
      */
-    static boolean exceedsTameCap(net.minecraft.world.entity.Entity self, Player player) {
+    public static boolean exceedsTameCap(net.minecraft.world.entity.Entity self, Player player) {
         MoCConfig config = MoCConfig.get();
         if (!config.enableOwnership) {
             return false;
@@ -518,6 +758,7 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         builder.define(SADDLED, false);
         builder.define(SITTING, false);
         builder.define(EATEN, false);
+        builder.define(CARRIER, -1);
     }
 
     /** Legacy big-cat "hasEaten" prerequisite for medallion taming (set when a cub eats raw pork/fish). */
@@ -622,6 +863,8 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         if (this.random.nextInt(chance * 8) == 0 && !exceedsTameCap(rider)) {
             setTamed(true);
             setOwnerName(rider.getName().getString());
+            // Legacy tameWithName prompted for a name the instant a creature was tamed.
+            drzhark.mocreatures.network.MoCNetwork.promptName(this, rider);
             hearts(7);
         }
     }
@@ -756,6 +999,9 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         output.putBoolean("Sitting", isSitting());
         output.putBoolean("HasEaten", getHasEatenMoC());
         output.putInt("Temper", getTemper());
+        if (this.carrierUuid != null) {
+            output.store("CarriedBy", net.minecraft.core.UUIDUtil.CODEC, this.carrierUuid);
+        }
     }
 
     @Override
@@ -770,6 +1016,7 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         setSitting(input.getBooleanOr("Sitting", false));
         setHasEatenMoC(input.getBooleanOr("HasEaten", false));
         setTemper(input.getIntOr("Temper", 0));
+        this.carrierUuid = input.read("CarriedBy", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
     }
 
     // -------------------------------------------------------------------------- spawn / breeding
@@ -779,6 +1026,17 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         Entity baby = this.getType().create(level, EntitySpawnReason.BREEDING);
         if (baby instanceof MoCAnimal moc) {
             moc.setAdult(false);
+            // Newborns start at the bottom of their species' growth curve, not the shared default of 50 —
+            // otherwise every baby is born half-grown and matures in half the intended time.
+            moc.setMoCAge(newbornAge());
+            // EntityType.create does not run finalizeSpawn, so selectType() never fires for a bred baby and
+            // it would keep sub-type 0 (which renders as the fallback texture). Inherit the mother's coat
+            // where the species breeds true, otherwise roll a fresh one.
+            if (inheritsParentType()) {
+                moc.setTypeMoC(this.getTypeMoC());
+            } else {
+                moc.selectType();
+            }
         }
         if (baby instanceof AgeableMob am) {
             am.setAge(-24000); // vanilla baby age -> renders small and grows up
@@ -786,15 +1044,75 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         return baby instanceof AgeableMob ageable ? ageable : null;
     }
 
+    /**
+     * Whether a Medallion alone is not enough to tame this creature — legacy gated both medallion species
+     * behind a first stage in which the wild animal has to find and eat food dropped on the ground (a big
+     * cat cub eats raw pork/fish, a kitty eats a cooked fish), recorded in the shared {@code EATEN} flag.
+     */
+    protected boolean requiresFeedingBeforeTaming() {
+        return false;
+    }
+
+    /** The MoC age a newborn of this species starts at (legacy: kitty 40, fishy 20, dolphin 35, horse 1). */
+    protected int newbornAge() {
+        return 1;
+    }
+
+    /** Whether a newborn takes its parent's sub-type rather than rolling a fresh one. */
+    protected boolean inheritsParentType() {
+        return true;
+    }
+
     @Override
     public boolean isFood(ItemStack stack) {
         return MoCBehavior.matches(behavior().foods, stack);
+    }
+
+    /**
+     * Legacy per-species growth ({@code edad}). Runs for every creature whose {@link MoCBehavior} spec
+     * declares a curve; species that grow themselves (bunny, deer, big cat, boar, komodo, shark, wyvern,
+     * horse, dolphin) declare none and keep their own tick.
+     */
+    @Override
+    protected void customServerAiStep(ServerLevel level) {
+        super.customServerAiStep(level);
+        MoCBehavior.tickGrowth(this, this.random, behavior());
+    }
+
+    /**
+     * Vanilla-age safety net: babies are given {@code setAge(-24000)} in several places, and when that
+     * counter climbs back to zero vanilla considers them grown. Without this the MoC {@code ADULT} flag
+     * would stay false forever, leaving the creature stuck at 0.75x with every {@code getIsAdult()} gate
+     * shut.
+     *
+     * <p><b>The direction check is essential.</b> {@code AgeableMob.setAge} (mc262-ref
+     * AgeableMob.java:147-153) fires this hook on BOTH boundary crossings — growing up
+     * ({@code oldAge < 0 && newAge >= 0}) <em>and</em> becoming a baby ({@code oldAge >= 0 && newAge < 0}).
+     * A newborn is built at the default age of 0 and then given {@code setAge(-24000)}, which is the second
+     * of those. Reacting to that crossing made every bred baby of every species an instant MoC adult:
+     * full-size, unable to grow, and immediately re-breedable. So only the grown-up direction counts.</p>
+     */
+    @Override
+    protected void ageBoundaryReached() {
+        super.ageBoundaryReached();
+        if (!this.level().isClientSide() && this.getAge() >= 0 && !getIsAdult()) {
+            setAdult(true);
+            MoCBehavior.Spec spec = behavior();
+            if (getMoCAge() < spec.adultAge) {
+                setMoCAge(spec.adultAge);
+            }
+        }
     }
 
     @Override
     public @Nullable SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty,
             EntitySpawnReason spawnReason, @Nullable SpawnGroupData groupData) {
         SpawnGroupData data = super.finalizeSpawn(level, difficulty, spawnReason, groupData);
+        // Legacy applied its spawn age / baby roll in the constructor, i.e. only to creatures that came from
+        // the world. A bred foal, an egg hatchling or a released amulet pet sets its own age, so skip those.
+        if (spawnReason != EntitySpawnReason.BREEDING) {
+            MoCBehavior.applySpawnAge(this, this.random, behavior());
+        }
         selectType();
         return data;
     }
