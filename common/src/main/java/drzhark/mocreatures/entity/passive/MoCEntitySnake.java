@@ -181,11 +181,14 @@ public class MoCEntitySnake extends MoCAnimal {
         // (line 652) bailed on {@code if (!isPissed()) return;} for EVERY target, so a snake only ever bites
         // prey while provoked, and a shy variant (type < 3) — which can never become pissed — never predates at
         // all. Gate the hunt on a wild, venomous (type >= 3), pissed snake so shy snakes leave prey alone and
-        // venomous ones only strike prey during the rare pissed window.
+        // venomous ones only strike prey during the rare pissed window. The whole prey hunt additionally sits
+        // behind the enableHunters master switch (legacy MoCProxy.java:314-316, default true); the player hunt
+        // and retaliation goals above are not predation and stay ungated.
         this.targetSelector.addGoal(3,
                 new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(
                         this, net.minecraft.world.entity.LivingEntity.class, 10, true, false,
-                        (living, serverLevel) -> !getIsTamed() && getTypeMoC() >= 3 && isPissed()
+                        (living, serverLevel) -> drzhark.mocreatures.config.MoCConfig.get().enableHunters
+                                && !getIsTamed() && getTypeMoC() >= 3 && isPissed()
                                 && !(living.getBbHeight() > 0.5F && living.getBbWidth() > 0.5F)
                                 && !(living instanceof MoCEntitySnake)
                                 && !(living instanceof net.minecraft.world.entity.player.Player)));

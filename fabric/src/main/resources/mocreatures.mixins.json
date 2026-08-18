@@ -2,7 +2,11 @@
   "required": true,
   "minVersion": "0.8",
   "package": "drzhark.mocreatures.fabric.mixin",
+  "mixins": [
+    "FishingHookMixin"
+  ],
   "client": [
+    "HumanoidModelMixin",
     "SkyRendererMixin",
     "WorldOpenFlowsMixin"
   ],

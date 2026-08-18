@@ -191,6 +191,12 @@ public class MoCEntityFishy extends MoCAquatic {
                 && !this.level().getDifficulty().equals(net.minecraft.world.Difficulty.PEACEFUL);
     }
 
+    /** Legacy {@code MoCEntityFishy.isFisheable()}:224-226 — a wild fishy will bite a fishing rod's bobber. */
+    @Override
+    protected boolean isFisheable() {
+        return !getIsTamed();
+    }
+
     @Override
     public void selectType() {
         if (getTypeMoC() == 0) {

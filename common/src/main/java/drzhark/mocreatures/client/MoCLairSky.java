@@ -73,6 +73,15 @@ public final class MoCLairSky {
             Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "wyvern_lair"));
 
     /**
+     * The Ogre Lair level key ({@code mocreatures:ogre_lair}). Mirrors {@link #WYVERN_LAIR}: duplicated
+     * client-side so the loader skybox renderers can gate on it without reaching into server-side
+     * portal/teleport code.
+     */
+    public static final ResourceKey<Level> OGRE_LAIR = ResourceKey.create(
+            net.minecraft.core.registries.Registries.DIMENSION,
+            Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "ogre_lair"));
+
+    /**
      * Identifier the loader skybox renderers register under. Fabric's
      * {@code registerDimensionEffects} and NeoForge's {@code registerSkyboxRenderer} both key by a
      * plain {@link Identifier} (the dimension-type JSON's effects/skybox reference), not by the level
@@ -80,6 +89,14 @@ public final class MoCLairSky {
      */
     public static final Identifier EFFECTS =
             Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "wyvern_lair");
+
+    /**
+     * Identifier the loader skybox renderers register the Ogre Lair sky under. Mirrors {@link #EFFECTS}
+     * exactly, but for {@code mocreatures:ogre_lair} (the value the Ogre Lair dimension_type sets on the
+     * NeoForge {@code neoforge:custom_skybox} environment attribute).
+     */
+    public static final Identifier OGRE_EFFECTS =
+            Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "ogre_lair");
 
     /**
      * The shipped twin-suns sky texture ({@code assets/mocreatures/textures/misc/twinsuns.png}). It IS
@@ -92,6 +109,15 @@ public final class MoCLairSky {
      */
     public static final Identifier TWIN_SUNS_TEXTURE =
             Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "textures/misc/twinsuns.png");
+
+    /**
+     * The Ogre Lair single ember-sun sky texture
+     * ({@code assets/mocreatures/textures/misc/embersun.png}). Drawn on the exact same celestial quad,
+     * transform and pipeline as {@link #TWIN_SUNS_TEXTURE} — only the bound texture differs (see
+     * {@code MoCTwinSuns.draw(Matrix4fc, float, Identifier)}).
+     */
+    public static final Identifier EMBER_SUN_TEXTURE =
+            Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "textures/misc/embersun.png");
 
     // --- Palette: kept in lock-step with data/mocreatures/dimension_type/wyvern_lair.json ---
     // Values are 0xAARRGGBB where alpha is meaningful (cloud) and 0xRRGGBB otherwise.
@@ -108,13 +134,25 @@ public final class MoCLairSky {
     public static final float CLOUD_HEIGHT = 192.0F;
 
     /**
-     * True if the given level key is the Wyvern Lair. Loader skybox renderers call this to decide
-     * whether to apply the Lair sky. Null-safe.
+     * True if the given level key is one of the Lair dimensions (Wyvern or Ogre). Loader skybox
+     * renderers call this to decide whether to apply the custom Lair sky. Null-safe.
      *
      * @param dimension the client level's dimension key (may be {@code null})
-     * @return {@code true} iff {@code dimension} equals {@link #WYVERN_LAIR}
+     * @return {@code true} iff {@code dimension} equals {@link #WYVERN_LAIR} or {@link #OGRE_LAIR}
      */
     public static boolean isLair(ResourceKey<Level> dimension) {
-        return WYVERN_LAIR.equals(dimension);
+        return WYVERN_LAIR.equals(dimension) || OGRE_LAIR.equals(dimension);
+    }
+
+    /**
+     * The celestial-disc texture for the given Lair dimension: twin suns in the Wyvern Lair, the single
+     * ember sun in the Ogre Lair. Defaults to {@link #TWIN_SUNS_TEXTURE} for any other key so callers
+     * that already gated on {@link #isLair} can never receive {@code null}.
+     *
+     * @param dimension the client level's dimension key (may be {@code null})
+     * @return the sky texture to bind on the celestial quad for that dimension
+     */
+    public static Identifier sunTextureFor(ResourceKey<Level> dimension) {
+        return OGRE_LAIR.equals(dimension) ? EMBER_SUN_TEXTURE : TWIN_SUNS_TEXTURE;
     }
 }

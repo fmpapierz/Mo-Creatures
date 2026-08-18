@@ -3,12 +3,16 @@ package drzhark.mocreatures.client.model;
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.util.Mth;
+
+import java.util.Set;
 
 /**
  * Silver skeleton model, converted faithfully from the legacy {@code MoCModelSilverSkeleton}
@@ -19,8 +23,8 @@ import net.minecraft.util.Mth;
  * <ul>
  *   <li><b>Two katanas.</b> Each arm carries a hand plus three blade cubes ({@code SwordA} guard,
  *       {@code SwordB} hilt, {@code SwordC} blade). {@code SwordC} is a zero-thickness box — the legacy
- *       flat double-sided blade plane — which converts as {@code addBox(..., 0.0F, 3.0F, 10.0F)} and still
- *       renders from both sides in 26.2. Every one of those cubes is a SIBLING of the arm with the same
+ *       flat double-sided blade plane — split into a painted WEST face plus a re-aimed EAST face sampling the
+ *       same tile so the culled render type shows it from both sides. Every one of those cubes is a SIBLING of the arm with the same
  *       pivot (legacy never parented them), so {@link #setupAnim} copies the arm's rotation onto all four
  *       parts by hand, exactly as {@code setRotationAngles:218-226} did.</li>
  *   <li><b>Per-arm swing.</b> The legacy model read {@code attackCounterLeft/Right} straight off the entity;
@@ -43,6 +47,11 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
     private static final float PI = 3.141593F;
 
+    // The flat blade planes are split into two single-face boxes (painted WEST face + a re-aimed EAST face
+    // sampling the same painted tile) so the culled render type keeps them visible from both sides.
+    private static final Set<Direction> WEST_ONLY = Set.of(Direction.WEST);
+    private static final Set<Direction> EAST_ONLY = Set.of(Direction.EAST);
+
     private final ModelPart head;
     private final ModelPart rightArm;
     private final ModelPart rightHand;
@@ -62,7 +71,7 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
     private final ModelPart leftLeg;
 
     public MoCModelSilverSkeleton(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.rightArm = root.getChild("right_arm");
         this.rightHand = root.getChild("right_hand");
@@ -110,9 +119,10 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("right_sword_b",
                 CubeListBuilder.create().texOffs(48, 50).addBox(-1.5F, 7.5F, -4.0F, 1.0F, 3.0F, 1.0F),
                 PartPose.offset(-5.0F, 1.0F, 0.0F));
-        // Zero-thickness blade plane (legacy addBox(..., 0, 3, 10)) — renders from both sides.
+        // Zero-thickness blade plane (legacy addBox(..., 0, 3, 10)) — split into WEST + re-aimed EAST faces.
         root.addOrReplaceChild("right_sword_c",
-                CubeListBuilder.create().texOffs(28, 28).addBox(-1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F),
+                CubeListBuilder.create().texOffs(28, 28).addBox(-1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, WEST_ONLY)
+                        .texOffs(18, 28).addBox(-1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, EAST_ONLY),
                 PartPose.offset(-5.0F, 1.0F, 0.0F));
 
         // ---- Left arm + katana ----
@@ -129,7 +139,8 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(48, 46).addBox(0.5F, 7.5F, -4.0F, 1.0F, 3.0F, 1.0F),
                 PartPose.offset(5.0F, 1.0F, 0.0F));
         root.addOrReplaceChild("left_sword_c",
-                CubeListBuilder.create().texOffs(28, 31).addBox(1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F),
+                CubeListBuilder.create().texOffs(28, 31).addBox(1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, WEST_ONLY)
+                        .texOffs(18, 31).addBox(1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, EAST_ONLY),
                 PartPose.offset(5.0F, 1.0F, 0.0F));
 
         // ---- Right leg: thigh -> shin -> foot, with a separate knee-plate cube on the thigh pivot ----

@@ -53,10 +53,13 @@ public class MoCEntityFox extends MoCAnimal {
             }
         });
         // Legacy findPlayerToAttack returned a hunt target only when (rand.nextInt(80)==0 && difficultySetting > 0),
-        // so on Peaceful a wild fox was fully passive and hunted nothing. Gate the hunt predicate on non-Peaceful.
+        // so on Peaceful a wild fox was fully passive and hunted nothing. Gate the hunt predicate on non-Peaceful
+        // and on the enableHunters master switch (legacy MoCProxy.java:314-316, default true) — the retaliation
+        // goal above is creature-defence, not predation, and stays ungated.
         this.targetSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(
                 this, net.minecraft.world.entity.LivingEntity.class, 10, true, false,
                 (living, serverLevel) -> serverLevel.getDifficulty() != Difficulty.PEACEFUL
+                        && drzhark.mocreatures.config.MoCConfig.get().enableHunters
                         && !this.getIsTamed()
                         && !(living instanceof net.minecraft.world.entity.player.Player)
                         && !(living instanceof net.minecraft.world.entity.monster.Monster)

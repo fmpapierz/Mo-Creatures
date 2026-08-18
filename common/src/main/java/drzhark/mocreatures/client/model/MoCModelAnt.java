@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -33,6 +37,14 @@ public class MoCModelAnt extends EntityModel<MoCEntityRenderState> {
     private static final float MID_LEGS_REST = 0.5948578F;
     private static final float REAR_LEGS_REST = 0.9136644F;
 
+    // Face selectors for the flat (zero-thickness) parts: only one side of each quad is painted on
+    // ant.png, so under the culled render type each box is split into a painted face plus an
+    // opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> NORTH_FACE = Set.of(Direction.NORTH);
+    private static final Set<Direction> SOUTH_FACE = Set.of(Direction.SOUTH);
+    private static final Set<Direction> DOWN_FACE = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_FACE = Set.of(Direction.UP);
+
     private final ModelPart head;
     private final ModelPart mouth;
     private final ModelPart rightAntenna;
@@ -44,7 +56,7 @@ public class MoCModelAnt extends EntityModel<MoCEntityRenderState> {
     private final ModelPart rearLegs;
 
     public MoCModelAnt(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.mouth = root.getChild("mouth");
         this.rightAntenna = root.getChild("right_antenna");
@@ -66,15 +78,21 @@ public class MoCModelAnt extends EntityModel<MoCEntityRenderState> {
 
         // Flat 2x1 mandible plate hung off the front of the head.
         root.addOrReplaceChild("mouth",
-                CubeListBuilder.create().texOffs(8, 10).addBox(0.0F, 0.0F, 0.0F, 2.0F, 1.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(8, 10).addBox(0.0F, 0.0F, 0.0F, 2.0F, 1.0F, 0.0F, NORTH_FACE)
+                        .texOffs(6, 10).addBox(0.0F, 0.0F, 0.0F, 2.0F, 1.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(-1.0F, 22.3F, -1.9F, -0.8286699F, 0.0F, 0.0F));
 
         // Antennae: flat 1x1 quads splayed +/-45 degrees (0.7853982 rad) and tipped up.
         root.addOrReplaceChild("right_antenna",
-                CubeListBuilder.create().texOffs(0, 6).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 0.0F, 1.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 6).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 0.0F, 1.0F, DOWN_FACE)
+                        .texOffs(-1, 6).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 0.0F, 1.0F, UP_FACE),
                 PartPose.offsetAndRotation(-0.5F, 21.7F, -2.3F, -1.041001F, 0.7853982F, 0.0F));
         root.addOrReplaceChild("left_antenna",
-                CubeListBuilder.create().texOffs(4, 6).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 0.0F, 1.0F),
+                CubeListBuilder.create()
+                        .texOffs(4, 6).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 0.0F, 1.0F, DOWN_FACE)
+                        .texOffs(3, 6).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 0.0F, 1.0F, UP_FACE),
                 PartPose.offsetAndRotation(0.5F, 21.7F, -2.3F, -1.041001F, -0.7853982F, 0.0F));
 
         root.addOrReplaceChild("thorax",
@@ -87,14 +105,20 @@ public class MoCModelAnt extends EntityModel<MoCEntityRenderState> {
 
         // Three flat leg rows (a 2-wide x 3-tall quad each), splayed forward / down / back.
         root.addOrReplaceChild("mid_legs",
-                CubeListBuilder.create().texOffs(4, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(4, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, NORTH_FACE)
+                        .texOffs(2, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 22.0F, -0.7F, MID_LEGS_REST, 0.0F, 0.0F));
         root.addOrReplaceChild("front_legs",
-                CubeListBuilder.create().texOffs(0, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, NORTH_FACE)
+                        .texOffs(-2, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 22.0F, -0.8F, FRONT_LEGS_REST, 0.0F, 0.0F));
         // Legacy reuses the front-leg texture region (0, 8) for the rear row.
         root.addOrReplaceChild("rear_legs",
-                CubeListBuilder.create().texOffs(0, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, NORTH_FACE)
+                        .texOffs(-2, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 22.0F, 0.0F, REAR_LEGS_REST, 0.0F, 0.0F));
 
         return LayerDefinition.create(mesh, 32, 32);

@@ -82,18 +82,38 @@ public class MoCEntityOstrich extends MoCAnimal {
         }
     }
 
+    /** Texture file per sub-type: chick c, female b, male a, albino d, then the transformed types e-h. */
+    private static String textureFor(int type) {
+        return switch (type) {
+            case 1 -> "ostrichc.png";
+            case 2 -> "ostrichb.png";
+            case 4 -> "ostrichd.png";
+            case 5 -> "ostriche.png";
+            case 6 -> "ostrichf.png";
+            case 7 -> "ostrichg.png";
+            case 8 -> "ostrichh.png";
+            default -> "ostricha.png";
+        };
+    }
+
     @Override
     public Identifier getTexture() {
-        return switch (getTypeMoC()) {
-            case 1 -> modelTexture("ostrichc.png");
-            case 2 -> modelTexture("ostrichb.png");
-            case 4 -> modelTexture("ostrichd.png");
-            case 5 -> modelTexture("ostriche.png");
-            case 6 -> modelTexture("ostrichf.png");
-            case 7 -> modelTexture("ostrichg.png");
-            case 8 -> modelTexture("ostrichh.png");
-            default -> modelTexture("ostricha.png");
-        };
+        // Essence-vial MORPH strobe (legacy getTexture:279-303). While the transform counter runs the ostrich
+        // flickers between the skin it has and the skin it is becoming — legacy returned the NEW skin on every
+        // 5th tick, then additionally on every 3rd past tick 50 and every 4th past tick 75, so the flicker
+        // visibly accelerates until the swap lands at 100. Both the counter and the target type are synched
+        // (see TRANSFORM_COUNTER) precisely so this runs on the client, where getTexture() is evaluated.
+        int morphCounter = getTransformCounter();
+        int morphTarget = getTransformType();
+        if (morphCounter != 0 && morphTarget > 4) {
+            boolean showTarget = (morphCounter % 5) == 0
+                    || (morphCounter > 50 && (morphCounter % 3) == 0)
+                    || (morphCounter > 75 && (morphCounter % 4) == 0);
+            if (showTarget) {
+                return modelTexture(textureFor(morphTarget));
+            }
+        }
+        return modelTexture(textureFor(getTypeMoC()));
     }
 
     @Override
@@ -130,6 +150,21 @@ public class MoCEntityOstrich extends MoCAnimal {
             SynchedEntityData.defineId(MoCEntityOstrich.class, EntityDataSerializers.BOOLEAN);
     /** Legacy {@code hidingCounter}: ticks a WILD ostrich has kept its head hidden; it auto-unhides past ~500. */
     private int hidingCounter;
+
+    /**
+     * Essence-vial morph animation counter (legacy {@code transformCounter}). 0 = idle; while &gt; 0 the
+     * server ticks it up and the actual {@code setTypeMoC(getTransformType())} swap fires only once it
+     * passes 100 (~5 seconds), with the {@code transform} sound played mid-way at 40. Synched — together
+     * with {@link #TRANSFORM_TYPE} — because the morph is drawn entirely from it: legacy
+     * {@code getTexture()}:279-303 strobed the ostrich between its current skin and the one it is turning
+     * into for as long as the counter ran, and {@link #getTexture()} is evaluated on the client every frame
+     * (same reasoning as the horse's TRANSFORM_COUNTER).
+     */
+    private static final EntityDataAccessor<Integer> TRANSFORM_COUNTER =
+            SynchedEntityData.defineId(MoCEntityOstrich.class, EntityDataSerializers.INT);
+    /** The type the pending morph will finish as (legacy {@code transformType}); synched alongside the counter. */
+    private static final EntityDataAccessor<Integer> TRANSFORM_TYPE =
+            SynchedEntityData.defineId(MoCEntityOstrich.class, EntityDataSerializers.INT);
 
     // Legacy equipment / egg-guard state, synched so the client can render helmet/flag/chest and pathing works.
     private static final EntityDataAccessor<Integer> HELMET =
@@ -179,6 +214,24 @@ public class MoCEntityOstrich extends MoCAnimal {
         this.entityData.set(EGG_WATCHING, b);
     }
 
+    /** Legacy {@code transformCounter}: 0 idle, otherwise 1-100 while an essence-vial morph plays out. */
+    public int getTransformCounter() {
+        return this.entityData.get(TRANSFORM_COUNTER);
+    }
+
+    private void setTransformCounter(int counter) {
+        this.entityData.set(TRANSFORM_COUNTER, counter);
+    }
+
+    /** Legacy {@code transformType}: the type the running morph will finish as, or 0 when idle. */
+    public int getTransformType() {
+        return this.entityData.get(TRANSFORM_TYPE);
+    }
+
+    private void setTransformType(int type) {
+        this.entityData.set(TRANSFORM_TYPE, type);
+    }
+
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
@@ -188,6 +241,8 @@ public class MoCEntityOstrich extends MoCAnimal {
         builder.define(IS_CHESTED, false);
         builder.define(EGG_WATCHING, false);
         builder.define(HIDING, false);
+        builder.define(TRANSFORM_COUNTER, 0);
+        builder.define(TRANSFORM_TYPE, 0);
     }
 
     @Override
@@ -210,6 +265,24 @@ public class MoCEntityOstrich extends MoCAnimal {
         }
         if (!(this.level() instanceof ServerLevel level)) {
             return;
+        }
+        // Essence-vial morph animation (legacy onUpdate:381-394): the server drives the counter (which is
+        // synched, so the client can strobe the two skins against each other in getTexture()) and the type
+        // only swaps once it finishes (~5s), with the transform sound played mid-way. Runs BEFORE the
+        // max-health switch so the freshly-landed type's health cap applies on the same tick.
+        if (getTransformCounter() > 0) {
+            int counter = getTransformCounter() + 1;
+            setTransformCounter(counter);
+            if (counter == 40) {
+                level.playSound(null, blockPosition(), MoCSounds.TRANSFORM.get(),
+                        SoundSource.NEUTRAL, 1.0F, 1.0F);
+            }
+            if (counter > 100) {
+                dropArmor();
+                setTypeMoC(getTransformType());
+                setTransformCounter(0);
+                setTransformType(0);
+            }
         }
         // Per-type max health (legacy getMaxHealth switch): chick (type 1) = 10, female (type 2) = 15,
         // every adult male / transformed type = 20. The attribute base defaults to 20 (createAttributes),
@@ -525,9 +598,26 @@ public class MoCEntityOstrich extends MoCAnimal {
     }
 
     // ------------------------------------------------------------- essence-vial transforms (legacy interact)
-    // Feeding a tamed, non-chick ostrich one of the four essence vials transforms it into a special variant
-    // (or, if it is already that variant, fully heals it), consuming the vial for a glass bottle. Faithful to
-    // the legacy vial branches: vialdarkness->6, vialundead->7, viallight->8, vialnightmare(=essencefire)->5.
+    // Feeding a tamed, non-chick ostrich one of the four essence vials starts a ~5-second morph into a special
+    // variant (or, if it is already that variant, fully heals it), consuming the vial for a glass bottle.
+    // Faithful to the legacy vial branches: vialdarkness->6, vialundead->7, viallight->8,
+    // vialnightmare(=essencefire)->5.
+
+    /**
+     * Begins the ~5-second morph into type {@code t} (legacy {@code transform(int)}:397-407). Only an ostrich
+     * that is NOT being ridden starts it: it sheds its helmet up front, the counter starts, the client strobes
+     * it between the two skins (see {@link #getTexture()}) and the type actually swaps once the counter passes
+     * 100 in {@link #tick()}. A ridden ostrich ignores the transform entirely — no type change and no
+     * animation — even though the vial that triggered it was still consumed by the caller, exactly as in legacy.
+     */
+    private void transform(int t) {
+        setTransformType(t);
+        if (!this.isVehicle() && t != 0) {
+            dropArmor();
+            setTransformCounter(1);
+        }
+    }
+
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
@@ -582,7 +672,7 @@ public class MoCEntityOstrich extends MoCAnimal {
                     if (getTypeMoC() == target) {
                         setHealth(getMaxHealth());
                     } else {
-                        setTypeMoC(target);
+                        transform(target);
                     }
                     stack.shrink(1);
                     ItemStack bottle = new ItemStack(Items.GLASS_BOTTLE);
@@ -848,6 +938,8 @@ public class MoCEntityOstrich extends MoCAnimal {
         output.putInt("FlagColor", getFlagColor());
         output.putBoolean("Chested", getIsChested());
         output.putBoolean("Hiding", getHiding());
+        output.putInt("TransformCounter", getTransformCounter());
+        output.putInt("TransformType", getTransformType());
         ValueOutput.ValueOutputList items = output.childrenList("ChestItems");
         for (int i = 0; i < chest.getContainerSize(); i++) {
             ItemStack s = chest.getItem(i);
@@ -866,6 +958,8 @@ public class MoCEntityOstrich extends MoCAnimal {
         setFlagColor(input.getIntOr("FlagColor", 0));
         setIsChested(input.getBooleanOr("Chested", false));
         setHiding(input.getBooleanOr("Hiding", false));
+        setTransformCounter(input.getIntOr("TransformCounter", 0));
+        setTransformType(input.getIntOr("TransformType", 0));
         chest.clearContent();
         for (ValueInput child : input.childrenListOrEmpty("ChestItems")) {
             int slot = child.getIntOr("Slot", -1);

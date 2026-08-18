@@ -4,6 +4,7 @@ import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -28,7 +29,7 @@ public class MoCModelShark extends EntityModel<MoCEntityRenderState> {
     private final ModelPart rightFin;
 
     public MoCModelShark(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.body = root.getChild("body");
         this.uHead = root.getChild("u_head");
         this.dHead = root.getChild("d_head");

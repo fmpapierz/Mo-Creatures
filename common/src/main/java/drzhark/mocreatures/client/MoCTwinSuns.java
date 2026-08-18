@@ -19,6 +19,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Matrix4fc;
@@ -29,10 +30,11 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 /**
- * Loader-agnostic GPU draw of the Wyvern Lair twin-suns celestial disc ({@code twinsuns.png}). Both the
- * NeoForge {@code CustomSkyboxRenderer} and the Fabric {@code DimensionRenderingRegistry.SkyRenderer}
- * call {@link #draw(Matrix4fc, float)} after the vanilla sky is drawn, so only the loader-specific hook
- * (and the vanilla-sky handling) differs between the two.
+ * Loader-agnostic GPU draw of a Lair celestial disc — the Wyvern Lair twin suns ({@code twinsuns.png})
+ * or the Ogre Lair ember sun ({@code embersun.png}); the texture is a parameter of
+ * {@link #draw(Matrix4fc, float, Identifier)} while transform/scale/pipeline are shared. Both the
+ * NeoForge {@code CustomSkyboxRenderer} and the Fabric sky mixin call it after the vanilla sky is
+ * drawn, so only the loader-specific hook (and the vanilla-sky handling) differs between the two.
  *
  * <p>The GPU sequence mirrors {@code net.minecraft.client.renderer.SkyRenderer.renderSun} (verified via
  * {@code javap} against the 26.2 merged deobf jar): build a POSITION_TEX quad once, place it on the
@@ -44,7 +46,11 @@ public final class MoCTwinSuns {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    /** Lazily built + cached twin-suns quad (POSITION_TEX, 4 verts). Shared across loaders. */
+    /**
+     * Lazily built + cached celestial quad (POSITION_TEX, 4 verts). Shared across loaders AND across
+     * textures: the mesh holds only positions + a full 0..1 UV sweep — the texture is bound per-draw as
+     * {@code Sampler0} — so one cache serves every celestial texture.
+     */
     private static GpuBuffer quad;
     /** Ensures the fallback-on-error message logs only once, not every frame. */
     private static boolean loggedError;
@@ -52,23 +58,38 @@ public final class MoCTwinSuns {
     private MoCTwinSuns() {}
 
     /**
-     * Draws the twin-suns disc into the current sky pass.
+     * Draws the twin-suns disc into the current sky pass. Delegates to
+     * {@link #draw(Matrix4fc, float, Identifier)} with {@link MoCLairSky#TWIN_SUNS_TEXTURE}, so existing
+     * callers behave exactly as before.
      *
      * @param modelView the sky model-view matrix (camera rotation; no world translation)
      * @param sunAngle  the celestial sun angle in radians, so the disc tracks the day like the vanilla sun
      */
     public static void draw(Matrix4fc modelView, float sunAngle) {
+        draw(modelView, sunAngle, MoCLairSky.TWIN_SUNS_TEXTURE);
+    }
+
+    /**
+     * Draws a celestial disc with the given texture into the current sky pass. Identical transform,
+     * scale and pipeline to the twin-suns draw — only the texture bound to {@code Sampler0} varies
+     * (e.g. {@link MoCLairSky#EMBER_SUN_TEXTURE} for the Ogre Lair's single ember sun).
+     *
+     * @param modelView the sky model-view matrix (camera rotation; no world translation)
+     * @param sunAngle  the celestial sun angle in radians, so the disc tracks the day like the vanilla sun
+     * @param texture   the celestial texture to bind on the quad
+     */
+    public static void draw(Matrix4fc modelView, float sunAngle, Identifier texture) {
         try {
-            drawInternal(modelView, sunAngle);
+            drawInternal(modelView, sunAngle, texture);
         } catch (Throwable t) {
             if (!loggedError) {
                 loggedError = true;
-                LOGGER.error("[MoCreatures] Wyvern Lair twin-suns sky draw failed; skipping the disc.", t);
+                LOGGER.error("[MoCreatures] Lair celestial sky draw failed; skipping the disc.", t);
             }
         }
     }
 
-    private static void drawInternal(Matrix4fc modelView, float sunAngle) {
+    private static void drawInternal(Matrix4fc modelView, float sunAngle, Identifier texture) {
         Minecraft mc = Minecraft.getInstance();
 
         Matrix4fStack mv = RenderSystem.getModelViewStack();
@@ -90,7 +111,7 @@ public final class MoCTwinSuns {
             GpuTextureView color = rt.getColorTextureView();
             GpuTextureView depth = rt.getDepthTextureView();
 
-            AbstractTexture tex = mc.getTextureManager().getTexture(MoCLairSky.TWIN_SUNS_TEXTURE);
+            AbstractTexture tex = mc.getTextureManager().getTexture(texture);
             GpuTextureView texView = tex.getTextureView();
             GpuSampler texSampler = tex.getSampler();
 

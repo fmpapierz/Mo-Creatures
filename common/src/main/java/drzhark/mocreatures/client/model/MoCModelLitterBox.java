@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 
 /**
  * Litter box model, converted faithfully from the legacy {@code MoCModelLitterBox} ({@code ModelBase},
@@ -21,7 +22,7 @@ public class MoCModelLitterBox extends EntityModel<MoCEntityRenderState> {
     private final ModelPart litterUsed;
 
     public MoCModelLitterBox(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.litter = root.getChild("litter");
         this.litterUsed = root.getChild("litter_used");
     }

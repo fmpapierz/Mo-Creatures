@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -15,6 +19,12 @@ import net.minecraft.util.Mth;
  * Geometry and texture offsets are preserved; the wing buzz and leg gait are kept.
  */
 public class MoCModelBee extends EntityModel<MoCEntityRenderState> {
+
+    // The wing sheets paint only their DOWN tile; the model renders culled, so each zero-thickness
+    // wing box is split into two single-face boxes that both sample the painted tile (the second
+    // texOffs re-aims the opposite face onto the same rect — see MoCModelHorse's membranes).
+    private static final Set<Direction> FACE_DOWN = Set.of(Direction.DOWN);
+    private static final Set<Direction> FACE_UP = Set.of(Direction.UP);
 
     private final ModelPart head;
     private final ModelPart rAntenna;
@@ -31,7 +41,7 @@ public class MoCModelBee extends EntityModel<MoCEntityRenderState> {
     private final ModelPart foldedWings;
 
     public MoCModelBee(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.rAntenna = root.getChild("r_antenna");
         this.lAntenna = root.getChild("l_antenna");
@@ -82,13 +92,16 @@ public class MoCModelBee extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(4, 12).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
                 PartPose.offsetAndRotation(0.0F, 22.5F, -1.2F, 0.5948578F, 0.0F, 0.0F));
         root.addOrReplaceChild("left_wing",
-                CubeListBuilder.create().texOffs(0, 17).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F),
+                CubeListBuilder.create().texOffs(0, 17).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_DOWN)
+                        .texOffs(-2, 17).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_UP),
                 PartPose.offsetAndRotation(0.0F, 20.4F, -1.0F, 0.0F, 1.047198F, 0.0F));
         root.addOrReplaceChild("right_wing",
-                CubeListBuilder.create().texOffs(0, 17).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F),
+                CubeListBuilder.create().texOffs(0, 17).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_DOWN)
+                        .texOffs(-2, 17).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_UP),
                 PartPose.offsetAndRotation(0.0F, 20.4F, -1.0F, 0.0F, -1.047198F, 0.0F));
         root.addOrReplaceChild("folded_wings",
-                CubeListBuilder.create().texOffs(0, 17).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 0.0F, 4.0F),
+                CubeListBuilder.create().texOffs(0, 17).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 0.0F, 4.0F, FACE_DOWN)
+                        .texOffs(-2, 17).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 0.0F, 4.0F, FACE_UP),
                 PartPose.offsetAndRotation(0.0F, 20.5F, -1.0F, 0.0001745F, 0.0F, 0.0F));
 
         return LayerDefinition.create(mesh, 32, 32);

@@ -4,6 +4,7 @@ import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -51,7 +52,7 @@ public class MoCModelWWolf extends EntityModel<MoCEntityRenderState> {
     private final ModelPart leg4D;
 
     public MoCModelWWolf(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.mouthB = root.getChild("mouthB");
         this.nose2 = root.getChild("nose2");

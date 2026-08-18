@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 
 /**
  * Kitty bed model, converted faithfully from the legacy {@code MoCModelKittyBed} ({@code ModelBase},
@@ -17,7 +18,7 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 public class MoCModelKittyBed extends EntityModel<MoCEntityRenderState> {
 
     public MoCModelKittyBed(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
     }
 
     public static LayerDefinition createBodyLayer() {

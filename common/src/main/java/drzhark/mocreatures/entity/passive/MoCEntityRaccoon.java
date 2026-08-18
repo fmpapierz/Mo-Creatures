@@ -188,10 +188,11 @@ public class MoCEntityRaccoon extends MoCAnimal {
     protected void customServerAiStep(ServerLevel level) {
         super.customServerAiStep(level); // MoCBehavior.tickGrowth handles the legacy edad++ growth curve
 
-        // Legacy MoCEntityAnimal.onLivingUpdate:338-344, the hunting-burst latch. The legacy gate also
-        // included the server-wide `MoCreatures.proxy.enableHunters` config flag (default TRUE), which this
-        // port's MoCConfig does not carry; the closest faithful behaviour is to run with the legacy default.
-        if (isReadyToHunt() && !isHunting() && this.random.nextInt(500) == 0) {
+        // Legacy MoCEntityAnimal.onLivingUpdate:338-344, the hunting-burst latch, including its leading
+        // `MoCreatures.proxy.enableHunters` gate (default TRUE): with hunters disabled the window never
+        // opens, and the burst is the only thing that arms the hunt target goal, so the raccoon takes no prey.
+        if (drzhark.mocreatures.config.MoCConfig.get().enableHunters
+                && isReadyToHunt() && !isHunting() && this.random.nextInt(500) == 0) {
             this.huntingCounter = this.random.nextInt(30) + 1;
         }
         if (isHunting() && ++this.huntingCounter > 50) {

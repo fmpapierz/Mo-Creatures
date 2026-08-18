@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.Mth;
 
 /**
@@ -28,10 +29,10 @@ public class MoCModelFlameWraith extends EntityModel<MoCEntityRenderState> {
     private final ModelPart leftLeg;
 
     public MoCModelFlameWraith(ModelPart root) {
-        // Opaque (default cutout) render type: a translucent flame wraith sorted incorrectly against terrain
+        // Opaque cutout (culled) render type: a translucent flame wraith sorted incorrectly against terrain
         // (it showed through only where sky/clouds were behind it). The "on fire" look now comes from the
         // vanilla fire overlay + flame particles the entity spawns, not from a see-through material.
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.headwear = root.getChild("headwear");
         this.body = root.getChild("body");

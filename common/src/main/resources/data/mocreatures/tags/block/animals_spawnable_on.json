@@ -25,6 +25,9 @@
     "minecraft:terracotta",
     "mocreatures:grass_wyvern_lair",
     "mocreatures:dirt_wyvern_lair",
-    "mocreatures:stone_wyvern_lair"
+    "mocreatures:stone_wyvern_lair",
+    "mocreatures:grass_ogre_lair",
+    "mocreatures:dirt_ogre_lair",
+    "mocreatures:stone_ogre_lair"
   ]
 }

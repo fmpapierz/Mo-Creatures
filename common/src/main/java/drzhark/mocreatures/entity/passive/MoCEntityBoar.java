@@ -52,10 +52,13 @@ public class MoCEntityBoar extends MoCAnimal {
         });
         // Legacy findPlayerToAttack also hunted smaller non-player, non-mob living entities (getClosestTarget).
         // Restore that as small-animal prey targeting: adult, untamed boars only, and only creatures strictly
-        // smaller than the boar (matching the legacy height/width test).
+        // smaller than the boar (matching the legacy height/width test). The whole hunt sits behind the
+        // enableHunters master switch (legacy MoCProxy.java:314-316, default true) — player aggression is a
+        // separate path and stays untouched.
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(
                 this, Animal.class, 10, true, false,
-                (living, serverLevel) -> !this.getIsTamed() && this.getIsAdult()
+                (living, serverLevel) -> drzhark.mocreatures.config.MoCConfig.get().enableHunters
+                        && !this.getIsTamed() && this.getIsAdult()
                         && !(living instanceof MoCEntityBoar)
                         && living.getBbHeight() < this.getBbHeight()
                         && living.getBbWidth() < this.getBbWidth()));

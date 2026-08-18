@@ -9,6 +9,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.Mth;
 
 /**
@@ -28,7 +29,7 @@ public class MoCModelDolphin extends EntityModel<MoCEntityRenderState> {
     private final ModelPart rightFin;
 
     public MoCModelDolphin(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.body = root.getChild("body");
         this.uHead = root.getChild("uhead");
         this.dHead = root.getChild("dhead");

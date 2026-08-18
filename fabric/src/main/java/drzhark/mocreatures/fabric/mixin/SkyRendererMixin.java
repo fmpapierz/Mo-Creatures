@@ -14,7 +14,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Fabric twin-suns sky for the Wyvern Lair. Fabric API's {@code DimensionRenderingRegistry} can't be used
+ * Fabric custom Lair sky — twin suns in the Wyvern Lair, a single ember sun in the Ogre Lair (the
+ * per-dimension texture comes from {@link MoCLairSky#sunTextureFor}). Fabric API's
+ * {@code DimensionRenderingRegistry} can't be used
  * here — it ships intermediary-mapped and this project compiles against Mojang mappings under
  * {@code loom-no-remap}, so the API classes don't resolve. A Mixin instead references only Mojang-mapped
  * Minecraft (which equals the runtime names on unobfuscated 26.2) plus the mod's own {@link MoCTwinSuns},
@@ -35,7 +37,7 @@ public class SkyRendererMixin {
     private static boolean mocreatures$inLair() {
         Minecraft mc = Minecraft.getInstance();
         return mc.level != null && mc.player != null
-                && mc.level.dimension().equals(MoCLairSky.WYVERN_LAIR);
+                && MoCLairSky.isLair(mc.level.dimension());
     }
 
     @Inject(method = "renderSun", at = @At("HEAD"), cancellable = true)
@@ -54,6 +56,9 @@ public class SkyRendererMixin {
         // The full sky model-view is the current model-view stack (camera base) composed with the sky
         // pose — the same base vanilla's renderSun multiplies in (getModelViewStack().mul(poseStack.pose())).
         Matrix4f full = new Matrix4f(RenderSystem.getModelViewStack()).mul(poseStack.last().pose());
-        MoCTwinSuns.draw(full, sunAngle);
+        // Per-dimension celestial texture: twin suns (Wyvern Lair) or the ember sun (Ogre Lair).
+        // mocreatures$inLair() above guarantees mc.level is non-null here.
+        MoCTwinSuns.draw(full, sunAngle,
+                MoCLairSky.sunTextureFor(Minecraft.getInstance().level.dimension()));
     }
 }

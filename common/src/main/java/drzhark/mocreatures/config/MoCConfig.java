@@ -63,6 +63,9 @@ public final class MoCConfig {
     public boolean attackWolves;
     /** Creatures may attack (Mo'Creatures) horses. Legacy: false. */
     public boolean attackHorses;
+    /** Creatures may hunt other creatures (animal-vs-animal predation). Legacy MoCProperties EnableHunters:
+     * true — "Allows creatures to attack other creatures. Not recommended if despawning is off." */
+    public boolean enableHunters;
     /** Piranha fishy variant that attacks players may spawn. Legacy MoCProperties SpawnPiranhas: true. */
     public boolean spawnPiranhas;
     /** Mo'Creatures' custom spawner handles/overrides vanilla spawns. Legacy: true. */
@@ -184,7 +187,7 @@ public final class MoCConfig {
     private static final java.util.Set<String> MONSTER_IDS = java.util.Set.of(
             "golem", "ogre", "rat", "scorpion", "wildwolf", "wild_wolf", "werewolf", "wraith",
             "hellrat", "hell_rat", "flamewraith", "flame_wraith", "horsemob", "horse_mob",
-            "silver_skeleton", "mini_golem", "manticore");
+            "silver_skeleton", "mini_golem", "manticore", "medusa", "minotaur");
     private static final java.util.Set<String> WATER_IDS = java.util.Set.of(
             "dolphin", "fishy", "jellyfish", "ray", "shark", "small_fish", "medium_fish");
     private static final java.util.Set<String> INSECT_IDS = java.util.Set.of(
@@ -203,6 +206,7 @@ public final class MoCConfig {
         this.attackDolphins      = getBool(p, "attackDolphins", false);
         this.attackWolves        = getBool(p, "attackWolves", false);
         this.attackHorses        = getBool(p, "attackHorses", false);
+        this.enableHunters       = getBool(p, "enableHunters", true);
         this.spawnPiranhas       = getBool(p, "spawnPiranhas", true);
         this.modifyVanillaSpawns = getBool(p, "modifyVanillaSpawns", true);
         this.despawnVanilla      = getBool(p, "despawnVanilla", false);
@@ -378,6 +382,7 @@ public final class MoCConfig {
                     java.util.Map.entry("boar", java.util.List.of("forest", "normal", "jungle", "mountain", "arctic")),
                     java.util.Map.entry("bunny", java.util.List.of("forest", "normal", "jungle", "arctic", "mountain", "desert")),
                     java.util.Map.entry("butterfly", java.util.List.of("normal", "forest", "jungle", "mountain", "swamp")),
+                    java.util.Map.entry("chimpanzee", java.util.List.of("forest", "jungle")),
                     java.util.Map.entry("crab", java.util.List.of("normal", "swamp", "jungle", "desert")),
                     java.util.Map.entry("cricket", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "swamp")),
                     java.util.Map.entry("crocodile", java.util.List.of("swamp", "jungle")),
@@ -553,6 +558,7 @@ public final class MoCConfig {
             case "attackdolphins":       this.attackDolphins = value;       return true;
             case "attackwolves":         this.attackWolves = value;         return true;
             case "attackhorses":         this.attackHorses = value;         return true;
+            case "enablehunters":        this.enableHunters = value;        return true;
             case "spawnpiranhas":        this.spawnPiranhas = value;        return true;
             case "modifyvanillaspawns":  this.modifyVanillaSpawns = value;  return true;
             case "despawnvanilla":       this.despawnVanilla = value;       return true;
@@ -632,6 +638,7 @@ public final class MoCConfig {
         line(sb, "attackDolphins", this.attackDolphins);
         line(sb, "attackWolves", this.attackWolves);
         line(sb, "attackHorses", this.attackHorses);
+        line(sb, "enableHunters", this.enableHunters);
         line(sb, "spawnPiranhas", this.spawnPiranhas);
         line(sb, "modifyVanillaSpawns", this.modifyVanillaSpawns);
         line(sb, "despawnVanilla", this.despawnVanilla);

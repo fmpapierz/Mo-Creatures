@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "staff_portal",
+  "key": {
+    "E": "minecraft:ender_eye",
+    "H": "mocreatures:heartfire",
+    "R": "minecraft:blaze_rod"
+  },
+  "pattern": [
+    "  E",
+    " H ",
+    "R  "
+  ],
+  "result": {
+    "id": "mocreatures:staffportalogre"
+  }
+}

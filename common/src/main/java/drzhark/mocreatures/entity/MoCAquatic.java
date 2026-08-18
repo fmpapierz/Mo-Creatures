@@ -5,12 +5,15 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.ai.goal.RandomSwimmingGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.ai.navigation.WaterBoundPathNavigation;
@@ -41,6 +44,9 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
 
     protected MoCAquatic(EntityType<? extends MoCAquatic> type, Level level) {
         super(type, level);
+        // A WaterBoundPathNavigation path is only followable with a swim-aware move control — see
+        // AquaticMoveControl below for why the default Mob control strands every aquatic at depth.
+        this.moveControl = new AquaticMoveControl(this);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -51,7 +57,13 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
 
     @Override
     protected void registerGoals() {
-        this.goalSelector.addGoal(4, new RandomSwimmingGoal(this, 1.0D, 10));
+        // Interval 40 matches vanilla's own fish (AbstractFish.FishSwimGoal:200 — RandomSwimmingGoal(fish,
+        // 1.0, 40)) and is closer to legacy's EntityAIWanderMoC2 intervals (50-80). The 10 this used to be
+        // re-rolled a fresh wander target every ~5 ticks (Goal.adjustedTickDelay halves it), which mattered
+        // for fishing: it re-stole the navigation almost immediately every time the bobber-approach in
+        // customServerAiStep parked a fish near a hook, so the 1-in-30 bite roll below never got to sample
+        // the fish while it was still close.
+        this.goalSelector.addGoal(4, new RandomSwimmingGoal(this, 1.0D, 40));
         // Wild aquatic predators (untamed adults) hunt players and retaliate when struck.
         if (MoCBehavior.of(this).wildHostile) {
             this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.MeleeAttackGoal(this, 1.4D, true));
@@ -345,6 +357,154 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
             // Legacy tameWithName prompted for a name the instant a creature was tamed.
             drzhark.mocreatures.network.MoCNetwork.promptName(this, rider);
             aquaHearts();
+        }
+    }
+
+    /**
+     * Is this aquatic prone to bite a fishing rod's bobber? Legacy {@code MoCEntityAquatic.isFisheable()}:693-695
+     * defaulted to false; only the wild fishy, small fish and medium fish said yes.
+     */
+    protected boolean isFisheable() {
+        return false;
+    }
+
+    /**
+     * Whether this fish currently has a bobber in its mouth. Deliberately not saved — legacy
+     * {@code MoCEntityAquatic.fishHooked}:55 was a plain field too, and a hook never survives a reload anyway.
+     */
+    private boolean fishHooked;
+
+    /**
+     * The bobber this fish bit, cached at bite time so the per-tick follow and the wriggle-free roll below
+     * can reach it directly. Transient for the same reason {@link #fishHooked} is.
+     */
+    private net.minecraft.world.entity.projectile.@Nullable FishingHook biteHook;
+
+    /**
+     * Legacy fishing-rod capture, {@code MoCEntityAquatic.onLivingUpdate}:453-470 plus {@code getFished()}:672-686.
+     * On a 1-in-30 tick roll a fisheable fish looks for the nearest player within 18 blocks with a free bobber
+     * in the water, swims toward it, and once close enough hooks itself on; a hooked fish then wriggles free
+     * on a 1-in-200 tick roll. Reeling in while hooked pulls the LIVE fish to the player through vanilla
+     * {@code FishingHook.retrieve}:451-455, exactly like legacy — vanilla's private {@code setHookedEntity}
+     * is reached through the mixin-backed {@link drzhark.mocreatures.util.FishingHookAccess}.
+     *
+     * <p>Two deliberate departures from the legacy numbers, both forced by 26.2 geometry:</p>
+     *
+     * <ul>
+     * <li><b>The bite radius is 2.0, not legacy's 1.0.</b> The bobber floats at the fluid surface,
+     * {@code blockY + 0.888} ({@code FishingHook.tick}:207 settles at the block's {@code liquidHeight}),
+     * while a pathing fish is steered to the node block's BOTTOM ({@code WaterBoundPathNavigation.getGroundY}
+     * returns {@code target.y}, and path nodes sit at integer Y) — so even a fish parked directly under the
+     * bobber is ~0.9 blocks away feet-to-feet, leaving a horizontal budget of only ~0.45 for a 1.0 trigger.
+     * The approach can't deliver that: {@code PathNavigation.moveTo(x,y,z,speed)} hardcodes
+     * {@code reachRange=1} and the pathfinder stops as soon as a node is within MANHATTAN 1 of the target
+     * block ({@code PathFinder.findPath}:85), with a further 0.6-block waypoint acceptance
+     * ({@code PathNavigation.followThePath}:247), so the fish legitimately parks 0.8-2.3 blocks from the
+     * hook and repeat {@code moveTo} calls from there build instantly-done paths that never move it closer.
+     * A 1.0 radius therefore never triggered at all — the reported "fish never hook".</li>
+     * <li><b>Each approach roll also lunges the fish directly at the hook.</b> A small velocity impulse
+     * closes the final blocks (including the vertical 0.9 a path never climbs, since nodes are whole
+     * blocks) and cannot be stolen by the wander goal the way a navigation path can. This is also why the
+     * impulse, not {@code getMoveControl().setWantedPosition}, is the direct-steering mechanism: the
+     * {@link AquaticMoveControl} below (like vanilla {@code AbstractFish.FishMoveControl}:174) only acts on
+     * a wanted position while {@code !getNavigation().isDone()}, so a bare wanted position with no live
+     * path is ignored.</li>
+     * </ul>
+     */
+    @Override
+    protected void customServerAiStep(net.minecraft.server.level.ServerLevel level) {
+        super.customServerAiStep(level);
+        if (isFisheable() && !this.fishHooked && this.random.nextInt(30) == 0) {
+            net.minecraft.world.entity.player.Player angler = level.getNearestPlayer(this, 18.0D);
+            if (angler != null && angler.fishing != null && angler.fishing.getHookedIn() == null) {
+                net.minecraft.world.entity.projectile.FishingHook hook = angler.fishing;
+                float dist = distanceTo(hook);
+                if (dist > 2.0F) {
+                    getNavigation().moveTo(hook.getX(), hook.getY(), hook.getZ(), 1.0D);
+                    // The direct lunge (see the javadoc above). Water drag (~0.8/tick) turns a 0.2 impulse
+                    // into roughly a block of glide, so every roll visibly draws the fish a block closer no
+                    // matter what the pathfinder or the wander goal are doing. The vertical share is kept
+                    // smaller so a fish in a 1-deep pool nudges up toward the bobber without breaching.
+                    setDeltaMovement(getDeltaMovement().add(
+                            (hook.getX() - getX()) / dist * 0.2D,
+                            (hook.getY() - getY()) / dist * 0.12D,
+                            (hook.getZ() - getZ()) / dist * 0.2D));
+                } else {
+                    ((drzhark.mocreatures.util.FishingHookAccess) hook).moc$setHookedEntity(this);
+                    this.fishHooked = true;
+                    this.biteHook = hook;
+                }
+            }
+        }
+        if (this.fishHooked) {
+            net.minecraft.world.entity.projectile.FishingHook hook = this.biteHook;
+            if (hook == null || hook.isRemoved() || hook.getHookedIn() != this) {
+                // Reeled in, line broken (owner left / swapped items — FishingHook.shouldStopFishing), or
+                // something else unhooked us: forget the bite so the fish can be caught again.
+                this.fishHooked = false;
+                this.biteHook = null;
+            } else if (this.random.nextInt(200) == 0) {
+                // Legacy wriggle-free (MoCEntityAquatic:457-470). The cached hook replaces legacy's 2-block
+                // box scan — the box only worked because the 1.12 bobber teleported to its caught fish.
+                ((drzhark.mocreatures.util.FishingHookAccess) hook).moc$setHookedEntity(null);
+                this.fishHooked = false;
+                this.biteHook = null;
+            } else {
+                // Legacy 1.12 EntityFishHook.onUpdate dragged the bobber onto its caughtEntity every tick.
+                // The 26.2 hook only does that in the HOOKED_IN_ENTITY state (FishingHook.tick:190-203),
+                // which a bobber bitten while BOBBING never enters — the only transition is in the FLYING
+                // branch (:175-180). Pin it ourselves, mirroring the HOOKED_IN_ENTITY setPos (:195), so the
+                // player SEES the fish take the bobber and the line follows the fish until it is reeled in
+                // (retrieve:451-455 pulls hookedIn regardless of the hook's state) or wriggles free.
+                hook.setPos(getX(), getY(0.8D), getZ());
+            }
+        }
+    }
+
+    /**
+     * Swim-aware move control, copied from vanilla {@code AbstractFish.FishMoveControl}
+     * ({@code AbstractFish.java}:163-193). The default {@code MoveControl} that {@code Mob} installs only
+     * sets yaw and forward thrust ({@code MoveControl.tick}:84-108) — its sole vertical mechanism is a jump
+     * impulse when the mob is already within a block horizontally below a waypoint — while default water
+     * travel ({@code LivingEntity.travelInWater}:2496-2523) applies gravity. That combination cannot follow
+     * any {@code WaterBoundPathNavigation} path with ascending nodes: the fish stalls below the first rising
+     * waypoint (waypoint acceptance is 0.5 blocks vertically, {@code WaterBoundPathNavigation
+     * .getMaxVerticalDistanceToWaypoint}), stuck detection cancels the path, and the fish sinks back down.
+     * This is why a fisheable fish never reached a bobber — the bobber bobs in the topmost water block
+     * ({@code FishingHook.tick}:207), the highest node of every path. Vanilla pairs every water navigator
+     * with a swim-aware control for exactly this reason; this is that control for the Mo'Creatures aquatics.
+     */
+    private static class AquaticMoveControl extends MoveControl<MoCAquatic> {
+
+        AquaticMoveControl(MoCAquatic mob) {
+            super(mob);
+        }
+
+        @Override
+        public void tick() {
+            // Gentle buoyancy while submerged, countering water gravity (AbstractFish.FishMoveControl:170-172).
+            if (this.mob.isEyeInFluid(FluidTags.WATER)) {
+                this.mob.setDeltaMovement(this.mob.getDeltaMovement().add(0.0D, 0.005D, 0.0D));
+            }
+            if (this.operation == MoveControl.Operation.MOVE_TO && !this.mob.getNavigation().isDone()) {
+                float targetSpeed = (float) (this.speedModifier * this.mob.getAttributeValue(Attributes.MOVEMENT_SPEED));
+                this.mob.setSpeed(Mth.lerp(0.125F, this.mob.getSpeed(), targetSpeed));
+                double xd = this.wantedX - this.mob.getX();
+                double yd = this.wantedY - this.mob.getY();
+                double zd = this.wantedZ - this.mob.getZ();
+                if (yd != 0.0D) {
+                    double dd = Math.sqrt(xd * xd + yd * yd + zd * zd);
+                    this.mob.setDeltaMovement(this.mob.getDeltaMovement()
+                            .add(0.0D, this.mob.getSpeed() * (yd / dd) * 0.1D, 0.0D));
+                }
+                if (xd != 0.0D || zd != 0.0D) {
+                    float yRotD = (float) (Mth.atan2(zd, xd) * 180.0F / (float) Math.PI) - 90.0F;
+                    this.mob.setYRot(this.rotlerp(this.mob.getYRot(), yRotD, 90.0F));
+                    this.mob.yBodyRot = this.mob.getYRot();
+                }
+            } else {
+                this.mob.setSpeed(0.0F);
+            }
         }
     }
 

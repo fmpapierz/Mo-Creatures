@@ -107,6 +107,12 @@ public final class MoCItems {
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.GOLEM.get()).setId(itemKey("golem_spawn_egg"))));
     public static final RegistrySupplier<SpawnEggItem> OGRE_SPAWN_EGG = ITEMS.register("ogre_spawn_egg",
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.OGRE.get()).setId(itemKey("ogre_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> OGRE_PRINCE_SPAWN_EGG = ITEMS.register("ogre_prince_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.OGRE_PRINCE.get()).setId(itemKey("ogre_prince_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> MEDUSA_SPAWN_EGG = ITEMS.register("medusa_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MEDUSA.get()).setId(itemKey("medusa_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> MINOTAUR_SPAWN_EGG = ITEMS.register("minotaur_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MINOTAUR.get()).setId(itemKey("minotaur_spawn_egg"))));
     public static final RegistrySupplier<SpawnEggItem> RAT_SPAWN_EGG = ITEMS.register("rat_spawn_egg",
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.RAT.get()).setId(itemKey("rat_spawn_egg"))));
     public static final RegistrySupplier<SpawnEggItem> SCORPION_SPAWN_EGG = ITEMS.register("scorpion_spawn_egg",
@@ -128,6 +134,8 @@ public final class MoCItems {
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.ANT.get()).setId(itemKey("ant_spawn_egg"))));
     public static final RegistrySupplier<SpawnEggItem> RACCOON_SPAWN_EGG = ITEMS.register("raccoon_spawn_egg",
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.RACCOON.get()).setId(itemKey("raccoon_spawn_egg"))));
+    public static final RegistrySupplier<SpawnEggItem> CHIMPANZEE_SPAWN_EGG = ITEMS.register("chimpanzee_spawn_egg",
+            () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.CHIMPANZEE.get()).setId(itemKey("chimpanzee_spawn_egg"))));
     public static final RegistrySupplier<SpawnEggItem> MOLE_SPAWN_EGG = ITEMS.register("mole_spawn_egg",
             () -> new SpawnEggItem(new Item.Properties().spawnEgg(MoCEntities.MOLE.get()).setId(itemKey("mole_spawn_egg"))));
     public static final RegistrySupplier<SpawnEggItem> ENT_SPAWN_EGG = ITEMS.register("ent_spawn_egg",
@@ -187,7 +195,7 @@ public final class MoCItems {
     public static final RegistrySupplier<Item> CRABCOOKED = ITEMS.register("crabcooked",
             () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.7F).build()).setId(itemKey("crabcooked"))));
     public static final RegistrySupplier<Item> CRABRAW = ITEMS.register("crabraw",
-            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.2F).build(),
+            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.3F).build(),
                     Consumables.defaultFood().onConsume(new ApplyStatusEffectsConsumeEffect(new MobEffectInstance(MobEffects.HUNGER, 30, 0), 0.8F)).build()).setId(itemKey("crabraw"))));
     public static final RegistrySupplier<Item> CREATUREPEDIA = ITEMS.register("creaturepedia",
             () -> new drzhark.mocreatures.item.MoCCreaturePediaItem(new Item.Properties().setId(itemKey("creaturepedia"))));
@@ -207,10 +215,15 @@ public final class MoCItems {
             () -> new Item(new Item.Properties().setId(itemKey("essencelight"))));
     public static final RegistrySupplier<Item> ESSENCEUNDEAD = ITEMS.register("essenceundead",
             () -> new Item(new Item.Properties().setId(itemKey("essenceundead"))));
+    // The empty net captures small aquatic creatures (and any tamed aquatic) via
+    // MoCFishNetItem.interactLivingEntity; the full net stores the creature in the CAPTURED_CREATURE
+    // component and releases it on use, handing the empty net back (legacy maxStackSize=1 on both).
     public static final RegistrySupplier<Item> FISHNET = ITEMS.register("fishnet",
-            () -> new Item(new Item.Properties().setId(itemKey("fishnet"))));
+            () -> new drzhark.mocreatures.item.MoCFishNetItem(new Item.Properties().stacksTo(1).setId(itemKey("fishnet")),
+                    () -> MoCItems.FISHNETFULL.get(), false));
     public static final RegistrySupplier<Item> FISHNETFULL = ITEMS.register("fishnetfull",
-            () -> new Item(new Item.Properties().setId(itemKey("fishnetfull"))));
+            () -> new drzhark.mocreatures.item.MoCFishNetItem(new Item.Properties().stacksTo(1).setId(itemKey("fishnetfull")),
+                    () -> MoCItems.FISHNET.get(), true));
     // ---- fish bowl (12 variants): empty, water-filled, and one per captured fishy type (1-10) ----
     public static final RegistrySupplier<drzhark.mocreatures.item.MoCFishBowlItem> FISHBOWL_EMPTY = ITEMS.register("fishbowl_empty",
             () -> new drzhark.mocreatures.item.MoCFishBowlItem(new Item.Properties().stacksTo(16).setId(itemKey("fishbowl_empty")), drzhark.mocreatures.item.MoCFishBowlItem.Role.EMPTY, 0));
@@ -317,6 +330,10 @@ public final class MoCItems {
             () -> new drzhark.mocreatures.item.MoCFurnitureItem(new Item.Properties().setId(itemKey("kittybed_yellow")), MoCEntities.KITTY_BED, 5));
     public static final RegistrySupplier<drzhark.mocreatures.item.MoCFurnitureItem> KITTYLITTER = ITEMS.register("kittylitter",
             () -> new drzhark.mocreatures.item.MoCFurnitureItem(new Item.Properties().setId(itemKey("kittylitter")), MoCEntities.LITTER_BOX));
+    // The fire ogre prince's unique drop: a diamond-tier blade that sets its victims ablaze
+    // (MoCMacheteItem.postHurtEnemy — requires the WEAPON component that .sword() supplies).
+    public static final RegistrySupplier<Item> MACHETE = ITEMS.register("machete",
+            () -> new drzhark.mocreatures.item.MoCMacheteItem(new Item.Properties().sword(ToolMaterial.DIAMOND, 4.0F, -2.4F).fireResistant().setId(itemKey("machete"))));
     public static final RegistrySupplier<Item> MAMMOTHPLATFORM = ITEMS.register("mammothplatform",
             () -> new Item(new Item.Properties().setId(itemKey("mammothplatform"))));
     public static final RegistrySupplier<Item> MEDALLION = ITEMS.register("medallion",
@@ -335,7 +352,7 @@ public final class MoCItems {
     public static final RegistrySupplier<Item> OSTRICHCOOKED = ITEMS.register("ostrichcooked",
             () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.7F).build()).setId(itemKey("ostrichcooked"))));
     public static final RegistrySupplier<Item> OSTRICHRAW = ITEMS.register("ostrichraw",
-            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.2F).build(),
+            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.3F).build(),
                     Consumables.defaultFood().onConsume(new ApplyStatusEffectsConsumeEffect(new MobEffectInstance(MobEffects.HUNGER, 30, 0), 0.8F)).build()).setId(itemKey("ostrichraw"))));
     public static final RegistrySupplier<drzhark.mocreatures.item.MoCAmuletItem> PETAMULET = ITEMS.register("petamulet",
             () -> new drzhark.mocreatures.item.MoCAmuletItem(new Item.Properties().setId(itemKey("petamulet"))));
@@ -348,7 +365,7 @@ public final class MoCItems {
     public static final RegistrySupplier<Item> RATCOOKED = ITEMS.register("ratcooked",
             () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.7F).build()).setId(itemKey("ratcooked"))));
     public static final RegistrySupplier<Item> RATRAW = ITEMS.register("ratraw",
-            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.2F).build(),
+            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.3F).build(),
                     Consumables.defaultFood().onConsume(new ApplyStatusEffectsConsumeEffect(new MobEffectInstance(MobEffects.HUNGER, 30, 0), 0.8F)).build()).setId(itemKey("ratraw"))));
     public static final RegistrySupplier<Item> RECORDSHUFFLE = ITEMS.register("recordshuffle",
             () -> new Item(new Item.Properties().stacksTo(1)
@@ -445,7 +462,11 @@ public final class MoCItems {
     // (see MoCStaffPortalItem / MoCStaffTeleportItem). Legacy: Staff of Portal breaks after 3 jumps
     // (setMaxDamage(3)), Staff of Teleport after 128 blinks (setMaxDamage(128)).
     public static final RegistrySupplier<drzhark.mocreatures.item.MoCStaffPortalItem> STAFFPORTAL = ITEMS.register("staffportal",
-            () -> new drzhark.mocreatures.item.MoCStaffPortalItem(new Item.Properties().durability(3).setId(itemKey("staffportal"))));
+            () -> new drzhark.mocreatures.item.MoCStaffPortalItem(new Item.Properties().durability(3).setId(itemKey("staffportal")),
+                    drzhark.mocreatures.item.MoCStaffPortalItem.WYVERN_LAIR));
+    public static final RegistrySupplier<drzhark.mocreatures.item.MoCStaffPortalItem> STAFFPORTALOGRE = ITEMS.register("staffportalogre",
+            () -> new drzhark.mocreatures.item.MoCStaffPortalItem(new Item.Properties().durability(3).setId(itemKey("staffportalogre")),
+                    drzhark.mocreatures.item.MoCStaffPortalItem.OGRE_LAIR));
     public static final RegistrySupplier<Item> STAFFTELEPORT = ITEMS.register("staffteleport",
             () -> new drzhark.mocreatures.item.MoCStaffTeleportItem(new Item.Properties().durability(128).setId(itemKey("staffteleport"))));
     public static final RegistrySupplier<Item> SUGARLUMP = ITEMS.register("sugarlump",
@@ -453,12 +474,12 @@ public final class MoCItems {
     public static final RegistrySupplier<Item> TURKEYCOOKED = ITEMS.register("turkeycooked",
             () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.7F).build()).setId(itemKey("turkeycooked"))));
     public static final RegistrySupplier<Item> TURKEYRAW = ITEMS.register("turkeyraw",
-            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.2F).build(),
+            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(3).saturationModifier(0.3F).build(),
                     Consumables.defaultFood().onConsume(new ApplyStatusEffectsConsumeEffect(new MobEffectInstance(MobEffects.HUNGER, 30, 0), 0.8F)).build()).setId(itemKey("turkeyraw"))));
     public static final RegistrySupplier<Item> TURTLERAW = ITEMS.register("turtleraw",
             () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.2F).build()).setId(itemKey("turtleraw"))));
     public static final RegistrySupplier<Item> TURTLESOUP = ITEMS.register("turtlesoup",
-            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.7F).build())
+            () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.6F).build())
                     .usingConvertsTo(Items.BOWL).stacksTo(1).setId(itemKey("turtlesoup"))));
     // Tusk-armour items are durability items: wear accumulates as an elephant bulldozes and is stored on
     // the item's damage value, so a partly-worn tusk set can be removed and re-fitted (legacy tuskUses:

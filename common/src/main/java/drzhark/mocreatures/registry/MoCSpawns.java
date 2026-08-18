@@ -72,7 +72,21 @@ public final class MoCSpawns {
         SpawnPlacementsRegistry.register(MoCEntities.GOLEM, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 (type, level, reason, pos, random) -> pos.getY() > 50 && level.canSeeSky(pos)
                         && net.minecraft.world.entity.monster.Monster.checkMonsterSpawnRules(type, level, reason, pos, random));
-        SpawnPlacementsRegistry.register(MoCEntities.OGRE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
+        // OGRE: darkness-gated in the overworld as always, but any-light inside the Ogre Lair —
+        // the lair's biome json spawns them as its resident population, day and night.
+        SpawnPlacementsRegistry.register(MoCEntities.OGRE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                (type, level, reason, pos, random) -> level.getLevel().dimension() == drzhark.mocreatures.item.MoCStaffPortalItem.OGRE_LAIR
+                        ? net.minecraft.world.entity.monster.Monster.checkAnyLightMonsterSpawnRules(type, level, reason, pos, random)
+                        : net.minecraft.world.entity.monster.Monster.checkMonsterSpawnRules(type, level, reason, pos, random));
+        // OGRE_PRINCE: boss — any-light rules (princes hunt day and night; they only appear in the
+        // lair's biome spawner list), plus exclusivity: never place a second prince within 96 blocks.
+        SpawnPlacementsRegistry.register(MoCEntities.OGRE_PRINCE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                (type, level, reason, pos, random) ->
+                        net.minecraft.world.entity.monster.Monster.checkAnyLightMonsterSpawnRules(type, level, reason, pos, random)
+                                && level.getEntitiesOfClass(drzhark.mocreatures.entity.monster.MoCEntityOgrePrince.class,
+                                        new net.minecraft.world.phys.AABB(pos).inflate(96.0D)).isEmpty());
+        SpawnPlacementsRegistry.register(MoCEntities.MEDUSA, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.MINOTAUR, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.RAT, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.SCORPION, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.WILD_WOLF, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
@@ -87,6 +101,7 @@ public final class MoCSpawns {
         // ------------------------------------------------ ported from Mo'Creatures 12.0.5
         SpawnPlacementsRegistry.register(MoCEntities.ANT, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.RACCOON, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
+        SpawnPlacementsRegistry.register(MoCEntities.CHIMPANZEE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.MOLE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.ENT, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.SMALL_FISH, SpawnPlacementTypes.IN_WATER, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkDeepWaterAnimalSpawnRules);
@@ -203,6 +218,7 @@ public final class MoCSpawns {
         // ------------------------------------------------ ported from Mo'Creatures 12.0.5
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ANT.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.RACCOON.get());
+        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.CHIMPANZEE.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.MOLE.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ENT.get());
         addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.SILVER_SKELETON.get());
@@ -236,6 +252,8 @@ public final class MoCSpawns {
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.KOMODO.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.MAGGOT.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.MOUSE.get());
+        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MEDUSA.get());
+        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MINOTAUR.get());
         addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.OGRE.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.OSTRICH.get());
         // PET_SCORPION is intentionally NOT naturally spawned: legacy pet scorpions were only

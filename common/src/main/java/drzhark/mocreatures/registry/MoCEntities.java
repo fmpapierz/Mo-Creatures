@@ -101,31 +101,40 @@ public final class MoCEntities {
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityRoach>> ROACH = ENTITIES.register("roach",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRoach::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("roach")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityGolem>> GOLEM = ENTITIES.register("golem",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityGolem::new, MobCategory.MONSTER).sized(1.5F, 4.0F).clientTrackingRange(10).build(key("golem")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityGolem::new, MobCategory.MONSTER).sized(1.5F, 4.0F).clientTrackingRange(10).notInPeaceful().build(key("golem")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityOgre>> OGRE = ENTITIES.register("ogre",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityOgre::new, MobCategory.MONSTER).sized(1.9F, 4.0F).clientTrackingRange(10).build(key("ogre")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityOgre::new, MobCategory.MONSTER).sized(1.9F, 4.0F).clientTrackingRange(10).notInPeaceful().build(key("ogre")));
+    /** The three Ogre Prince bosses (green/fire/cave) of the Ogre Lair — 1.4x the common ogre, boss bar, never despawn. */
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityOgrePrince>> OGRE_PRINCE = ENTITIES.register("ogre_prince",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityOgrePrince::new, MobCategory.MONSTER).sized(2.7F, 5.6F).clientTrackingRange(10).notInPeaceful().build(key("ogre_prince")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityMedusa>> MEDUSA = ENTITIES.register("medusa",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityMedusa::new, MobCategory.MONSTER).sized(1.2F, 2.1F).clientTrackingRange(10).notInPeaceful().build(key("medusa")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityMinotaur>> MINOTAUR = ENTITIES.register("minotaur",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityMinotaur::new, MobCategory.MONSTER).sized(1.4F, 2.6F).clientTrackingRange(10).notInPeaceful().build(key("minotaur")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityRat>> RAT = ENTITIES.register("rat",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityRat::new, MobCategory.MONSTER).sized(0.5F, 0.5F).clientTrackingRange(10).build(key("rat")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityRat::new, MobCategory.MONSTER).sized(0.5F, 0.5F).clientTrackingRange(10).notInPeaceful().build(key("rat")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityScorpion>> SCORPION = ENTITIES.register("scorpion",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityScorpion::new, MobCategory.MONSTER).sized(1.4F, 0.9F).clientTrackingRange(10).build(key("scorpion")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityScorpion::new, MobCategory.MONSTER).sized(1.4F, 0.9F).clientTrackingRange(10).notInPeaceful().build(key("scorpion")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityWWolf>> WILD_WOLF = ENTITIES.register("wild_wolf",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityWWolf::new, MobCategory.MONSTER).sized(0.9F, 1.3F).clientTrackingRange(10).build(key("wild_wolf")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityWWolf::new, MobCategory.MONSTER).sized(0.9F, 1.3F).clientTrackingRange(10).notInPeaceful().build(key("wild_wolf")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityWerewolf>> WEREWOLF = ENTITIES.register("werewolf",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityWerewolf::new, MobCategory.MONSTER).sized(0.9F, 1.3F).clientTrackingRange(10).build(key("werewolf")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityWerewolf::new, MobCategory.MONSTER).sized(0.9F, 1.3F).clientTrackingRange(10).notInPeaceful().build(key("werewolf")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityWraith>> WRAITH = ENTITIES.register("wraith",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityWraith::new, MobCategory.MONSTER).sized(1.5F, 1.5F).clientTrackingRange(10).build(key("wraith")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityWraith::new, MobCategory.MONSTER).sized(1.5F, 1.5F).clientTrackingRange(10).notInPeaceful().build(key("wraith")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityHellRat>> HELL_RAT = ENTITIES.register("hell_rat",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityHellRat::new, MobCategory.MONSTER).sized(0.7F, 0.7F).clientTrackingRange(10).build(key("hell_rat")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityHellRat::new, MobCategory.MONSTER).sized(0.7F, 0.7F).clientTrackingRange(10).notInPeaceful().build(key("hell_rat")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityFlameWraith>> FLAME_WRAITH = ENTITIES.register("flame_wraith",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityFlameWraith::new, MobCategory.MONSTER).sized(1.5F, 1.5F).clientTrackingRange(10).build(key("flame_wraith")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityFlameWraith::new, MobCategory.MONSTER).sized(1.5F, 1.5F).clientTrackingRange(10).notInPeaceful().build(key("flame_wraith")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityHorseMob>> HORSE_MOB = ENTITIES.register("horse_mob",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityHorseMob::new, MobCategory.MONSTER).sized(1.4F, 1.6F).clientTrackingRange(10).build(key("horse_mob")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityHorseMob::new, MobCategory.MONSTER).sized(1.4F, 1.6F).clientTrackingRange(10).notInPeaceful().build(key("horse_mob")));
 
     // ------------------------------------------------------------ ported from Mo'Creatures 12.0.5
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityAnt>> ANT = ENTITIES.register("ant",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityAnt::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("ant")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityRaccoon>> RACCOON = ENTITIES.register("raccoon",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRaccoon::new, MobCategory.CREATURE).sized(0.5F, 0.6F).clientTrackingRange(10).build(key("raccoon")));
+    public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityChimpanzee>> CHIMPANZEE = ENTITIES.register("chimpanzee",
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityChimpanzee::new, MobCategory.CREATURE).sized(0.9F, 1.1F).clientTrackingRange(10).build(key("chimpanzee")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityMole>> MOLE = ENTITIES.register("mole",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMole::new, MobCategory.CREATURE).sized(1.0F, 0.5F).clientTrackingRange(10).build(key("mole")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityEnt>> ENT = ENTITIES.register("ent",
@@ -135,14 +144,14 @@ public final class MoCEntities {
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityMediumFish>> MEDIUM_FISH = ENTITIES.register("medium_fish",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMediumFish::new, MobCategory.WATER_CREATURE).sized(0.6F, 0.3F).clientTrackingRange(10).build(key("medium_fish")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton>> SILVER_SKELETON = ENTITIES.register("silver_skeleton",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton::new, MobCategory.MONSTER).sized(0.9F, 1.4F).clientTrackingRange(10).build(key("silver_skeleton")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton::new, MobCategory.MONSTER).sized(0.9F, 1.4F).clientTrackingRange(10).notInPeaceful().build(key("silver_skeleton")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityMiniGolem>> MINI_GOLEM = ENTITIES.register("mini_golem",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityMiniGolem::new, MobCategory.MONSTER).sized(1.0F, 1.0F).clientTrackingRange(10).build(key("mini_golem")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityMiniGolem::new, MobCategory.MONSTER).sized(1.0F, 1.0F).clientTrackingRange(10).notInPeaceful().build(key("mini_golem")));
     /** Wild Nether manticore. The seat is where legacy {@code getMountedYOffset} put its skeleton rider. */
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityManticore>> MANTICORE = ENTITIES.register("manticore",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityManticore::new, MobCategory.MONSTER).sized(1.4F, 1.6F)
                     .passengerAttachments(new net.minecraft.world.phys.Vec3(0.0D, 1.1D, 0.0D))
-                    .clientTrackingRange(10).build(key("manticore")));
+                    .clientTrackingRange(10).notInPeaceful().build(key("manticore")));
     /** Tameable, rideable manticore, hatched from a manticore egg (legacy {@code MoCEntityManticorePet}). */
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityManticorePet>> MANTICORE_PET = ENTITIES.register("manticore_pet",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityManticorePet::new, MobCategory.CREATURE).sized(1.4F, 1.6F)

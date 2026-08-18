@@ -52,6 +52,9 @@ public final class MoCreaturesClient {
         EntityModelLayerRegistry.register(MoCModelLayers.ROACH, drzhark.mocreatures.client.model.MoCModelRoach::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.GOLEM, drzhark.mocreatures.client.model.MoCModelGolem::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.OGRE, drzhark.mocreatures.client.model.MoCModelOgre::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.OGRE_PRINCE, drzhark.mocreatures.client.model.MoCModelOgrePrince::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.MEDUSA, drzhark.mocreatures.client.model.MoCModelMedusa::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.MINOTAUR, drzhark.mocreatures.client.model.MoCModelMinotaur::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.RAT, drzhark.mocreatures.client.model.MoCModelRat::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.SCORPION, drzhark.mocreatures.client.model.MoCModelScorpion::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.WILD_WOLF, drzhark.mocreatures.client.model.MoCModelWWolf::createBodyLayer);
@@ -68,6 +71,7 @@ public final class MoCreaturesClient {
 
         EntityModelLayerRegistry.register(MoCModelLayers.ANT, drzhark.mocreatures.client.model.MoCModelAnt::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.RACCOON, drzhark.mocreatures.client.model.MoCModelRaccoon::createBodyLayer);
+        EntityModelLayerRegistry.register(MoCModelLayers.CHIMPANZEE, drzhark.mocreatures.client.model.MoCModelChimpanzee::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.MOLE, drzhark.mocreatures.client.model.MoCModelMole::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.ENT, drzhark.mocreatures.client.model.MoCModelEnt::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.SMALL_FISH, drzhark.mocreatures.client.model.MoCModelSmallFish::createBodyLayer);
@@ -114,6 +118,9 @@ public final class MoCreaturesClient {
         EntityRendererRegistry.register(MoCEntities.ROACH, context -> new MoCMobRenderer<>(context, MoCModelLayers.ROACH, drzhark.mocreatures.client.model.MoCModelRoach::new, 0.3F));
         EntityRendererRegistry.register(MoCEntities.GOLEM, drzhark.mocreatures.client.renderer.MoCGolemRenderer::new);
         EntityRendererRegistry.register(MoCEntities.OGRE, context -> new MoCMobRenderer<>(context, MoCModelLayers.OGRE, drzhark.mocreatures.client.model.MoCModelOgre::new, 0.95F));
+        EntityRendererRegistry.register(MoCEntities.OGRE_PRINCE, context -> new MoCMobRenderer<>(context, MoCModelLayers.OGRE_PRINCE, drzhark.mocreatures.client.model.MoCModelOgrePrince::new, 1.3F));
+        EntityRendererRegistry.register(MoCEntities.MEDUSA, context -> new MoCMobRenderer<>(context, MoCModelLayers.MEDUSA, drzhark.mocreatures.client.model.MoCModelMedusa::new, 0.7F));
+        EntityRendererRegistry.register(MoCEntities.MINOTAUR, context -> new MoCMobRenderer<>(context, MoCModelLayers.MINOTAUR, drzhark.mocreatures.client.model.MoCModelMinotaur::new, 0.8F));
         EntityRendererRegistry.register(MoCEntities.RAT, context -> new MoCMobRenderer<>(context, MoCModelLayers.RAT, drzhark.mocreatures.client.model.MoCModelRat::new, 0.3F));
         EntityRendererRegistry.register(MoCEntities.SCORPION, context -> new MoCMobRenderer<>(context, MoCModelLayers.SCORPION, drzhark.mocreatures.client.model.MoCModelScorpion::new, 0.7F));
         EntityRendererRegistry.register(MoCEntities.WILD_WOLF, context -> new MoCMobRenderer<>(context, MoCModelLayers.WILD_WOLF, drzhark.mocreatures.client.model.MoCModelWWolf::new, 0.45F));
@@ -135,6 +142,7 @@ public final class MoCreaturesClient {
         // ------------------------------------------------------ ported from Mo'Creatures 12.0.5
         EntityRendererRegistry.register(MoCEntities.ANT, context -> new MoCMobRenderer<>(context, MoCModelLayers.ANT, drzhark.mocreatures.client.model.MoCModelAnt::new, 0.3F));
         EntityRendererRegistry.register(MoCEntities.RACCOON, context -> new MoCMobRenderer<>(context, MoCModelLayers.RACCOON, drzhark.mocreatures.client.model.MoCModelRaccoon::new, 0.4F));
+        EntityRendererRegistry.register(MoCEntities.CHIMPANZEE, context -> new MoCMobRenderer<>(context, MoCModelLayers.CHIMPANZEE, drzhark.mocreatures.client.model.MoCModelChimpanzee::new, 0.4F));
         EntityRendererRegistry.register(MoCEntities.MOLE, context -> new MoCMobRenderer<>(context, MoCModelLayers.MOLE, drzhark.mocreatures.client.model.MoCModelMole::new, 0.4F));
         EntityRendererRegistry.register(MoCEntities.ENT, context -> new MoCMobRenderer<>(context, MoCModelLayers.ENT, drzhark.mocreatures.client.model.MoCModelEnt::new, 0.5F));
         EntityRendererRegistry.register(MoCEntities.SMALL_FISH, drzhark.mocreatures.client.renderer.MoCSmallFishRenderer::new);

@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -20,6 +24,13 @@ import net.minecraft.util.Mth;
 public class MoCModelHorseMob extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+
+    // Every displaying skin paints only the DOWN tile of each membrane rect; the model renders
+    // culled, so each membrane box is split into two single-face boxes that both sample the painted
+    // DOWN tile (the second texOffs re-aims the UP face onto the same rect — see MoCModelHorse's
+    // membranes).
+    private static final Set<Direction> FACE_DOWN = Set.of(Direction.DOWN);
+    private static final Set<Direction> FACE_UP = Set.of(Direction.UP);
 
     private final ModelPart head;
     private final ModelPart uMouth;
@@ -50,7 +61,7 @@ public class MoCModelHorseMob extends EntityModel<MoCEntityRenderState> {
     private final ModelPart butterflyR;
 
     public MoCModelHorseMob(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.butterflyL = root.getChild("butterfly_l");
         this.butterflyR = root.getChild("butterfly_r");
         this.head = root.getChild("head");
@@ -171,10 +182,12 @@ public class MoCModelHorseMob extends EntityModel<MoCEntityRenderState> {
 
         // Bat-horse membrane wings (legacy ButterflyL/R inherited from MoCModelNewHorse), shown for type 32.
         root.addOrReplaceChild("butterfly_l",
-                CubeListBuilder.create().texOffs(0, 98).addBox(-1.0F, 0.0F, -14.0F, 26, 0, 30),
+                CubeListBuilder.create().texOffs(0, 98).addBox(-1.0F, 0.0F, -14.0F, 26, 0, 30, FACE_DOWN)
+                        .texOffs(-26, 98).addBox(-1.0F, 0.0F, -14.0F, 26, 0, 30, FACE_UP),
                 PartPose.offsetAndRotation(4.5F, 3.0F, -2.0F, 0.0F, 0.0F, -0.78539F));
         root.addOrReplaceChild("butterfly_r",
-                CubeListBuilder.create().texOffs(0, 68).addBox(-25.0F, 0.0F, -14.0F, 26, 0, 30),
+                CubeListBuilder.create().texOffs(0, 68).addBox(-25.0F, 0.0F, -14.0F, 26, 0, 30, FACE_DOWN)
+                        .texOffs(-26, 68).addBox(-25.0F, 0.0F, -14.0F, 26, 0, 30, FACE_UP),
                 PartPose.offsetAndRotation(-4.5F, 3.0F, -2.0F, 0.0F, 0.0F, 0.78539F));
 
         return LayerDefinition.create(mesh, 128, 128);

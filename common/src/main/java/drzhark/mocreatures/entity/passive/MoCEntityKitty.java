@@ -55,6 +55,13 @@ public class MoCEntityKitty extends MoCAnimal {
     public static final int STATE_PLAYING = 2;
     /** Napping at night. */
     public static final int STATE_SLEEPING = 3;
+    /**
+     * Dangling upside down at the carrier's side, picked up by a lead click (legacy kittyState 14,
+     * {@code MoCEntityKitty}:575-579). Keeps the legacy number; no collision with the mood states 0-3.
+     */
+    public static final int STATE_HELD_UPSIDE_DOWN = 14;
+    /** Lying sideways on the carrier's shoulder, picked up empty-handed (legacy kittyState 15, :586-590). */
+    public static final int STATE_ON_SHOULDER = 15;
 
     /** Ticks of contentment before a tamed kitty grows hungry (~2.5 min at 20 tps). */
     private static final int HUNGER_THRESHOLD = 3000;
@@ -104,9 +111,13 @@ public class MoCEntityKitty extends MoCAnimal {
         this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(
                 this, LivingEntity.class, 10, true, false,
                 // Legacy findPlayerToAttack only hunted small prey when worldObj.difficultySetting > 0
-                // (i.e. NOT Peaceful); on Peaceful a hungry kitty attacked nothing.
+                // (i.e. NOT Peaceful); on Peaceful a hungry kitty attacked nothing. Legacy getClosestTarget
+                // also skipped every prey candidate while enableHunters was off (MoCEntityKitty:305), so the
+                // predation predicate live-reads that master switch too — retaliation (HurtByTargetGoal
+                // above) is creature-defence, not predation, and stays ungated.
                 (living, serverLevel) -> this.isHungryMoC()
                         && serverLevel.getDifficulty() != net.minecraft.world.Difficulty.PEACEFUL
+                        && drzhark.mocreatures.config.MoCConfig.get().enableHunters
                         && !(living instanceof Player)
                         && !(living instanceof Monster)
                         && !(living instanceof MoCEntityKitty)
@@ -169,6 +180,13 @@ public class MoCEntityKitty extends MoCAnimal {
                 setKittyState(STATE_CALM);
             }
             seekDroppedFish(level);
+            return;
+        }
+
+        // While carried, the pose IS the state (STATE_HELD_UPSIDE_DOWN / STATE_ON_SHOULDER): the mood
+        // machine below must not overwrite it with a mood every tick. Hunger keeps accruing above and
+        // matters again once the cat is set down (putDown restores STATE_CALM).
+        if (isBeingCarried()) {
             return;
         }
 
@@ -395,9 +413,68 @@ public class MoCEntityKitty extends MoCAnimal {
 
     // ------------------------------------------------------------------------------- interaction
 
+    /**
+     * The lead-carry pick-up (legacy :575-579) must intercept the click ABOVE {@code mobInteract}:
+     * {@code Mob.interact} (mc262-ref Mob.java:1128-1137) runs {@code Entity.interact} before it ever
+     * reaches {@code mobInteract}, and the {@code Leashable} branch there (Entity.java:2306-2321)
+     * consumes ANY lead click on a leashable mob — it tied a leash to the kitty, shrank the lead, and
+     * returned before the carry branch could run, so the "lead = hang upside down" mechanic never fired.
+     *
+     * <p>A sneaking player falls through to vanilla on purpose — sneaking is the carry system's put-down
+     * trigger (a sneak pick-up would be released the next tick), and {@code Entity.interact}'s sneak
+     * branch re-ties leashes held by the player. So does an already-leashed kitty, so the same click can
+     * untie it. The lead is NOT consumed on pick-up — legacy never shrank the stack.</p>
+     */
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand, net.minecraft.world.phys.Vec3 location) {
+        if (player.getItemInHand(hand).is(net.minecraft.world.item.Items.LEAD)
+                && getIsTamed() && !isLeashed() && !player.isSecondaryUseActive()
+                && canBeHandledBy(player)) {
+            if (!isBeingCarried()) {
+                if (!this.level().isClientSide() && toggleCarry(player, false)) {
+                    setKittyState(STATE_HELD_UPSIDE_DOWN);
+                    // A napping kitty has the synched sitting flag set; left set, the model would fold
+                    // the limbs into the curled loaf pose while it dangles.
+                    setSitting(false);
+                }
+                return InteractionResult.SUCCESS;
+            }
+            if (getCarrier() == player) {
+                // Clicking the kitty you carry — with anything, the lead included — sets it back down.
+                if (!this.level().isClientSide()) {
+                    toggleCarry(player, false); // putDown() -> the putDown override restores STATE_CALM
+                }
+                return InteractionResult.SUCCESS;
+            }
+            // Someone else is carrying it: refuse, or Entity.interact would leash it off their head.
+            return InteractionResult.PASS;
+        }
+        return super.interact(player, hand, location);
+    }
+
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        // The legacy carry states (MoCEntityKitty:575-598), wired onto the port's carry system
+        // (MoCAnimal.toggleCarry — the pet is pinned to the carrier, never a vanilla passenger).
+        // The LEAD pick-up branch lives in interact() above (it must beat vanilla leashing).
+        // Clicking a kitty you are carrying — with anything — sets it back down (legacy :592-598).
+        if (getIsTamed() && isBeingCarried() && getCarrier() == player) {
+            if (!this.level().isClientSide()) {
+                toggleCarry(player, false); // putDown() -> the putDown override restores STATE_CALM
+            }
+            return InteractionResult.SUCCESS;
+        }
+        // An empty hand drapes a tamed kitty sideways over your shoulder (legacy :586-590). Nothing is
+        // shadowed by claiming the empty-hand click: the kitty spec has no milk/ride branches in
+        // MoCAnimal.mobInteract, so it previously fell through to vanilla Animal and did nothing.
+        if (getIsTamed() && !isBeingCarried() && stack.isEmpty()) {
+            if (!this.level().isClientSide() && toggleCarry(player, false)) {
+                setKittyState(STATE_ON_SHOULDER);
+                setSitting(false); // see the lead branch in interact(): no stale curled pose while carried
+            }
+            return InteractionResult.SUCCESS;
+        }
         // A tamed kitty eats its food (cod / cooked cod / cake) itself. Handled BEFORE super and returning
         // SUCCESS so the item is consumed by the cat (satisfying hunger + healing) rather than eaten by the
         // player — right-clicking edible food on an entity otherwise falls through to the player's own eat.
@@ -418,6 +495,68 @@ public class MoCEntityKitty extends MoCAnimal {
             return InteractionResult.SUCCESS;
         }
         return super.mobInteract(player, hand);
+    }
+
+    /**
+     * Every release path must clear the carry pose (legacy {@code changeKittyState(7)}, :592-598) — not
+     * just the click-again branch in {@link #mobInteract} but also the sneak-release and carrier-offline
+     * paths in {@code MoCAnimal.tickCarried}, or the cat would keep rendering upside down on the ground.
+     */
+    @Override
+    public void putDown(@Nullable Player carrier) {
+        super.putDown(carrier);
+        setKittyState(STATE_CALM);
+    }
+
+    /**
+     * Safety net: a carry pose without a carrier (e.g. the pose saved mid-carry and reloaded before the
+     * carrier reappears) must not leave a grounded cat frozen in state 14/15 — those states are only
+     * meaningful while actually carried.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        if (!this.level().isClientSide() && !isBeingCarried()
+                && (getKittyState() == STATE_HELD_UPSIDE_DOWN || getKittyState() == STATE_ON_SHOULDER)) {
+            setKittyState(STATE_CALM);
+        }
+        // While dangling from a lead (state 14), stamp the carrier into the CLIENT-side registry the
+        // player-model mixins read to still the carrying arm (see MoCLeadCarriers — entries expire on
+        // their own within 2 ticks, so there is no unmark path to forget). Client branch only: on a
+        // dedicated server the registry stays empty, and the class itself is plain Java (no client
+        // imports), so referencing it from common entity code is loader-safe.
+        if (this.level().isClientSide() && isBeingCarried() && getKittyState() == STATE_HELD_UPSIDE_DOWN
+                && getCarrier() instanceof Player carrier) {
+            drzhark.mocreatures.client.MoCLeadCarriers.mark(carrier.getId(), this.level().getGameTime());
+        }
+    }
+
+    /**
+     * Both carry poses hang at the carrier's SIDE (dangling from the lead hand / lying on the shoulder),
+     * so they track the carrier's BODY yaw, not the look yaw the head-carried species use — panning the
+     * camera in third person must not orbit the cat around the player. See
+     * {@link MoCAnimal#carriedYaw} for why {@code yBodyRot} is the stable "which way the body points"
+     * value on both sides.
+     */
+    @Override
+    protected float carriedYaw(Player carrier) {
+        if (getKittyState() == STATE_HELD_UPSIDE_DOWN || getKittyState() == STATE_ON_SHOULDER) {
+            return carrier.yBodyRot;
+        }
+        return super.carriedYaw(carrier);
+    }
+
+    /**
+     * Pin height for the two carry poses. Legacy rode the kitty as a real passenger at the player's mount
+     * point — {@code posY + getMountedYOffset()} = feet + 1.8*0.75 = +1.35 — and its {@code getYOffset}
+     * observer branch (:491-501) nudged that by −0.1 upside-down / +0.1 on-shoulder, so the render origin
+     * sat at feet+1.25 / feet+1.45. With the carrier 1.8 tall, that is a sink of 0.55 / 0.35 below the
+     * head top. The renderer's legacy pose transforms then hang the state-14 cat down from that origin
+     * (chest height at the carrier's side) and lay the state-15 cat on top of it (the shoulder).
+     */
+    @Override
+    public double carriedHeadSink() {
+        return getKittyState() == STATE_HELD_UPSIDE_DOWN ? 0.55D : 0.35D;
     }
 
     /**

@@ -61,6 +61,7 @@ public class MoCEntityBigCat extends MoCAnimal {
 
     /**
      * Legacy {@code getClosestTarget} predation filter: which nearby creature a HUNGRY big cat will hunt.
+     * The whole filter sits behind the {@code enableHunters} master switch (legacy default true).
      * Mirrors the legacy exclusion list — a cub takes only small prey (bb &lt;= 0.5), hostile mobs are prey
      * only for a tamed adult, a tamed cat won't hunt another tamed Mo'Creature, never hunts elephants or the
      * kitty furniture (bed / litter box), and only hunts horses or wolves when the matching config flag is on
@@ -69,6 +70,14 @@ public class MoCEntityBigCat extends MoCAnimal {
      * never turns on a lion (type 2 skips type 1 — she joins his pride instead).
      */
     private boolean canHunt(LivingEntity target) {
+        drzhark.mocreatures.config.MoCConfig cfg = drzhark.mocreatures.config.MoCConfig.get();
+        // Legacy enableHunters (MoCProxy.java:314-316, applied through MoCEntityAnimal.entitiesToIgnore:289):
+        // the creature-vs-creature predation master switch. canHunt only ever filters non-player prey (the
+        // Animal/Monster class scans above), so with hunters off it refuses everything; the base wildHostile
+        // player-target goal is untouched — legacy never gated player hunting on this flag.
+        if (!cfg.enableHunters) {
+            return false;
+        }
         if (target == this) {
             return false;
         }
@@ -90,7 +99,6 @@ public class MoCEntityBigCat extends MoCAnimal {
         if (getIsTamed() && target instanceof drzhark.mocreatures.entity.IMoCEntity moc && moc.getIsTamed()) {
             return false;
         }
-        drzhark.mocreatures.config.MoCConfig cfg = drzhark.mocreatures.config.MoCConfig.get();
         if (target instanceof MoCEntityHorse && !cfg.attackHorses) {
             return false;
         }

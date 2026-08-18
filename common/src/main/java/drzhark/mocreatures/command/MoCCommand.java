@@ -286,7 +286,8 @@ public final class MoCCommand {
 
     private static final String SUPPORTED_FLAGS =
             "elephantBulldozer, easyBreeding, easyHarvesting, useDefaultBiomeGroups, attackDolphins, "
-            + "attackWolves, attackHorses, spawnPiranhas, modifyVanillaSpawns, despawnVanilla, enableOwnership, "
+            + "attackWolves, attackHorses, enableHunters, spawnPiranhas, modifyVanillaSpawns, despawnVanilla, "
+            + "enableOwnership, "
             + "enableResetOwnership, staticBed, staticLitter, animateTextures, destroyDrops, "
             + "destroyPassiveDrops, displayPetName, displayPetHealth, displayPetIcons, particleFX";
 
@@ -304,6 +305,7 @@ public final class MoCCommand {
             case "attackdolphins":       return cfg.attackDolphins;
             case "attackwolves":         return cfg.attackWolves;
             case "attackhorses":         return cfg.attackHorses;
+            case "enablehunters":        return cfg.enableHunters;
             case "spawnpiranhas":        return cfg.spawnPiranhas;
             case "modifyvanillaspawns":  return cfg.modifyVanillaSpawns;
             case "despawnvanilla":       return cfg.despawnVanilla;

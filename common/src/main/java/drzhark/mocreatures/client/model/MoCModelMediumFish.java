@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -39,6 +43,12 @@ public class MoCModelMediumFish extends EntityModel<MoCEntityRenderState> {
     /** Legacy jaw-tip rest angle, {@code -0.7132579F}. */
     private static final float MOUTH_TIP_REST = -0.7132579F;
 
+    // Face selectors for the flat (zero-depth) fin quads: only one side of each fin is painted on
+    // the sheet, so under the culled render type each fin box is split into a painted face plus an
+    // opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> NORTH_FACE = Set.of(Direction.NORTH);
+    private static final Set<Direction> SOUTH_FACE = Set.of(Direction.SOUTH);
+
     /**
      * Pivot parenting every cube. Legacy applied {@code getAdjustedYOffset()} / {@code getAdjustedZOffset()}
      * as a whole-model translate; here it is this pivot's position, in pixels (1 block = 16 px).
@@ -52,7 +62,7 @@ public class MoCModelMediumFish extends EntityModel<MoCEntityRenderState> {
     private final ModelPart mouthBottomB;
 
     public MoCModelMediumFish(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.fish = root.getChild("fish");
         this.tail = this.fish.getChild("tail");
         this.tailFin = this.fish.getChild("tail_fin");
@@ -95,25 +105,39 @@ public class MoCModelMediumFish extends EntityModel<MoCEntityRenderState> {
                 PartPose.offset(8.0F, 9.0F, 0.0F));
         // Flat (zero-depth) fin quads, exactly as legacy authored them.
         fish.addOrReplaceChild("tail_fin",
-                CubeListBuilder.create().texOffs(48, 5).addBox(3.0F, -5.3F, 0.0F, 5.0F, 11.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(48, 5).addBox(3.0F, -5.3F, 0.0F, 5.0F, 11.0F, 0.0F, NORTH_FACE)
+                        .texOffs(43, 5).addBox(3.0F, -5.3F, 0.0F, 5.0F, 11.0F, 0.0F, SOUTH_FACE),
                 PartPose.offset(8.0F, 9.0F, 0.0F));
         fish.addOrReplaceChild("right_pectoral_fin",
-                CubeListBuilder.create().texOffs(28, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(28, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, NORTH_FACE)
+                        .texOffs(23, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(-6.5F, 10.0F, 2.0F, 0.0F, -PECTORAL_REST, 0.185895F));
         fish.addOrReplaceChild("left_pectoral_fin",
-                CubeListBuilder.create().texOffs(38, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(38, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, SOUTH_FACE)
+                        .texOffs(43, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, NORTH_FACE),
                 PartPose.offsetAndRotation(-6.5F, 10.0F, -2.0F, 0.0F, PECTORAL_REST, 0.1858931F));
         fish.addOrReplaceChild("upper_fin",
-                CubeListBuilder.create().texOffs(0, 22).addBox(0.0F, -4.0F, 0.0F, 15.0F, 4.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 22).addBox(0.0F, -4.0F, 0.0F, 15.0F, 4.0F, 0.0F, NORTH_FACE)
+                        .texOffs(-15, 22).addBox(0.0F, -4.0F, 0.0F, 15.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(-7.0F, 6.0F, 0.0F, 0.0F, 0.0F, 0.1047198F));
         fish.addOrReplaceChild("lower_fin",
-                CubeListBuilder.create().texOffs(46, 20).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(46, 20).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, NORTH_FACE)
+                        .texOffs(37, 20).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 12.0F, 0.0F, 0.0F, 0.0F, -0.1858931F));
         fish.addOrReplaceChild("right_lower_fin",
-                CubeListBuilder.create().texOffs(28, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(28, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, NORTH_FACE)
+                        .texOffs(19, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(-7.0F, 12.0F, 1.0F, 0.5235988F, 0.0F, 0.0F));
         fish.addOrReplaceChild("left_lower_fin",
-                CubeListBuilder.create().texOffs(46, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(46, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE)
+                        .texOffs(55, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, NORTH_FACE),
                 PartPose.offsetAndRotation(-7.0F, 12.0F, -1.0F, -0.5235988F, 0.0F, 0.0F));
 
         return LayerDefinition.create(mesh, 64, 32);

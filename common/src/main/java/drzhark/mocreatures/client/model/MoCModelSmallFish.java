@@ -3,12 +3,16 @@ package drzhark.mocreatures.client.model;
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.util.Mth;
+
+import java.util.Set;
 
 /**
  * Small fish model, converted faithfully from the legacy {@code MoCModelSmallFish} ({@code ModelBase}).
@@ -49,6 +53,11 @@ public class MoCModelSmallFish extends EntityModel<MoCEntityRenderState> {
     /** Legacy in-water yaw sway amplitude in degrees ({@code MoCEntityAquatic.yawRotationOffset}:995-1001). */
     private static final float SWAY_DEGREES = 8.0F;
 
+    // The pelvic plane is split into two single-face boxes (painted DOWN face + a re-aimed UP face sampling
+    // the same painted tile) so the culled render type keeps it visible from both sides.
+    private static final Set<Direction> DOWN_ONLY = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_ONLY = Set.of(Direction.UP);
+
     private final ModelPart fish;
     private final ModelPart offset;
     private final ModelPart midBodyFin;
@@ -56,7 +65,7 @@ public class MoCModelSmallFish extends EntityModel<MoCEntityRenderState> {
     private final ModelPart tail;
 
     public MoCModelSmallFish(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.fish = root.getChild("fish");
         this.offset = this.fish.getChild("offset");
         this.midBodyFin = this.offset.getChild("mid_body_fin");
@@ -100,7 +109,8 @@ public class MoCModelSmallFish extends EntityModel<MoCEntityRenderState> {
                 PartPose.offset(-0.65F, 17.2F, 0.0F));
         // Zero-height pelvic plane (legacy 5x0x6); it flaps with the fin animation below.
         offset.addOrReplaceChild("lower_fin_b",
-                CubeListBuilder.create().texOffs(0, 21).addBox(0.0F, 0.0F, -3.0F, 5.0F, 0.0F, 6.0F),
+                CubeListBuilder.create().texOffs(0, 21).addBox(0.0F, 0.0F, -3.0F, 5.0F, 0.0F, 6.0F, DOWN_ONLY)
+                        .texOffs(-5, 21).addBox(0.0F, 0.0F, -3.0F, 5.0F, 0.0F, 6.0F, UP_ONLY),
                 PartPose.offset(-3.0F, 16.0F, 0.0F));
         offset.addOrReplaceChild("lower_fin_c",
                 CubeListBuilder.create().texOffs(16, 18).addBox(-5.0F, 0.0F, 0.0F, 8.0F, 3.0F, 0.0F),

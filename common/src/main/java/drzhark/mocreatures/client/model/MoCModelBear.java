@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.Mth;
 
 /**
@@ -90,7 +91,7 @@ public class MoCModelBear extends EntityModel<MoCEntityRenderState> {
     private final ModelPart cLegRR3;
 
     public MoCModelBear(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.mouth = root.getChild("mouth");
         this.mouthOpen = root.getChild("mouth_open");

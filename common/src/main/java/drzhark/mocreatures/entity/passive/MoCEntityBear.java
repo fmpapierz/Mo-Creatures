@@ -79,6 +79,12 @@ public class MoCEntityBear extends MoCAnimal {
      * the matching config flag is enabled.
      */
     private boolean canHunt(net.minecraft.world.entity.LivingEntity target) {
+        // Legacy enableHunters (MoCProxy.java:314-316, applied through MoCEntityAnimal.entitiesToIgnore:289):
+        // the creature-vs-creature predation master switch. With hunters off a bear takes no creature prey;
+        // the polar bear's player-target goal above is untouched — legacy never gated player hunting on it.
+        if (!drzhark.mocreatures.config.MoCConfig.get().enableHunters) {
+            return false;
+        }
         if (target == this) {
             return false;
         }

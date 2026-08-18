@@ -100,10 +100,13 @@ public class MoCEntityDolphin extends MoCAquatic {
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         // Cross-species hunting: an adult dolphin hunts nearby UNTAMED sharks, faithful to the legacy
         // findPlayerToAttack -> FindTarget (which only ever targeted untamed sharks). Gated behind the
-        // attackDolphins config (legacy default false) and non-peaceful difficulty, and never while ridden.
+        // attackDolphins config (legacy default false) AND the enableHunters master switch (legacy
+        // MoCProxy.java:314-316, default true — the shark is a fellow Mo'Creature, so this is exactly the
+        // creature-vs-creature predation the flag governs), plus non-peaceful difficulty, and never while ridden.
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(
                 this, MoCEntityShark.class, 10, true, false,
                 (living, serverLevel) -> drzhark.mocreatures.config.MoCConfig.get().attackDolphins
+                        && drzhark.mocreatures.config.MoCConfig.get().enableHunters
                         && getIsAdult() && !this.isVehicle()
                         && this.level().getDifficulty() != net.minecraft.world.Difficulty.PEACEFUL
                         && living instanceof MoCEntityShark shark && !shark.getIsTamed()));

@@ -1,0 +1,11 @@
+{
+  "type": "mocreatures:ogre_lair",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "mocreatures:ogre_lair",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "mocreatures:ogre_lair"
+    }
+  }
+}

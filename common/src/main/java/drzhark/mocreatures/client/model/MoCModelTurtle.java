@@ -4,6 +4,7 @@ import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -30,7 +31,7 @@ public class MoCModelTurtle extends EntityModel<MoCEntityRenderState> {
     private final ModelPart tail;
 
     public MoCModelTurtle(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.shell = root.getChild("shell");
         this.shellUp = root.getChild("shell_up");
         this.shellTop = root.getChild("shell_top");

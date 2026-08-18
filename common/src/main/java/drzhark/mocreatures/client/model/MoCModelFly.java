@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -15,6 +19,15 @@ import net.minecraft.util.Mth;
  * Geometry, texture offsets and the wing-beat / leg motion are preserved.
  */
 public class MoCModelFly extends EntityModel<MoCEntityRenderState> {
+
+    // fly.png paints only one tile of each zero-thickness box (wings: DOWN; legs: NORTH). The model
+    // renders culled, so each such box is split into two single-face boxes that both sample the
+    // painted tile (the second texOffs re-aims the opposite face onto the same rect — see
+    // MoCModelHorse's membranes).
+    private static final Set<Direction> FACE_DOWN = Set.of(Direction.DOWN);
+    private static final Set<Direction> FACE_UP = Set.of(Direction.UP);
+    private static final Set<Direction> FACE_NORTH = Set.of(Direction.NORTH);
+    private static final Set<Direction> FACE_SOUTH = Set.of(Direction.SOUTH);
 
     private final ModelPart head;
     private final ModelPart thorax;
@@ -28,7 +41,7 @@ public class MoCModelFly extends EntityModel<MoCEntityRenderState> {
     private final ModelPart foldedWings;
 
     public MoCModelFly(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.thorax = root.getChild("thorax");
         this.abdomen = root.getChild("abdomen");
@@ -58,22 +71,28 @@ public class MoCModelFly extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(10, 2).addBox(-1.0F, 0.0F, -1.0F, 1.0F, 1.0F, 1.0F),
                 PartPose.offsetAndRotation(0.5F, 21.2F, 1.5F, 1.427659F, 0.0F, 0.0F));
         root.addOrReplaceChild("front_legs",
-                CubeListBuilder.create().texOffs(0, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
+                CubeListBuilder.create().texOffs(0, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, FACE_NORTH)
+                        .texOffs(-2, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, FACE_SOUTH),
                 PartPose.offsetAndRotation(0.0F, 22.5F, -1.8F, 0.1487144F, 0.0F, 0.0F));
         root.addOrReplaceChild("rear_legs",
-                CubeListBuilder.create().texOffs(0, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
+                CubeListBuilder.create().texOffs(0, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, FACE_NORTH)
+                        .texOffs(-2, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, FACE_SOUTH),
                 PartPose.offsetAndRotation(0.0F, 22.5F, -0.4F, 1.070744F, 0.0F, 0.0F));
         root.addOrReplaceChild("mid_legs",
-                CubeListBuilder.create().texOffs(0, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
+                CubeListBuilder.create().texOffs(0, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, FACE_NORTH)
+                        .texOffs(-2, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, FACE_SOUTH),
                 PartPose.offsetAndRotation(0.0F, 22.5F, -1.2F, 0.5948578F, 0.0F, 0.0F));
         root.addOrReplaceChild("left_wing",
-                CubeListBuilder.create().texOffs(4, 4).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F),
+                CubeListBuilder.create().texOffs(4, 4).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_DOWN)
+                        .texOffs(2, 4).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_UP),
                 PartPose.offsetAndRotation(0.0F, 20.4F, -1.0F, 0.0F, 1.047198F, 0.0F));
         root.addOrReplaceChild("right_wing",
-                CubeListBuilder.create().texOffs(4, 4).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F),
+                CubeListBuilder.create().texOffs(4, 4).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_DOWN)
+                        .texOffs(2, 4).addBox(-1.0F, 0.0F, 0.5F, 2.0F, 0.0F, 4.0F, FACE_UP),
                 PartPose.offsetAndRotation(0.0F, 20.4F, -1.0F, 0.0F, -1.047198F, 0.0F));
         root.addOrReplaceChild("folded_wings",
-                CubeListBuilder.create().texOffs(4, 4).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 0.0F, 4.0F),
+                CubeListBuilder.create().texOffs(4, 4).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 0.0F, 4.0F, FACE_DOWN)
+                        .texOffs(2, 4).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 0.0F, 4.0F, FACE_UP),
                 PartPose.offsetAndRotation(0.0F, 20.5F, -2.0F, 0.0872665F, 0.0F, 0.0F));
 
         return LayerDefinition.create(mesh, 32, 32);

@@ -182,6 +182,45 @@ public class MoCEntityOgre extends MoCMob {
         return !this.level().canSeeSky(this.blockPosition()) && this.getY() < 50.0D;
     }
 
+    // ------------------------------------------------------------------------ multi-head look clamps
+
+    /**
+     * Whether the current variant renders more than one head (types 2/4/6 for the common ogre; the
+     * Ogre Prince overrides this with its own variant mapping).
+     */
+    protected boolean isMultiHeaded() {
+        int type = getTypeMoC();
+        return type == 2 || type == 4 || type == 6;
+    }
+
+    /** Head-body yaw clamp for the multi-head variants; see {@link #getMaxHeadYRot()}. */
+    protected int multiHeadMaxYRot() {
+        return 15;
+    }
+
+    /** Look-pitch clamp for the multi-head variants; see {@link #getMaxHeadYRot()}. */
+    protected int multiHeadMaxXRot() {
+        return 25;
+    }
+
+    /**
+     * Multi-head variants carry three heads shoulder to shoulder, and the fanned-out model only has
+     * interpenetration-free clearance inside a modest look cone (SAT-verified in {@code MoCModelOgre}
+     * across the clamped envelope plus interpolation margin). Clamping here is not a restriction on
+     * behaviour: beyond the head-body yaw limit, vanilla {@code BodyRotationControl.rotateBodyIfNecessary}
+     * swings the whole BODY to face the target, so a giant that turns bodily instead of owl-necking is
+     * exactly what these clamps produce. Single-head variants keep the vanilla 75°/40°.
+     */
+    @Override
+    public int getMaxHeadYRot() {
+        return isMultiHeaded() ? multiHeadMaxYRot() : super.getMaxHeadYRot();
+    }
+
+    @Override
+    public int getMaxHeadXRot() {
+        return isMultiHeaded() ? multiHeadMaxXRot() : super.getMaxHeadXRot();
+    }
+
     @Override
     public boolean fireImmune() {
         return isFireOgre() || super.fireImmune();

@@ -47,6 +47,9 @@ public final class MoCModelLayers {
     public static final ModelLayerLocation ROACH = layer("roach");
     public static final ModelLayerLocation GOLEM = layer("golem");
     public static final ModelLayerLocation OGRE = layer("ogre");
+    public static final ModelLayerLocation OGRE_PRINCE = layer("ogre_prince");
+    public static final ModelLayerLocation MEDUSA = layer("medusa");
+    public static final ModelLayerLocation MINOTAUR = layer("minotaur");
     public static final ModelLayerLocation RAT = layer("rat");
     public static final ModelLayerLocation SCORPION = layer("scorpion");
     public static final ModelLayerLocation WILD_WOLF = layer("wild_wolf");
@@ -63,6 +66,7 @@ public final class MoCModelLayers {
 
     public static final ModelLayerLocation ANT = layer("ant");
     public static final ModelLayerLocation RACCOON = layer("raccoon");
+    public static final ModelLayerLocation CHIMPANZEE = layer("chimpanzee");
     public static final ModelLayerLocation MOLE = layer("mole");
     public static final ModelLayerLocation ENT = layer("ent");
     public static final ModelLayerLocation SMALL_FISH = layer("small_fish");

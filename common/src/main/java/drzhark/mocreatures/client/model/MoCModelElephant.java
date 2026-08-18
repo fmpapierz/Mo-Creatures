@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -34,6 +38,12 @@ import net.minecraft.util.Mth;
 public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+
+    // Face selectors for the flat (zero-thickness) tusk-armour fins: only the WEST side of each fin
+    // is painted on the sheet, so under the culled render type each fin box is split into a painted
+    // face plus an opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> WEST_FACE = Set.of(Direction.WEST);
+    private static final Set<Direction> EAST_FACE = Set.of(Direction.EAST);
 
     private final ModelPart head;
     private final ModelPart neck;
@@ -142,7 +152,7 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
     private final ModelPart storageUpRight;
 
     public MoCModelElephant(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.neck = root.getChild("neck");
         this.headBump = root.getChild("head_bump");
@@ -409,10 +419,14 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(58, 149).addBox(1.3F, 24.9F, -15.5F, 3.0F, 3.0F, 6.0F),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_lw4",
-                CubeListBuilder.create().texOffs(46, 164).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F),
+                CubeListBuilder.create()
+                        .texOffs(46, 164).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
+                        .texOffs(41, 164).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_lw5",
-                CubeListBuilder.create().texOffs(52, 192).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(52, 192).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
+                        .texOffs(44, 192).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_rw1",
                 CubeListBuilder.create().texOffs(56, 166).addBox(-4.3F, 5.5F, -24.2F, 3.0F, 3.0F, 7.0F),
@@ -424,10 +438,14 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(58, 149).addBox(-4.3F, 24.9F, -15.5F, 3.0F, 3.0F, 6.0F),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_rw4",
-                CubeListBuilder.create().texOffs(46, 157).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F),
+                CubeListBuilder.create()
+                        .texOffs(46, 157).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
+                        .texOffs(41, 157).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_rw5",
-                CubeListBuilder.create().texOffs(52, 199).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(52, 199).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
+                        .texOffs(44, 199).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
 
         // Iron (tier 2)
@@ -441,10 +459,14 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(110, 163).addBox(1.3F, 24.9F, -15.5F, 3.0F, 3.0F, 6.0F),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_li4",
-                CubeListBuilder.create().texOffs(96, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F),
+                CubeListBuilder.create()
+                        .texOffs(96, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
+                        .texOffs(91, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_li5",
-                CubeListBuilder.create().texOffs(112, 209).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(112, 209).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
+                        .texOffs(104, 209).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_ri1",
                 CubeListBuilder.create().texOffs(108, 180).addBox(-4.3F, 5.5F, -24.2F, 3.0F, 3.0F, 7.0F),
@@ -456,10 +478,14 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(110, 163).addBox(-4.3F, 24.9F, -15.5F, 3.0F, 3.0F, 6.0F),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_ri4",
-                CubeListBuilder.create().texOffs(96, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F),
+                CubeListBuilder.create()
+                        .texOffs(96, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
+                        .texOffs(91, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_ri5",
-                CubeListBuilder.create().texOffs(112, 216).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(112, 216).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
+                        .texOffs(104, 216).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
 
         // Diamond (tier 3)
@@ -473,10 +499,14 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(110, 190).addBox(1.3F, 24.9F, -15.5F, 3.0F, 3.0F, 6.0F),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_ld4",
-                CubeListBuilder.create().texOffs(86, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F),
+                CubeListBuilder.create()
+                        .texOffs(86, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
+                        .texOffs(81, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_ld5",
-                CubeListBuilder.create().texOffs(112, 225).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(112, 225).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
+                        .texOffs(104, 225).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_rd1",
                 CubeListBuilder.create().texOffs(108, 207).addBox(-4.3F, 5.5F, -24.2F, 3.0F, 3.0F, 7.0F),
@@ -488,10 +518,14 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(110, 190).addBox(-4.3F, 24.9F, -15.5F, 3.0F, 3.0F, 6.0F),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_rd4",
-                CubeListBuilder.create().texOffs(86, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F),
+                CubeListBuilder.create()
+                        .texOffs(86, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
+                        .texOffs(81, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_rd5",
-                CubeListBuilder.create().texOffs(112, 232).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(112, 232).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
+                        .texOffs(104, 232).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
 
         // ---- Harness (armorStage >= 1) ----

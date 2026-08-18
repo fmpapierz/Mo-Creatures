@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -15,6 +19,16 @@ import net.minecraft.util.Mth;
  * Geometry and texture offsets are preserved; only the scaffolding is modern.
  */
 public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
+
+    // Face selectors for the flat (zero-thickness) parts: only one side of each quad is painted on
+    // cricket.png, so under the culled render type each box is split into a painted face plus an
+    // opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> NORTH_FACE = Set.of(Direction.NORTH);
+    private static final Set<Direction> SOUTH_FACE = Set.of(Direction.SOUTH);
+    private static final Set<Direction> WEST_FACE = Set.of(Direction.WEST);
+    private static final Set<Direction> EAST_FACE = Set.of(Direction.EAST);
+    private static final Set<Direction> DOWN_FACE = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_FACE = Set.of(Direction.UP);
 
     private final ModelPart head;
     private final ModelPart antenna;
@@ -32,7 +46,7 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
     private final ModelPart foldedWings;
 
     public MoCModelCricket(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.antenna = root.getChild("antenna");
         this.antennaB = root.getChild("antenna_b");
@@ -57,10 +71,14 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 4).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 1.0F, 2.0F),
                 PartPose.offsetAndRotation(0.0F, 22.5F, -2.0F, -2.171231F, 0.0F, 0.0F));
         root.addOrReplaceChild("antenna",
-                CubeListBuilder.create().texOffs(0, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
+                        .texOffs(-2, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 22.5F, -3.0F, -2.736346F, 0.0F, 0.0F));
         root.addOrReplaceChild("antenna_b",
-                CubeListBuilder.create().texOffs(0, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
+                        .texOffs(-2, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 20.7F, -3.8F, 2.88506F, 0.0F, 0.0F));
         root.addOrReplaceChild("thorax",
                 CubeListBuilder.create().texOffs(0, 0).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 2.0F, 2.0F),
@@ -69,16 +87,24 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(8, 0).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 3.0F, 2.0F),
                 PartPose.offsetAndRotation(0.0F, 22.0F, 0.0F, 1.427659F, 0.0F, 0.0F));
         root.addOrReplaceChild("tail_a",
-                CubeListBuilder.create().texOffs(4, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(4, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, NORTH_FACE)
+                        .texOffs(2, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 22.0F, 2.8F, 1.308687F, 0.0F, 0.0F));
         root.addOrReplaceChild("tail_b",
-                CubeListBuilder.create().texOffs(4, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(4, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
+                        .texOffs(2, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 23.0F, 2.8F, 1.665602F, 0.0F, 0.0F));
         root.addOrReplaceChild("front_legs",
-                CubeListBuilder.create().texOffs(0, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
+                        .texOffs(-2, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 23.0F, -1.8F, -0.8328009F, 0.0F, 0.0F));
         root.addOrReplaceChild("mid_legs",
-                CubeListBuilder.create().texOffs(0, 13).addBox(-2.0F, 0.0F, 0.0F, 4.0F, 2.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 13).addBox(-2.0F, 0.0F, 0.0F, 4.0F, 2.0F, 0.0F, NORTH_FACE)
+                        .texOffs(-4, 13).addBox(-2.0F, 0.0F, 0.0F, 4.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 23.0F, -1.2F, 1.070744F, 0.0F, 0.0F));
         root.addOrReplaceChild("thigh_left",
                 CubeListBuilder.create().texOffs(8, 5).addBox(0.0F, -3.0F, 0.0F, 1.0F, 3.0F, 1.0F),
@@ -87,13 +113,19 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(12, 5).addBox(-1.0F, -3.0F, 0.0F, 1.0F, 3.0F, 1.0F),
                 PartPose.offsetAndRotation(-0.5F, 23.0F, 0.0F, -0.4886922F, -0.2617994F, 0.0F));
         root.addOrReplaceChild("leg_left",
-                CubeListBuilder.create().texOffs(0, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, WEST_FACE)
+                        .texOffs(-2, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, EAST_FACE),
                 PartPose.offset(2.0F, 21.0F, 2.5F));
         root.addOrReplaceChild("leg_right",
-                CubeListBuilder.create().texOffs(4, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F),
+                CubeListBuilder.create()
+                        .texOffs(4, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, WEST_FACE)
+                        .texOffs(2, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, EAST_FACE),
                 PartPose.offset(-2.0F, 21.0F, 2.5F));
         root.addOrReplaceChild("folded_wings",
-                CubeListBuilder.create().texOffs(0, 26).addBox(0.0F, 0.0F, -1.0F, 6.0F, 0.0F, 2.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 26).addBox(0.0F, 0.0F, -1.0F, 6.0F, 0.0F, 2.0F, DOWN_FACE)
+                        .texOffs(-6, 26).addBox(0.0F, 0.0F, -1.0F, 6.0F, 0.0F, 2.0F, UP_FACE),
                 PartPose.offsetAndRotation(0.0F, 20.9F, -2.0F, 0.0F, -1.570796F, 0.0F));
 
         return LayerDefinition.create(mesh, 32, 32);

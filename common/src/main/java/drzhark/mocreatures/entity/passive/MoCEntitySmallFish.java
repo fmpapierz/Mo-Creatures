@@ -169,6 +169,15 @@ public class MoCEntitySmallFish extends MoCAquatic {
         return !isPiranha() && !getIsTamed() && this.isInWater();
     }
 
+    /**
+     * Legacy {@code MoCEntitySmallFish.isFisheable()}:152-155 — a wild small fish (piranha included) will bite
+     * a fishing rod's bobber.
+     */
+    @Override
+    protected boolean isFisheable() {
+        return !getIsTamed();
+    }
+
     @Override
     protected void registerGoals() {
         // MoCAquatic contributes RandomSwimmingGoal(1.0, 10), the equivalent of legacy's

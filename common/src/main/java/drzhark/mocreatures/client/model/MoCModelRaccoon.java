@@ -4,6 +4,7 @@ import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -56,7 +57,7 @@ public class MoCModelRaccoon extends EntityModel<MoCEntityRenderState> {
     private final ModelPart rearFootLeft;
 
     public MoCModelRaccoon(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.snout = root.getChild("snout");
         this.earRight = root.getChild("ear_right");

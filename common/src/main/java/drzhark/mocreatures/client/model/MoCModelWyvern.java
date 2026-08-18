@@ -3,12 +3,16 @@ package drzhark.mocreatures.client.model;
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.util.Mth;
+
+import java.util.Set;
 
 /**
  * Wyvern model, converted faithfully from the legacy {@code MoCModelWyvern} ({@code ModelBase}).
@@ -18,6 +22,14 @@ import net.minecraft.util.Mth;
 public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG = (float) (Math.PI / 180.0);
+
+    // Zero-thickness planes (ear skins, wing membranes) are split into two single-face boxes (painted face
+    // + a re-aimed opposite face sampling the same painted tile) so the culled render type keeps them
+    // visible from both sides. The control ropes' tile pair is painted on both sides and stays a plain box.
+    private static final Set<Direction> NORTH_ONLY = Set.of(Direction.NORTH);
+    private static final Set<Direction> SOUTH_ONLY = Set.of(Direction.SOUTH);
+    private static final Set<Direction> WEST_ONLY = Set.of(Direction.WEST);
+    private static final Set<Direction> EAST_ONLY = Set.of(Direction.EAST);
 
     private final ModelPart tailGroup;
     private final ModelPart back1;
@@ -106,7 +118,7 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
     private final ModelPart diamondRightShoulder;
 
     public MoCModelWyvern(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.tailGroup = root.getChild("tail_group");
         this.tail1 = this.tailGroup.getChild("tail1");
         this.tail2 = this.tail1.getChild("tail2");
@@ -307,10 +319,12 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 PartPose.offset(-4.5F, 1F, 0F));
 
         PartDefinition rightEarSkin = head.addOrReplaceChild("right_ear_skin",
-                CubeListBuilder.create().texOffs(112, 201).addBox(0F, -4F, 0F, 0, 8, 8),
+                CubeListBuilder.create().texOffs(112, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, EAST_ONLY)
+                        .texOffs(120, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, WEST_ONLY),
                 PartPose.offset(-3F, -0.5F, 0F));
         PartDefinition leftEarSkin = head.addOrReplaceChild("left_ear_skin",
-                CubeListBuilder.create().texOffs(96, 201).addBox(0F, -4F, 0F, 0, 8, 8),
+                CubeListBuilder.create().texOffs(96, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, WEST_ONLY)
+                        .texOffs(88, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, EAST_ONLY),
                 PartPose.offset(3F, -0.5F, 0F));
 
         PartDefinition rightSpine1 = rightEarSkin.addOrReplaceChild("right_spine1",
@@ -412,13 +426,16 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(36, 47).addBox(-1F, 0F, 1F, 2, 10, 2),
                 PartPose.offsetAndRotation(0F, 14F, 0F, 0F, 0F, 30F * DEG));
         leftFing1a.addOrReplaceChild("left_wing_flap1",
-                CubeListBuilder.create().texOffs(74, 153).addBox(3.5F, -3F, 0.95F, 14, 24, 0),
+                CubeListBuilder.create().texOffs(74, 153).addBox(3.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, SOUTH_ONLY)
+                        .texOffs(88, 153).addBox(3.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, 70F * DEG));
         leftFing2a.addOrReplaceChild("left_wing_flap2",
-                CubeListBuilder.create().texOffs(36, 153).addBox(-7F, 1.05F, 1.05F, 19, 24, 0),
+                CubeListBuilder.create().texOffs(36, 153).addBox(-7F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, SOUTH_ONLY)
+                        .texOffs(55, 153).addBox(-7F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, 40F * DEG));
         leftFing3a.addOrReplaceChild("left_wing_flap3",
-                CubeListBuilder.create().texOffs(0, 153).addBox(-17.5F, 1F, 1.1F, 18, 24, 0),
+                CubeListBuilder.create().texOffs(0, 153).addBox(-17.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, SOUTH_ONLY)
+                        .texOffs(18, 153).addBox(-17.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offset(0F, 0F, 0F));
 
         // right wing
@@ -437,7 +454,8 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(36, 47).addBox(-1F, 0F, -1F, 2, 10, 2),
                 PartPose.offsetAndRotation(0F, 14F, 0F, 0F, 0F, -35F * DEG));
         rightFing1a.addOrReplaceChild("right_wing_flap1",
-                CubeListBuilder.create().texOffs(74, 177).addBox(-17.5F, -3F, 0.95F, 14, 24, 0),
+                CubeListBuilder.create().texOffs(74, 177).addBox(-17.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, SOUTH_ONLY)
+                        .texOffs(88, 177).addBox(-17.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, -70F * DEG));
         PartDefinition rightFing2a = rightLowArm.addOrReplaceChild("right_fing2a",
                 CubeListBuilder.create().texOffs(44, 30).addBox(-1F, 0F, 0F, 2, 15, 2),
@@ -446,7 +464,10 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(44, 47).addBox(-1F, 0F, 0F, 2, 10, 2),
                 PartPose.offsetAndRotation(0F, 14F, 0F, 0F, 0F, -30F * DEG));
         rightFing2a.addOrReplaceChild("right_wing_flap2",
-                CubeListBuilder.create().texOffs(36, 177).addBox(-19F, 1.05F, 1.05F, 19, 24, 0),
+                // Both tiles read as painted here, but the NORTH tile is overlapping foreign art (its mirror
+                // left_wing_flap2 is SOUTH-only), so this splits to SOUTH like the other membranes.
+                CubeListBuilder.create().texOffs(36, 177).addBox(-19F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, SOUTH_ONLY)
+                        .texOffs(55, 177).addBox(-19F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, -40F * DEG));
         PartDefinition rightFing3a = rightLowArm.addOrReplaceChild("right_fing3a",
                 CubeListBuilder.create().texOffs(52, 30).addBox(-1F, 0F, 1F, 2, 15, 2),
@@ -455,7 +476,8 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(52, 47).addBox(-1F, 0F, 1F, 2, 10, 2),
                 PartPose.offsetAndRotation(0F, 14F, 0F, 0F, 0F, -30F * DEG));
         rightFing3a.addOrReplaceChild("right_wing_flap3",
-                CubeListBuilder.create().texOffs(0, 177).addBox(-0.5F, 1F, 1.1F, 18, 24, 0),
+                CubeListBuilder.create().texOffs(0, 177).addBox(-0.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, SOUTH_ONLY)
+                        .texOffs(18, 177).addBox(-0.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offset(0F, 0F, 0F));
 
         // left leg

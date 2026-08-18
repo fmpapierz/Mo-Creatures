@@ -175,6 +175,12 @@ public class MoCEntityMediumFish extends MoCAquatic {
         }
     }
 
+    /** Legacy {@code MoCEntityMediumFish.isFisheable()}:111-114 — a wild medium fish will bite a fishing rod's bobber. */
+    @Override
+    protected boolean isFisheable() {
+        return !getIsTamed();
+    }
+
     /**
      * Legacy death drop ({@code dropFewItems}, MoCEntityMediumFish:66-77): a 100-sided roll, under 70 drops
      * exactly one raw fish, otherwise {@code rand.nextInt(2)} = 0-or-1 species egg. The two are mutually

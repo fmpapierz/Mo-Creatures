@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_heartfire": {
+      "conditions": {
+        "items": [
+          {
+            "items": "mocreatures:heartfire"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "mocreatures:staffportalogre"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_heartfire"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "mocreatures:staffportalogre"
+    ]
+  }
+}

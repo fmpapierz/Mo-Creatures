@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -19,6 +23,15 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
     private static final float RADIAN_F = 57.29578F;
+
+    // Face selectors for the flat (zero-thickness) parts (demon wing membranes, neck feathers,
+    // reptile helmet ears, flags): only one side of each quad is painted on the sheets that use them,
+    // so under the culled render type each box is split into a painted face plus an opposite face
+    // re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> WEST_FACE = Set.of(Direction.WEST);
+    private static final Set<Direction> EAST_FACE = Set.of(Direction.EAST);
+    private static final Set<Direction> DOWN_FACE = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_FACE = Set.of(Direction.UP);
 
     private final ModelPart head;
     private final ModelPart uBeak;
@@ -113,7 +126,7 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
     private final ModelPart flagWhite;
 
     public MoCModelOstrich(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.uBeak = root.getChild("u_beak");
         this.uBeak2 = root.getChild("u_beak2");
@@ -298,19 +311,27 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(26, 84).addBox(0F, -1F, -1F, 15, 2, 2),
                 PartPose.offsetAndRotation(4F, 3F, -3F, 0F, 0F, -0.3490659F));
         root.addOrReplaceChild("l_wing_e",
-                CubeListBuilder.create().texOffs(0, 103).addBox(0F, 0F, 1F, 15, 0, 15),
+                CubeListBuilder.create()
+                        .texOffs(0, 103).addBox(0F, 0F, 1F, 15, 0, 15, DOWN_FACE)
+                        .texOffs(-15, 103).addBox(0F, 0F, 1F, 15, 0, 15, UP_FACE),
                 PartPose.offsetAndRotation(4F, 3F, -3F, 0F, 0F, -0.3490659F));
         root.addOrReplaceChild("r_wing_d",
                 CubeListBuilder.create().texOffs(26, 80).addBox(-15F, -1F, -1F, 15, 2, 2),
                 PartPose.offsetAndRotation(-4F, 3F, -3F, 0F, 0F, 0.3490659F));
         root.addOrReplaceChild("r_wing_e",
-                CubeListBuilder.create().texOffs(0, 88).addBox(-15F, 0F, 1F, 15, 0, 15),
+                CubeListBuilder.create()
+                        .texOffs(0, 88).addBox(-15F, 0F, 1F, 15, 0, 15, DOWN_FACE)
+                        .texOffs(-15, 88).addBox(-15F, 0F, 1F, 15, 0, 15, UP_FACE),
                 PartPose.offsetAndRotation(-4F, 3F, -3F, 0F, 0F, 0.3490659F));
         root.addOrReplaceChild("neck_u_feather",
-                CubeListBuilder.create().texOffs(0, 73).addBox(0F, -16F, -2F, 0, 9, 4),
+                CubeListBuilder.create()
+                        .texOffs(0, 73).addBox(0F, -16F, -2F, 0, 9, 4, WEST_FACE)
+                        .texOffs(-4, 73).addBox(0F, -16F, -2F, 0, 9, 4, EAST_FACE),
                 PartPose.offset(0F, 3F, -6F));
         root.addOrReplaceChild("neck_l_feather",
-                CubeListBuilder.create().texOffs(8, 73).addBox(0F, -8F, -0.5F, 0, 7, 4),
+                CubeListBuilder.create()
+                        .texOffs(8, 73).addBox(0F, -8F, -0.5F, 0, 7, 4, WEST_FACE)
+                        .texOffs(4, 73).addBox(0F, -8F, -0.5F, 0, 7, 4, EAST_FACE),
                 PartPose.offsetAndRotation(0F, 3F, -6F, 0.2007129F, 0F, 0F));
 
         // ---- Five-segment darkness tail (legacy Tailpart1-5; shown for type 6 in place of Tail1/Tail2/Tail3). ----
@@ -400,10 +421,14 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(64, 64).addBox(-2F, -16.5F, -5F, 4, 5, 4),
                 PartPose.offset(0F, 3F, -6F));
         root.addOrReplaceChild("helmet_reptile_ear1",
-                CubeListBuilder.create().texOffs(114, 50).addBox(-2.5F, -16.5F, -2F, 0, 5, 5),
+                CubeListBuilder.create()
+                        .texOffs(114, 50).addBox(-2.5F, -16.5F, -2F, 0, 5, 5, WEST_FACE)
+                        .texOffs(109, 50).addBox(-2.5F, -16.5F, -2F, 0, 5, 5, EAST_FACE),
                 PartPose.offsetAndRotation(0F, 3F, -6F, 0F, -0.6108652F, 0F));
         root.addOrReplaceChild("helmet_reptile_ear2",
-                CubeListBuilder.create().texOffs(114, 45).addBox(2.5F, -16.5F, -2F, 0, 5, 5),
+                CubeListBuilder.create()
+                        .texOffs(114, 45).addBox(2.5F, -16.5F, -2F, 0, 5, 5, WEST_FACE)
+                        .texOffs(109, 45).addBox(2.5F, -16.5F, -2F, 0, 5, 5, EAST_FACE),
                 PartPose.offsetAndRotation(0F, 3F, -6F, 0F, 0.6108652F, 0F));
         root.addOrReplaceChild("helmet_green_chitin",
                 CubeListBuilder.create().texOffs(80, 64).addBox(-2F, -16.5F, -5F, 4, 5, 4),
@@ -429,52 +454,84 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, -15F, -0.5F, 1, 17, 1),
                 PartPose.offsetAndRotation(0F, 0F, 5F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_orange",
-                CubeListBuilder.create().texOffs(88, 24).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(88, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(78, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_purple",
-                CubeListBuilder.create().texOffs(88, 32).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(88, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(78, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_light_blue",
-                CubeListBuilder.create().texOffs(68, 32).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(68, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(58, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_yellow",
-                CubeListBuilder.create().texOffs(48, 46).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(48, 46).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(38, 46).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_green",
-                CubeListBuilder.create().texOffs(48, 38).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(48, 38).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(38, 38).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_light_red",
-                CubeListBuilder.create().texOffs(108, 28).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(108, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(98, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_grey",
-                CubeListBuilder.create().texOffs(108, 12).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(108, 12).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(98, 12).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_grey",
-                CubeListBuilder.create().texOffs(108, 16).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(108, 16).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(98, 16).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_cyan",
-                CubeListBuilder.create().texOffs(48, 50).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(48, 50).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(38, 50).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_purple",
-                CubeListBuilder.create().texOffs(88, 28).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(88, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(78, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_blue",
-                CubeListBuilder.create().texOffs(68, 28).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(68, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(58, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_brown",
-                CubeListBuilder.create().texOffs(48, 42).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(48, 42).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(38, 42).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_green",
-                CubeListBuilder.create().texOffs(108, 32).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(108, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(98, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_red",
-                CubeListBuilder.create().texOffs(108, 24).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(108, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(98, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_black",
-                CubeListBuilder.create().texOffs(108, 8).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(108, 8).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(98, 8).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_white",
-                CubeListBuilder.create().texOffs(108, 20).addBox(0F, -2.1F, 0F, 0, 4, 10),
+                CubeListBuilder.create()
+                        .texOffs(108, 20).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
+                        .texOffs(98, 20).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
 
         return LayerDefinition.create(mesh, 128, 128);

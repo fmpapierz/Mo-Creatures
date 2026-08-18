@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 
 /**
  * Simple egg model — a small rounded box resting on the ground, textured from {@code egg.png}.
@@ -15,7 +16,7 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 public class MoCModelEgg extends EntityModel<MoCEntityRenderState> {
 
     public MoCModelEgg(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
     }
 
     public static LayerDefinition createBodyLayer() {

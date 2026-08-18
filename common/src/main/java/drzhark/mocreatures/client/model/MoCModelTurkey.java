@@ -3,12 +3,16 @@ package drzhark.mocreatures.client.model;
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.util.Mth;
+
+import java.util.Set;
 
 /**
  * Turkey model, converted faithfully from the legacy {@code MoCModelTurkey} ({@code ModelBase}).
@@ -17,6 +21,13 @@ import net.minecraft.util.Mth;
 public class MoCModelTurkey extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+
+    // The tail fan and foot planes are split into two single-face boxes (painted face + a re-aimed opposite
+    // face sampling the same painted tile) so the culled render type keeps them visible from both sides.
+    private static final Set<Direction> NORTH_ONLY = Set.of(Direction.NORTH);
+    private static final Set<Direction> SOUTH_ONLY = Set.of(Direction.SOUTH);
+    private static final Set<Direction> DOWN_ONLY = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_ONLY = Set.of(Direction.UP);
 
     private final ModelPart beak;
     private final ModelPart head;
@@ -33,7 +44,7 @@ public class MoCModelTurkey extends EntityModel<MoCEntityRenderState> {
     private final ModelPart lFoot;
 
     public MoCModelTurkey(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.beak = root.getChild("beak");
         this.head = root.getChild("head");
         this.neck = root.getChild("neck");
@@ -78,19 +89,22 @@ public class MoCModelTurkey extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 0).addBox(-4.0F, -4.0F, 0.0F, 8.0F, 8.0F, 9.0F),
                 PartPose.offset(0.0F, 16.0F, -4.0F));
         root.addOrReplaceChild("tail",
-                CubeListBuilder.create().texOffs(32, 17).addBox(-8.0F, -9.0F, 0.0F, 16.0F, 12.0F, 0.0F),
+                CubeListBuilder.create().texOffs(32, 17).addBox(-8.0F, -9.0F, 0.0F, 16.0F, 12.0F, 0.0F, NORTH_ONLY)
+                        .texOffs(16, 17).addBox(-8.0F, -9.0F, 0.0F, 16.0F, 12.0F, 0.0F, SOUTH_ONLY),
                 PartPose.offsetAndRotation(0.0F, 14.0F, 6.0F, -0.2974289F, 0.0F, 0.0F));
         root.addOrReplaceChild("r_leg",
                 CubeListBuilder.create().texOffs(27, 17).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 5.0F, 1.0F),
                 PartPose.offset(-2.0F, 19.0F, 0.5F));
         root.addOrReplaceChild("r_foot",
-                CubeListBuilder.create().texOffs(20, 23).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F),
+                CubeListBuilder.create().texOffs(20, 23).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F, DOWN_ONLY)
+                        .texOffs(17, 23).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F, UP_ONLY),
                 PartPose.offset(-2.0F, 19.0F, 0.5F));
         root.addOrReplaceChild("l_leg",
                 CubeListBuilder.create().texOffs(23, 17).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 5.0F, 1.0F),
                 PartPose.offset(2.0F, 19.0F, 0.5F));
         root.addOrReplaceChild("l_foot",
-                CubeListBuilder.create().texOffs(20, 26).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F),
+                CubeListBuilder.create().texOffs(20, 26).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F, DOWN_ONLY)
+                        .texOffs(17, 26).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F, UP_ONLY),
                 PartPose.offset(2.0F, 19.0F, 0.5F));
 
         return LayerDefinition.create(mesh, 64, 64);

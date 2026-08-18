@@ -39,7 +39,8 @@ Baseline setup, paste into chat:
 /gamerule mobGriefing true
 ```
 
-**Expect in the log:** `Mo'Creatures (Architectury multi-loader, MC 26.2) initialized with 56 creatures`.
+**Expect in the log:** `Mo'Creatures (Architectury multi-loader, MC 26.2) initialized with 60 creatures`
+(56 before the Ogre Prince joined the roster, 57 before Medusa/Minotaur/Chimpanzee; older builds print those).
 
 ---
 
@@ -550,6 +551,39 @@ Two options if shimmer shows up elsewhere:
   but 134 boxes if done exhaustively.
 
 ---
+
+## 14. Review-fix pass (2026-08-11, second session)
+
+**Multi-head ogre clipping — the reported bug, now fixed in motion, not just at rest.**
+```
+/summon mocreatures:ogre ~5 ~ ~ {TypeMoC:2}
+/summon mocreatures:ogre_prince ~12 ~ ~ {TypeMoC:2}
+```
+Walk a slow full circle around each at 4-8 blocks, then stand close and jump / crouch so it looks up
+and down at you. **Expect:** the heads never cut into each other at any look angle; past ~15° the
+whole ogre turns its BODY to face you (that is the fix working, not a bug). Ears may still touch
+ears at extreme angles (~2px, known). The prince's two heads sit ~1px further apart than before.
+
+**Medusa/Minotaur peaceful + spawn weight.**
+```
+/difficulty peaceful
+/summon mocreatures:medusa ~3 ~ ~
+/summon mocreatures:minotaur ~5 ~ ~
+```
+**Expect:** both vanish immediately (they used to persist). Back on normal difficulty, both should
+appear at roughly ogre-like rates in a fresh dark area with `doMobSpawning true`.
+
+**Minotaur charge.**
+```
+/difficulty normal
+/summon mocreatures:minotaur ~10 ~ ~
+```
+Stand 5-16 blocks away in the open: it should charge visibly faster than its walk, in a straight
+line, with a horn-toss animation exactly when the blow lands. Then duck behind a 2-block wall as it
+closes: **no damage through the wall** (it used to hit through it).
+
+**Green prince beard.** `/summon mocreatures:ogre_prince ~5 ~ ~ {TypeMoC:1}` — look at the beard
+sides from a low angle: no flickering/z-fighting stripe where beard meets lip.
 
 ## What is *not* covered (known gaps)
 

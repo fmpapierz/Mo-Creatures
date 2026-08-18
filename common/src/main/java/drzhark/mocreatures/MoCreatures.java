@@ -62,13 +62,14 @@ public final class MoCreatures {
         // Client-only rendering registration; only loads MoCreaturesClient on the physical client.
         EnvExecutor.runInEnv(Env.CLIENT, () -> drzhark.mocreatures.client.MoCreaturesClient::init);
 
-        LOGGER.info("Mo'Creatures (Architectury multi-loader, MC 26.2) initialized with {} creatures", 56);
+        LOGGER.info("Mo'Creatures (Architectury multi-loader, MC 26.2) initialized with {} creatures", 60);
     }
 
     private static void registerEntityAttributes() {
         // ------------------------------------------------ ported from Mo'Creatures 12.0.5
         EntityAttributeRegistry.register(MoCEntities.ANT, drzhark.mocreatures.entity.passive.MoCEntityAnt::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.RACCOON, drzhark.mocreatures.entity.passive.MoCEntityRaccoon::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.CHIMPANZEE, drzhark.mocreatures.entity.passive.MoCEntityChimpanzee::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.MOLE, drzhark.mocreatures.entity.passive.MoCEntityMole::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.ENT, drzhark.mocreatures.entity.passive.MoCEntityEnt::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.SMALL_FISH, drzhark.mocreatures.entity.passive.MoCEntitySmallFish::createAttributes);
@@ -115,6 +116,9 @@ public final class MoCreatures {
         EntityAttributeRegistry.register(MoCEntities.ROACH, drzhark.mocreatures.entity.passive.MoCEntityRoach::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.GOLEM, drzhark.mocreatures.entity.monster.MoCEntityGolem::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.OGRE, drzhark.mocreatures.entity.monster.MoCEntityOgre::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.OGRE_PRINCE, drzhark.mocreatures.entity.monster.MoCEntityOgrePrince::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.MEDUSA, drzhark.mocreatures.entity.monster.MoCEntityMedusa::createAttributes);
+        EntityAttributeRegistry.register(MoCEntities.MINOTAUR, drzhark.mocreatures.entity.monster.MoCEntityMinotaur::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.RAT, drzhark.mocreatures.entity.monster.MoCEntityRat::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.SCORPION, drzhark.mocreatures.entity.monster.MoCEntityScorpion::createAttributes);
         EntityAttributeRegistry.register(MoCEntities.WILD_WOLF, drzhark.mocreatures.entity.monster.MoCEntityWWolf::createAttributes);

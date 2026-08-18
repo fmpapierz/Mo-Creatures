@@ -39,7 +39,7 @@ restoration.
 | Chimpanzee | 1 promo render, no behaviour at all | none | Weakest. Pure design work. |
 | Minotaur | 1 render (3 variants), 4 words of commentary | none | Art direction only. |
 | Medusa | 1 model render (3 variants), finished model, no behaviour | none | Best art reference of the three. |
-| **Ogre Prince** | 3 hard facts + a half-built dimension | **substantial** | **Start here.** |
+| **Ogre Prince** | 3 hard facts + a half-built dimension | **substantial** | **DONE — shipped 2026-08-10** (see §1 postscript). |
 
 ---
 
@@ -100,6 +100,27 @@ is a stray file in the wrong directory, probably dead.
 **Also:** `GAP_AUDIT.md` H2 claims the Wyvern Lair still uses vanilla `floating_islands` with no
 mocreatures noise settings. That is stale — `worldgen/noise_settings/wyvern_lair.json` now exists with the
 mod's own blocks and surface rules. Close H2.
+
+### §1 postscript — implemented 2026-08-10 (design-and-build, user-approved)
+
+The Ogre Prince and Ogre Lair now exist: entity `ogre_prince` (TypeMoC 1 green / 2 fire / 3 cave; 150 HP;
+per-variant boss bar; green = heavy knockback, fire = two-headed igniter, cave = teleporter; smash radius
+variant strength + 1.5; never despawns; guaranteed unique drop), the full `ogre_lair` datapack dimension
+(floating islands in the ogre block set, ember-ring sky on both loaders, obsidian/glowstone portal frame
+at origin), travel staff `staffportalogre` (ender eye + heart of fire + blaze rod), and the drops:
+green → `builderhammer2` renamed **Ogre Hammer**, cave → **Staff of Teleport** (renamed to DrZhark's
+wording), fire → the new **Ogre Machete** (`machete`, diamond-tier, ignites on hit).
+
+Two corrections to the text above, for the record:
+- **The evidence base is stronger than this handoff recorded.** The current Fandom page carries a direct
+  DrZhark quote (minecraftforum comment #64650): *"The ogre's lair will add three ogre princes (bosses),
+  each will drop an unique item. Two of the items are available on creative. The staff of teleport and
+  the hammer. The third item is not done yet."* — the staff/hammer drop mapping is his, not fan reading.
+- **The spare `staff.png`/`staff2.png`/`staff3.png` art is NOT the fire prince's weapon.** Upscaled, the
+  set is a wood/gold/diamond-inlaid scepter tier; the preview render (and the wiki's "some type of
+  axe/machete") shows the fire prince with a dark blade. The scepter set remains unused spare art —
+  a candidate for Medusa/Minotaur gear. The stray `textures/blockstates/dirt_ogre_lair.png` was
+  confirmed byte-identical to the real texture and deleted.
 
 ## 2. Medusa
 

@@ -4,6 +4,7 @@ import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -33,7 +34,7 @@ public class MoCModelRat extends EntityModel<MoCEntityRenderState> {
     private final ModelPart bodyF;
 
     public MoCModelRat(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.earRight = root.getChild("ear_right");
         this.earLeft = root.getChild("ear_left");

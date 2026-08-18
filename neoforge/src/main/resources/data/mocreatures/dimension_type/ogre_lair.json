@@ -1,0 +1,43 @@
+{
+  "ambient_light": 0.1,
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "block_search_extent": 8,
+        "offset": 2.0,
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000
+      }
+    },
+    "minecraft:gameplay/bed_rule": {
+      "can_set_spawn": "always",
+      "can_sleep": "when_dark",
+      "error_message": {
+        "translate": "block.minecraft.bed.no_sleep"
+      }
+    },
+    "minecraft:gameplay/respawn_anchor_works": false,
+    "neoforge:custom_skybox": "mocreatures:ogre_lair",
+    "minecraft:visual/ambient_light_color": "#140c0a",
+    "minecraft:visual/cloud_color": "#cc3a2a22",
+    "minecraft:visual/cloud_height": 192.0,
+    "minecraft:visual/fog_color": "#5c4436",
+    "minecraft:visual/sky_color": "#3a2f2a"
+  },
+  "coordinate_scale": 1.0,
+  "default_clock": "minecraft:overworld",
+  "has_ceiling": false,
+  "has_ender_dragon_fight": false,
+  "has_skylight": true,
+  "height": 384,
+  "infiniburn": "#minecraft:infiniburn_overworld",
+  "logical_height": 384,
+  "min_y": -64,
+  "monster_spawn_block_light_limit": 0,
+  "monster_spawn_light_level": {
+    "type": "minecraft:uniform",
+    "max_inclusive": 7,
+    "min_inclusive": 0
+  },
+  "timelines": "#minecraft:in_overworld"
+}

@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.Mth;
 
 /**
@@ -57,7 +58,7 @@ public class MoCModelGolem extends EntityModel<MoCEntityRenderState> {
     private final ModelPart butt;
 
     public MoCModelGolem(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.chest = root.getChild("chest");
         this.headAngry = root.getChild("head_angry");

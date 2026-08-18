@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -9,6 +11,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -21,6 +25,12 @@ import net.minecraft.util.Mth;
 public class MoCModelGoat extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+
+    // Face selectors for the flat (zero-height) tongue: only its DOWN tile is painted on the sheet,
+    // so under the culled render type the box is split into a painted face plus an opposite face
+    // re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> DOWN_FACE = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_FACE = Set.of(Direction.UP);
 
     private final ModelPart leg1;
     private final ModelPart leg2;
@@ -49,7 +59,7 @@ public class MoCModelGoat extends EntityModel<MoCEntityRenderState> {
     private final ModelPart tits;
 
     public MoCModelGoat(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.leg1 = root.getChild("leg1");
         this.leg2 = root.getChild("leg2");
         this.leg3 = root.getChild("leg3");
@@ -112,7 +122,9 @@ public class MoCModelGoat extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(52, 10).addBox(-1.5F, -1.0F, -5.0F, 3.0F, 3.0F, 3.0F),
                 PartPose.offset(0.0F, 8.0F, -12.0F));
         root.addOrReplaceChild("tongue",
-                CubeListBuilder.create().texOffs(56, 5).addBox(-0.5F, 2.0F, -5.0F, 1.0F, 0.0F, 3.0F),
+                CubeListBuilder.create()
+                        .texOffs(56, 5).addBox(-0.5F, 2.0F, -5.0F, 1.0F, 0.0F, 3.0F, DOWN_FACE)
+                        .texOffs(55, 5).addBox(-0.5F, 2.0F, -5.0F, 1.0F, 0.0F, 3.0F, UP_FACE),
                 PartPose.offset(0.0F, 8.0F, -12.0F));
         root.addOrReplaceChild("mouth",
                 CubeListBuilder.create().texOffs(54, 0).addBox(-1.0F, 2.0F, -5.0F, 2.0F, 1.0F, 3.0F),

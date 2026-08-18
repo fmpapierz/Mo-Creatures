@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.Mth;
 
 /**
@@ -65,7 +66,7 @@ public class MoCModelBigCat extends EntityModel<MoCEntityRenderState> {
     private final ModelPart storageChest;
 
     public MoCModelBigCat(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.chest = root.getChild("chest");
         this.neckBase = this.chest.getChild("neck_base");
         this.headBack = this.neckBase.getChild("head_back");

@@ -1,6 +1,7 @@
 package drzhark.mocreatures.neoforge;
 
 import drzhark.mocreatures.MoCreatures;
+import drzhark.mocreatures.client.MoCLairSky;
 import drzhark.mocreatures.neoforge.client.MoCLairSkyboxRenderer;
 import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
@@ -28,7 +29,7 @@ public final class MoCreaturesNeoForge {
         modBus.addListener(RegisterEvent.class, this::onRegister);
 
         if (dist.isClient()) {
-            // Client-only: register the Wyvern Lair twin-suns skybox renderer.
+            // Client-only: register the Lair skybox renderers (Wyvern twin suns, Ogre ember sun).
             modBus.addListener(RegisterCustomEnvironmentEffectRendererEvent.class, this::onRegisterSky);
         }
     }
@@ -45,13 +46,17 @@ public final class MoCreaturesNeoForge {
     }
 
     /**
-     * MOD-bus, client-only. Binds the twin-suns skybox renderer to the {@code mocreatures:wyvern_lair}
-     * custom-skybox id (the value the Lair dimension_type sets on the {@code neoforge:custom_skybox}
-     * environment attribute).
+     * MOD-bus, client-only. Binds a Lair skybox renderer to each lair's custom-skybox id (the value
+     * that lair's dimension_type sets on the {@code neoforge:custom_skybox} environment attribute):
+     * twin suns for {@code mocreatures:wyvern_lair}, the single ember sun for
+     * {@code mocreatures:ogre_lair}.
      */
     private void onRegisterSky(RegisterCustomEnvironmentEffectRendererEvent event) {
         event.registerSkyboxRenderer(
                 Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "wyvern_lair"),
-                new MoCLairSkyboxRenderer());
+                new MoCLairSkyboxRenderer(MoCLairSky.TWIN_SUNS_TEXTURE));
+        event.registerSkyboxRenderer(
+                Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "ogre_lair"),
+                new MoCLairSkyboxRenderer(MoCLairSky.EMBER_SUN_TEXTURE));
     }
 }

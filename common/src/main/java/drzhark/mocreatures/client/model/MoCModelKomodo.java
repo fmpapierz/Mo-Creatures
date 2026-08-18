@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -17,6 +21,12 @@ import net.minecraft.util.Mth;
 public class MoCModelKomodo extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = 1.0F / 57.29578F;
+
+    // Face selectors for the flat (zero-height) tongue: only its DOWN tile is painted on the sheet,
+    // so under the culled render type the box is split into a painted face plus an opposite face
+    // re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> DOWN_FACE = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_FACE = Set.of(Direction.UP);
 
     private final ModelPart head;
     private final ModelPart neck;
@@ -42,7 +52,7 @@ public class MoCModelKomodo extends EntityModel<MoCEntityRenderState> {
     private final ModelPart legBackRight2;
 
     public MoCModelKomodo(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.neck = this.head.getChild("neck");
         this.nose = this.neck.getChild("nose");
@@ -84,7 +94,9 @@ public class MoCModelKomodo extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 12).addBox(-1.0F, -0.3F, -5.0F, 2.0F, 1.0F, 6.0F),
                 PartPose.offset(0.0F, 3.0F, -5.8F));
         mouth.addOrReplaceChild("tongue",
-                CubeListBuilder.create().texOffs(48, 44).addBox(-1.5F, 0.0F, -5.0F, 3.0F, 0.0F, 5.0F),
+                CubeListBuilder.create()
+                        .texOffs(48, 44).addBox(-1.5F, 0.0F, -5.0F, 3.0F, 0.0F, 5.0F, DOWN_FACE)
+                        .texOffs(45, 44).addBox(-1.5F, 0.0F, -5.0F, 3.0F, 0.0F, 5.0F, UP_FACE),
                 PartPose.offset(0.0F, -0.4F, -4.7F));
 
         root.addOrReplaceChild("chest",

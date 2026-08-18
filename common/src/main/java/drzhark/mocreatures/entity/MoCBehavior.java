@@ -555,6 +555,11 @@ public final class MoCBehavior {
         // register those heal foods for the tamed-heal branch. The plain turtle-meat drop is 0-2 (vanilla
         // dropFewItems: MoCEntityTurtle does not override it).
         reg("turtle").tame(Tame.NONE).heal(v(Items.MELON_SLICE), v(Items.SUGAR_CANE)).baby().vanilla()
+                // Every turtle spawns as a hatchling at edad 60-109 (legacy ctor MoCEntityTurtle:42-44) and
+                // grows on the base rand(300) tick (MoCEntityAnimal:330-336) to adult at maxEdad 120. The
+                // second, TAMED-only mega-growth curve to 300 (rand(900), MoCEntityTurtle:258-261) cannot be
+                // expressed here and lives in MoCEntityTurtle.tick.
+                .spawnAge(60, 109).babyRoll(1).grow(300, 120, 120)
                 .drop(() -> MoCItems.TURTLERAW.get(), 0, 2, 1.0F);
         // Legacy wyverns have no feed-to-tame interaction — rat/turkey are heal food only, on an already-tamed
         // wyvern. Wild wyverns become tamed by being ridden/named (base tameWithName), not by feeding, so the
@@ -581,6 +586,14 @@ public final class MoCBehavior {
                 .food(v(Items.WHEAT), v(Items.WHEAT_SEEDS), v(Items.SUGAR), v(Items.CAKE), v(Items.EGG))
                 .baby().spawnAge(50, 64).babyRoll(3).grow(300, 100, 100)
                 .vanilla().drop(() -> MoCItems.FUR.get(), 0, 2, 1.0F);
+        // Chimpanzee (designed but never released upstream — no legacy source; built in the raccoon mold).
+        // Tames/heals on ANY edible (the real food test lives in MoCEntityChimpanzee.isFood; these are the
+        // non-FOOD-component extras). Unlike the raccoon it BREEDS: a fed tamed healthy adult falls through
+        // to vanilla love mode. Growth curve copied verbatim from the raccoon: edad 50-64 with 1 spawn in 3
+        // a youngster, growing (rand(300)) to adult at 100. No drops; not rideable; no milk.
+        reg("chimpanzee").tame(Tame.FEED)
+                .food(v(Items.WHEAT), v(Items.WHEAT_SEEDS), v(Items.SUGAR), v(Items.CAKE), v(Items.EGG))
+                .breed().baby().spawnAge(50, 64).babyRoll(3).grow(300, 100, 100);
         // Legacy moles are NOT tameable (MoCEntityMole overrides neither interact nor isMyHealFood); the
         // drop is 0-2 fur through vanilla dropFewItems.
         reg("mole").tame(Tame.NONE).vanilla().drop(() -> MoCItems.FUR.get(), 0, 2, 1.0F);
@@ -615,8 +628,11 @@ public final class MoCBehavior {
         reg("fishy").baby().heal(v(Items.COD), v(Items.COOKED_COD)).grow(100, 100, 100).growStep(2);
         reg("jellyfish").baby().spawnAge(50, 99).grow(200, 100, 100).drop(v(Items.SLIME_BALL), 0, 1, 0.5F);
         // Legacy MoCEntityRay: a mantaray (type 1) is tamed by riding it until it submits, exactly like the
-        // horse and the dolphin; it also keeps growing to 180 well past adulthood (type > 1 stops at 90).
-        reg("ray").ride(false).rideTames().baby().spawnAge(50, 99).grow(50, 90, 180).growPastAdult();
+        // horse and the dolphin. Its growth is TYPE-keyed — the mantaray matures at 180, the stingray at 90
+        // (different getMaxEdad overrides, MoCEntityMantaRay:23-25 / MoCEntityRay:102-104) — which a single
+        // spec curve cannot express, and MoCAquatic never runs tickGrowth/applySpawnAge anyway. So the ray
+        // rolls its spawn age in selectType() and ages itself in MoCEntityRay.customServerAiStep.
+        reg("ray").ride(false).rideTames().baby();
         // Shark death drop is a mutually-exclusive 90%-teeth-else-difficulty/age-gated-egg roll, resolved per
         // entity in dropLoot (shark branch), so no type-agnostic .drop() spec here.
         reg("shark").baby().hostile();
@@ -634,6 +650,10 @@ public final class MoCBehavior {
         // (type 3-4) drop a heartfire at 1/4 chance (else the fire block, no item), and cave ogres (type>4)
         // drop a diamond — 0-2 copies via vanilla dropFewItems. Resolved per entity in dropLoot (ogre branch).
         reg("ogre");
+        reg("ogre_prince"); // boss: guaranteed unique drop lives in MoCEntityOgrePrince.dropCustomDeathLoot (no table loot, no super)
+        reg("medusa"); // emeralds + chance snake egg live in MoCEntityMedusa.dropCustomDeathLoot; no table loot
+        // Bovine drops (0-2 leather + 0-2 beef) live in MoCEntityMinotaur.dropCustomDeathLoot, on top of super.
+        reg("minotaur");
         // rat / wild_wolf / wraith / flame_wraith: a single item via vanilla dropFewItems (0-2 copies, 0
         // possible) — legacy classes do not override dropFewItems. .vanilla() drives the 0-2 count in dropLoot.
         reg("rat").vanilla().drop(() -> MoCItems.RATRAW.get(), 0, 2, 1.0F);

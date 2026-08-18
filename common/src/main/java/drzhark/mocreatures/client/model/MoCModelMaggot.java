@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 
 /**
  * Maggot model, converted faithfully from the legacy {@code MoCModelMaggot} ({@code ModelBase}).
@@ -21,7 +22,7 @@ public class MoCModelMaggot extends EntityModel<MoCEntityRenderState> {
     private final ModelPart tailtip;
 
     public MoCModelMaggot(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.head = root.getChild("head");
         this.body = root.getChild("body");
         this.tail = root.getChild("tail");

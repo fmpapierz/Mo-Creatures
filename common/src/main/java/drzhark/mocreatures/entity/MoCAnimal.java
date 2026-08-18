@@ -248,8 +248,12 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         return net.minecraft.sounds.SoundEvents.CHICKEN_EGG;
     }
 
-    /** How far below the top of the carrier's head the creature sits, so it nestles rather than floats. */
-    protected double carriedHeadSink() {
+    /**
+     * How far below the top of the carrier's head the creature sits, so it nestles rather than floats.
+     * Public because {@code MoCMobRenderer} rebuilds the same pin point per FRAME (via
+     * {@code EntityRenderState.passengerOffset}) to keep the pet glued to the carrier between ticks.
+     */
+    public double carriedHeadSink() {
         return 0.15D;
     }
 
@@ -357,7 +361,9 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         this.setPos(carrier.getX(),
                 carrier.getY() + carrier.getBbHeight() - carriedHeadSink(),
                 carrier.getZ());
-        // Face the way the carrier does (legacy re-synced this every tick for the mouse).
+        // Face the carried yaw (legacy re-synced this every tick for the mouse). WHICH of the carrier's
+        // yaws that is depends on the pose — see carriedYaw(): head-carried pets copy the LOOK yaw, the
+        // kitty's side/shoulder poses copy the BODY yaw so they stay glued to the hip while the camera pans.
         //
         // Deliberately NOT touching yRotO / yBodyRotO / yHeadRotO. The renderer draws the creature at
         // Mth.rotLerp(partialTick, <field>O, <field>) — yHeadRot at
@@ -367,19 +373,54 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         // yaw over yRotO collapsed that interval to zero, so the creature snapped once per tick at 20 Hz
         // while the camera turned at frame rate — the reported left/right jitter. Leaving them alone is
         // what makes the turn interpolate.
-        this.setYRot(carrier.getYRot());
-        this.setYBodyRot(carrier.getYRot());
-        this.setYHeadRot(carrier.getYRot());
+        float carriedYaw = carriedYaw(carrier);
+        this.setYRot(carriedYaw);
+        this.setYBodyRot(carriedYaw);
+        this.setYHeadRot(carriedYaw);
         if (!this.level().isClientSide()) {
             this.getNavigation().stop();
             this.setTarget(null);
         }
     }
 
+    /**
+     * The yaw (degrees) a carried pet copies from its carrier each tick. Head-carried pets follow the
+     * LOOK yaw ({@code getYRot}) — a bunny on your head turns with your face. Side-carried pets (the
+     * kitty's dangling and shoulder poses) override this to the carrier's BODY yaw ({@code yBodyRot})
+     * instead: the body yaw only moves when the body actually turns — vanilla eases it toward the
+     * movement direction, and only drags it after a head turn beyond ~50 degrees
+     * (mc262-ref LivingEntity.tickHeadTurn, LivingEntity.java:3000-3008) — while the camera pans freely,
+     * so a side-carried pet stays glued to the hip instead of orbiting the player with the camera.
+     * {@code yBodyRot} is maintained on the client for both the local player (computed in aiStep) and
+     * remote players (lerped from network state), so the same field is valid on both sides of this tick.
+     */
+    protected float carriedYaw(Player carrier) {
+        return carrier.getYRot();
+    }
+
     /** A carried pet is baggage: it must not shove its carrier around. */
     @Override
     public boolean isPushable() {
         return !isBeingCarried() && super.isPushable();
+    }
+
+    /**
+     * The other half of "baggage does not shove": {@link #isPushable} only stops others from pushing the
+     * PET — {@code EntitySelector.pushableBy} (mc262-ref EntitySelector.java:36) filters it out of their
+     * push lists — but the pet's own {@code pushEntities} still collects the carrier, and inside
+     * {@code Entity.push} each side is gated on its OWN {@code isPushable()} (mc262-ref
+     * Entity.java:1882-1888), so the CARRIER (a pushable player) got shoved away from the pet. Because the
+     * carry pin runs after {@code super.tick()} (see {@link #tick()}), the pet sits at the carrier's
+     * LAST-tick position throughout {@code aiStep}: whenever the carrier moves, that offset exceeds the
+     * 0.01 dead-zone and the shove fires every tick — in the direction of travel, re-fed each tick by the
+     * drift it causes — which read as the carrier sliding on ice for as long as the pet was carried.
+     */
+    @Override
+    protected void doPush(Entity entity) {
+        if (isBeingCarried()) {
+            return;
+        }
+        super.doPush(entity);
     }
 
     /**

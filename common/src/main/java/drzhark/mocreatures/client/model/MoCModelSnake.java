@@ -3,6 +3,8 @@ package drzhark.mocreatures.client.model;
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
@@ -10,6 +12,8 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.util.Mth;
+
+import java.util.Set;
 
 /**
  * Snake model, converted faithfully from the legacy {@code MoCModelSnake} ({@code ModelBase}).
@@ -31,6 +35,14 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
     private static final float DEG_TO_RAD = 1F / 57.29578F;
     private static final int BODYPARTS = 40;
 
+    // Zero-thickness planes (teeth, tongue segments) are split into two single-face boxes (painted face +
+    // a re-aimed opposite face sampling the same painted tile) so the culled render type keeps them
+    // visible from both sides.
+    private static final Set<Direction> DOWN_ONLY = Set.of(Direction.DOWN);
+    private static final Set<Direction> UP_ONLY = Set.of(Direction.UP);
+    private static final Set<Direction> WEST_ONLY = Set.of(Direction.WEST);
+    private static final Set<Direction> EAST_ONLY = Set.of(Direction.EAST);
+
     private final ModelPart[] bodySnake = new ModelPart[BODYPARTS];
     /** Cobra-hood cubes flanking the neck (legacy Wing1L..5L / Wing1R..5R); shown flared for a type-6 cobra. */
     private final ModelPart[] hoodL = new ModelPart[5];
@@ -46,7 +58,7 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
     private final ModelPart tail;
 
     public MoCModelSnake(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         for (int i = 0; i < BODYPARTS; i++) {
             this.bodySnake[i] = root.getChild("body" + i);
         }
@@ -134,19 +146,24 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(22, 0).addBox(-0.5F, 0.3F, -4F, 1, 1, 2),
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("teeth_ur",
-                CubeListBuilder.create().texOffs(46, 0).addBox(-0.4F, 0.3F, -3.8F, 0, 1, 1),
+                CubeListBuilder.create().texOffs(46, 0).addBox(-0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, EAST_ONLY)
+                        .texOffs(47, 0).addBox(-0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, WEST_ONLY),
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("teeth_ul",
-                CubeListBuilder.create().texOffs(44, 0).addBox(0.4F, 0.3F, -3.8F, 0, 1, 1),
+                CubeListBuilder.create().texOffs(44, 0).addBox(0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, WEST_ONLY)
+                        .texOffs(43, 0).addBox(0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, EAST_ONLY),
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("tongue",
-                CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, 0.5F, -6F, 1, 0, 3),
+                CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, 0.5F, -6F, 1.0F, 0.0F, 3.0F, DOWN_ONLY)
+                        .texOffs(27, 0).addBox(-0.5F, 0.5F, -6F, 1.0F, 0.0F, 3.0F, UP_ONLY),
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("tongue1",
-                CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, 0.5F, -5F, 1, 0, 3),
+                CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, 0.5F, -5F, 1.0F, 0.0F, 3.0F, DOWN_ONLY)
+                        .texOffs(27, 0).addBox(-0.5F, 0.5F, -5F, 1.0F, 0.0F, 3.0F, UP_ONLY),
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("tongue0",
-                CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, 0.25F, -4F, 1, 0, 3),
+                CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, 0.25F, -4F, 1.0F, 0.0F, 3.0F, DOWN_ONLY)
+                        .texOffs(27, 0).addBox(-0.5F, 0.25F, -4F, 1.0F, 0.0F, 3.0F, UP_ONLY),
                 PartPose.offset(0F, 23F, flength));
 
         return LayerDefinition.create(mesh, 64, 32);

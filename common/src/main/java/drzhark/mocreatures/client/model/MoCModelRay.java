@@ -4,6 +4,7 @@ import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -40,7 +41,7 @@ public class MoCModelRay extends EntityModel<MoCEntityRenderState> {
     private final ModelPart rEye;
 
     public MoCModelRay(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.tail = root.getChild("tail");
         this.body = root.getChild("body");
         this.right = root.getChild("right");

@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.Mth;
 
 /**
@@ -38,7 +39,7 @@ public class MoCModelCrab extends EntityModel<MoCEntityRenderState> {
     private final ModelPart leftLeg4A;
 
     public MoCModelCrab(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.rightArmA = root.getChild("right_arm_a");
         this.rightArmB = this.rightArmA.getChild("right_arm_b");
         this.leftArmA = root.getChild("left_arm_a");

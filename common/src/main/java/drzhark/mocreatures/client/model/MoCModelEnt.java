@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.Mth;
 
 /**
@@ -84,7 +85,7 @@ public class MoCModelEnt extends EntityModel<MoCEntityRenderState> {
             {-16.0F, -61.0F, -17.0F}, {0.0F, -61.0F, -17.0F}, {0.0F, -61.0F, -1.0F}, {-16.0F, -61.0F, -1.0F}};
 
     public MoCModelEnt(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.lArm = root.getChild("LArm");
         this.lWrist = root.getChild("LWrist");
         this.lHand = root.getChild("LHand");

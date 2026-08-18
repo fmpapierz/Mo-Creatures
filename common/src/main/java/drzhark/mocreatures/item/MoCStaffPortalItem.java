@@ -26,18 +26,25 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Staff of Portal — right-click to travel between the Overworld and the Wyvern Lair dimension.
- * Since the Wyvern Lair is floating-island terrain, arrivals search for a solid island surface near
- * the destination column (and drop a small platform as a last resort) so the player never lands in
- * the void below the islands.
+ * Staff of Portal — right-click to travel between the current dimension and the staff's target
+ * dimension (Wyvern Lair for the classic staff, Ogre Lair for the ogre staff). Since both lairs can
+ * have hazardous terrain, arrivals search for a solid surface near the destination column (and drop
+ * a small platform as a last resort) so the player never lands in the void.
  */
 public class MoCStaffPortalItem extends Item {
 
     public static final ResourceKey<Level> WYVERN_LAIR = ResourceKey.create(Registries.DIMENSION,
             Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "wyvern_lair"));
 
-    public MoCStaffPortalItem(Properties properties) {
+    public static final ResourceKey<Level> OGRE_LAIR = ResourceKey.create(Registries.DIMENSION,
+            Identifier.fromNamespaceAndPath(MoCreatures.MOD_ID, "ogre_lair"));
+
+    /** The dimension this staff travels to (and returns from). */
+    private final ResourceKey<Level> targetDimension;
+
+    public MoCStaffPortalItem(Properties properties, ResourceKey<Level> targetDimension) {
         super(properties);
+        this.targetDimension = targetDimension;
     }
 
     @Override
@@ -54,9 +61,9 @@ public class MoCStaffPortalItem extends Item {
                 ResourceKey<Level> currentKey = serverPlayer.level().dimension();
                 int cx = Mth.floor(serverPlayer.getX());
                 int cz = Mth.floor(serverPlayer.getZ());
-                if (!currentKey.equals(WYVERN_LAIR)) {
+                if (!currentKey.equals(this.targetDimension)) {
                     // --- Travel TO the Lair ---
-                    ServerLevel target = server.getLevel(WYVERN_LAIR);
+                    ServerLevel target = server.getLevel(this.targetDimension);
                     if (target != null) {
                         // Persist the exact origin (dimension + position) ON THE STAFF, so the return is
                         // exact, survives a server restart, and lands back in the ORIGINAL dimension (not

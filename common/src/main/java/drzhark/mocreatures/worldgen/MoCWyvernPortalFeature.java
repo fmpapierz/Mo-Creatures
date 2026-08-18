@@ -4,7 +4,6 @@ import com.mojang.serialization.Codec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RotatedPillarBlock;
@@ -22,14 +21,13 @@ import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConf
  * ~4x5 nether-quartz frame with four corner pillars, a stair-lined base and a quartz lintel.
  *
  * <p>To make this a single dimension-origin landmark (rather than one frame per chunk), the
- * feature NO-OPs unless its placement origin falls within {@link #ORIGIN_RADIUS} blocks of
- * world (x=0, z=0). It builds exactly one frame near the Wyvern Lair origin, at the surface
- * heightmap height carried by the placement origin.</p>
+ * feature NO-OPs unless its placement origin lies in chunk (0, 0). Each chunk gets exactly one
+ * placement attempt (in_square keeps it inside the chunk), so exactly one frame builds per
+ * dimension, at the surface heightmap height carried by the placement origin. A block-radius
+ * guard is NOT sufficient here: a &plusmn;24-block radius admits the attempts of at least the
+ * four chunks around the origin and builds overlapping frames.</p>
  */
 public class MoCWyvernPortalFeature extends Feature<NoneFeatureConfiguration> {
-
-    /** Max chebyshev distance (in blocks) from world origin at which the frame is allowed to build. */
-    private static final int ORIGIN_RADIUS = 24;
 
     public MoCWyvernPortalFeature(Codec<NoneFeatureConfiguration> codec) {
         super(codec);
@@ -40,8 +38,8 @@ public class MoCWyvernPortalFeature extends Feature<NoneFeatureConfiguration> {
         final WorldGenLevel level = context.level();
         final BlockPos origin = context.origin();
 
-        // Single-landmark guard: only the placement attempt closest to the dimension origin builds.
-        if (Mth.abs(origin.getX()) > ORIGIN_RADIUS || Mth.abs(origin.getZ()) > ORIGIN_RADIUS) {
+        // Single-landmark guard: only chunk (0,0)'s one placement attempt builds.
+        if ((origin.getX() >> 4) != 0 || (origin.getZ() >> 4) != 0) {
             return false;
         }
 

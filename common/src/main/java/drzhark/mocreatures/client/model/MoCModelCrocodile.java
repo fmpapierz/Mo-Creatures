@@ -1,5 +1,7 @@
 package drzhark.mocreatures.client.model;
 
+import java.util.Set;
+
 import drzhark.mocreatures.client.state.MoCEntityRenderState;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -8,6 +10,8 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 
 /**
@@ -18,6 +22,14 @@ import net.minecraft.util.Mth;
 public class MoCModelCrocodile extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+
+    // Face selectors for the flat (zero-thickness) teeth/spike quads: only one side of each quad is
+    // painted on crocodile.png, so under the culled render type each box is split into a painted face
+    // plus an opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    private static final Set<Direction> NORTH_FACE = Set.of(Direction.NORTH);
+    private static final Set<Direction> SOUTH_FACE = Set.of(Direction.SOUTH);
+    private static final Set<Direction> WEST_FACE = Set.of(Direction.WEST);
+    private static final Set<Direction> EAST_FACE = Set.of(Direction.EAST);
 
     private final ModelPart ljaw;
     private final ModelPart tailA;
@@ -62,7 +74,7 @@ public class MoCModelCrocodile extends EntityModel<MoCEntityRenderState> {
     private final ModelPart teethD1;
 
     public MoCModelCrocodile(ModelPart root) {
-        super(root);
+        super(root, RenderTypes::entityCutoutCull);
         this.ljaw = root.getChild("ljaw");
         this.tailA = root.getChild("tail_a");
         this.tailB = root.getChild("tail_b");
@@ -165,91 +177,149 @@ public class MoCModelCrocodile extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(24, 1).addBox(-2.0F, 1.0F, -16.0F, 4.0F, 2.0F, 4.0F),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_a",
-                CubeListBuilder.create().texOffs(8, 11).addBox(1.6F, 0.0F, -16.0F, 0.0F, 1.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(8, 11).addBox(1.6F, 0.0F, -16.0F, 0.0F, 1.0F, 4.0F, EAST_FACE)
+                        .texOffs(12, 11).addBox(1.6F, 0.0F, -16.0F, 0.0F, 1.0F, 4.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_b",
-                CubeListBuilder.create().texOffs(8, 11).addBox(-1.6F, 0.0F, -16.0F, 0.0F, 1.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(8, 11).addBox(-1.6F, 0.0F, -16.0F, 0.0F, 1.0F, 4.0F, EAST_FACE)
+                        .texOffs(12, 11).addBox(-1.6F, 0.0F, -16.0F, 0.0F, 1.0F, 4.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_c",
-                CubeListBuilder.create().texOffs(6, 9).addBox(2.1F, 0.0F, -12.0F, 0.0F, 1.0F, 6.0F),
+                CubeListBuilder.create()
+                        .texOffs(6, 9).addBox(2.1F, 0.0F, -12.0F, 0.0F, 1.0F, 6.0F, EAST_FACE)
+                        .texOffs(12, 9).addBox(2.1F, 0.0F, -12.0F, 0.0F, 1.0F, 6.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_d",
-                CubeListBuilder.create().texOffs(6, 9).addBox(-2.1F, 0.0F, -12.0F, 0.0F, 1.0F, 6.0F),
+                CubeListBuilder.create()
+                        .texOffs(6, 9).addBox(-2.1F, 0.0F, -12.0F, 0.0F, 1.0F, 6.0F, EAST_FACE)
+                        .texOffs(12, 9).addBox(-2.1F, 0.0F, -12.0F, 0.0F, 1.0F, 6.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_f",
-                CubeListBuilder.create().texOffs(19, 21).addBox(-1.0F, 0.0F, -16.1F, 2.0F, 1.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(19, 21).addBox(-1.0F, 0.0F, -16.1F, 2.0F, 1.0F, 0.0F, SOUTH_FACE)
+                        .texOffs(21, 21).addBox(-1.0F, 0.0F, -16.1F, 2.0F, 1.0F, 0.0F, NORTH_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("spike0",
-                CubeListBuilder.create().texOffs(44, 16).addBox(-1.0F, -1.0F, 23.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(-1.0F, -1.0F, 23.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(-1.0F, -1.0F, 23.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike1",
-                CubeListBuilder.create().texOffs(44, 16).addBox(1.0F, -1.0F, 23.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(1.0F, -1.0F, 23.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(1.0F, -1.0F, 23.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike2",
-                CubeListBuilder.create().texOffs(44, 16).addBox(-1.5F, -1.5F, 17.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(-1.5F, -1.5F, 17.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(-1.5F, -1.5F, 17.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike3",
-                CubeListBuilder.create().texOffs(44, 16).addBox(1.5F, -1.5F, 17.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(1.5F, -1.5F, 17.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(1.5F, -1.5F, 17.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike4",
-                CubeListBuilder.create().texOffs(44, 16).addBox(-2.0F, -2.0F, 12.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(-2.0F, -2.0F, 12.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(-2.0F, -2.0F, 12.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike5",
-                CubeListBuilder.create().texOffs(44, 16).addBox(2.0F, -2.0F, 12.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(2.0F, -2.0F, 12.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(2.0F, -2.0F, 12.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike6",
-                CubeListBuilder.create().texOffs(44, 16).addBox(-2.5F, -2.0F, 8.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(-2.5F, -2.0F, 8.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(-2.5F, -2.0F, 8.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike7",
-                CubeListBuilder.create().texOffs(44, 16).addBox(2.5F, -2.0F, 8.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(2.5F, -2.0F, 8.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(2.5F, -2.0F, 8.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike8",
-                CubeListBuilder.create().texOffs(44, 16).addBox(-3.0F, -2.5F, 4.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(-3.0F, -2.5F, 4.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(-3.0F, -2.5F, 4.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike9",
-                CubeListBuilder.create().texOffs(44, 16).addBox(3.0F, -2.5F, 4.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(3.0F, -2.5F, 4.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(3.0F, -2.5F, 4.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike10",
-                CubeListBuilder.create().texOffs(44, 16).addBox(3.5F, -2.5F, 0.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(3.5F, -2.5F, 0.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(3.5F, -2.5F, 0.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike11",
-                CubeListBuilder.create().texOffs(44, 16).addBox(-3.5F, -2.5F, 0.0F, 0.0F, 2.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 16).addBox(-3.5F, -2.5F, 0.0F, 0.0F, 2.0F, 4.0F, WEST_FACE)
+                        .texOffs(40, 16).addBox(-3.5F, -2.5F, 0.0F, 0.0F, 2.0F, 4.0F, EAST_FACE),
                 PartPose.offset(0.0F, 17.0F, 12.0F));
         root.addOrReplaceChild("spike_back0",
-                CubeListBuilder.create().texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, WEST_FACE)
+                        .texOffs(36, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, EAST_FACE),
                 PartPose.offset(0.0F, 14.0F, 3.0F));
         root.addOrReplaceChild("spike_back1",
-                CubeListBuilder.create().texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, WEST_FACE)
+                        .texOffs(36, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, EAST_FACE),
                 PartPose.offset(0.0F, 14.0F, -6.0F));
         root.addOrReplaceChild("spike_back2",
-                CubeListBuilder.create().texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, WEST_FACE)
+                        .texOffs(36, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, EAST_FACE),
                 PartPose.offset(4.0F, 14.0F, -8.0F));
         root.addOrReplaceChild("spike_back3",
-                CubeListBuilder.create().texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, WEST_FACE)
+                        .texOffs(36, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, EAST_FACE),
                 PartPose.offset(-4.0F, 14.0F, -8.0F));
         root.addOrReplaceChild("spike_back4",
-                CubeListBuilder.create().texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, WEST_FACE)
+                        .texOffs(36, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, EAST_FACE),
                 PartPose.offset(-4.0F, 14.0F, 1.0F));
         root.addOrReplaceChild("spike_back5",
-                CubeListBuilder.create().texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, WEST_FACE)
+                        .texOffs(36, 10).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 8.0F, EAST_FACE),
                 PartPose.offset(4.0F, 14.0F, 1.0F));
         root.addOrReplaceChild("spike_eye",
-                CubeListBuilder.create().texOffs(44, 14).addBox(-3.0F, -3.0F, -6.0F, 0.0F, 1.0F, 2.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 14).addBox(-3.0F, -3.0F, -6.0F, 0.0F, 1.0F, 2.0F, WEST_FACE)
+                        .texOffs(42, 14).addBox(-3.0F, -3.0F, -6.0F, 0.0F, 1.0F, 2.0F, EAST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("spike_eye1",
-                CubeListBuilder.create().texOffs(44, 14).addBox(3.0F, -3.0F, -6.0F, 0.0F, 1.0F, 2.0F),
+                CubeListBuilder.create()
+                        .texOffs(44, 14).addBox(3.0F, -3.0F, -6.0F, 0.0F, 1.0F, 2.0F, WEST_FACE)
+                        .texOffs(42, 14).addBox(3.0F, -3.0F, -6.0F, 0.0F, 1.0F, 2.0F, EAST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_a1",
-                CubeListBuilder.create().texOffs(52, 12).addBox(1.4F, 1.0F, -16.4F, 0.0F, 1.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(52, 12).addBox(1.4F, 1.0F, -16.4F, 0.0F, 1.0F, 4.0F, EAST_FACE)
+                        .texOffs(56, 12).addBox(1.4F, 1.0F, -16.4F, 0.0F, 1.0F, 4.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_b1",
-                CubeListBuilder.create().texOffs(52, 12).addBox(-1.4F, 1.0F, -16.4F, 0.0F, 1.0F, 4.0F),
+                CubeListBuilder.create()
+                        .texOffs(52, 12).addBox(-1.4F, 1.0F, -16.4F, 0.0F, 1.0F, 4.0F, EAST_FACE)
+                        .texOffs(56, 12).addBox(-1.4F, 1.0F, -16.4F, 0.0F, 1.0F, 4.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_c1",
-                CubeListBuilder.create().texOffs(50, 10).addBox(1.9F, 1.0F, -12.5F, 0.0F, 1.0F, 6.0F),
+                CubeListBuilder.create()
+                        .texOffs(50, 10).addBox(1.9F, 1.0F, -12.5F, 0.0F, 1.0F, 6.0F, EAST_FACE)
+                        .texOffs(56, 10).addBox(1.9F, 1.0F, -12.5F, 0.0F, 1.0F, 6.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
         root.addOrReplaceChild("teeth_d1",
-                CubeListBuilder.create().texOffs(50, 10).addBox(-1.9F, 1.0F, -12.5F, 0.0F, 1.0F, 6.0F),
+                CubeListBuilder.create()
+                        .texOffs(50, 10).addBox(-1.9F, 1.0F, -12.5F, 0.0F, 1.0F, 6.0F, EAST_FACE)
+                        .texOffs(56, 10).addBox(-1.9F, 1.0F, -12.5F, 0.0F, 1.0F, 6.0F, WEST_FACE),
                 PartPose.offset(0.0F, 18.0F, -8.0F));
 
         return LayerDefinition.create(mesh, 64, 32);

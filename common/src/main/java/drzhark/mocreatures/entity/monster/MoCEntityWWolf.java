@@ -110,6 +110,12 @@ public class MoCEntityWWolf extends MoCMob {
      */
     private net.minecraft.world.entity.@Nullable LivingEntity findPrey(net.minecraft.server.level.ServerLevel level) {
         drzhark.mocreatures.config.MoCConfig cfg = drzhark.mocreatures.config.MoCConfig.get();
+        // Legacy enableHunters (MoCProxy.java:314-316): the creature-vs-creature predation master switch.
+        // With hunters off the 1/80 random-prey roll yields nothing; the darkness-gated PLAYER hunt above
+        // is untouched — legacy never tied player targeting to this flag.
+        if (!cfg.enableHunters) {
+            return null;
+        }
         net.minecraft.world.entity.LivingEntity closest = null;
         double closestSq = -1.0D;
         for (net.minecraft.world.entity.Mob mob : level.getEntitiesOfClass(
