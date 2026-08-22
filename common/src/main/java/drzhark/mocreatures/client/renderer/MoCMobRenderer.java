@@ -185,7 +185,29 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
         state.scorpionAttacking = entity instanceof drzhark.mocreatures.entity.monster.MoCEntityScorpion scp && scp.isStinging();
         state.crabClawsUp = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityCrab crab && crab.getClawsUp();
         state.bigcatJawOpen = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityBigCat bc && bc.getJawOpen();
-        state.snakeHoodFlared = entity instanceof drzhark.mocreatures.entity.passive.MoCEntitySnake snake && snake.isHoodFlared();
+        // Snake: the whole body pose is driven from client-side cosmetic timers the legacy model read straight
+        // off the entity (legacy MoCModelSnake.render:146-156). snakeHoodFlared is derived here rather than
+        // carried on the entity because legacy derived it client-side too, opening the hood on exactly the
+        // test that rears the neck — typeI == 6 && nearplayer (legacy MoCModelSnake.render:304-326).
+        if (entity instanceof drzhark.mocreatures.entity.passive.MoCEntitySnake snake) {
+            state.snakeMovInt = snake.getMovInt();
+            state.snakeNearPlayer = snake.getNearPlayer();
+            state.snakeClimbing = snake.isClimbing();
+            state.snakeTongue = snake.getFTongue();
+            state.snakeMouth = snake.getFMouth();
+            state.snakeRattle = snake.getFRattle();
+            state.snakeBodySwing = snake.getBodySwing();
+            state.snakeHoodFlared = snake.getTypeMoC() == 6 && state.snakeNearPlayer;
+        } else {
+            state.snakeMovInt = 0;
+            state.snakeNearPlayer = false;
+            state.snakeClimbing = false;
+            state.snakeTongue = 0.0F;
+            state.snakeMouth = 0.0F;
+            state.snakeRattle = 0.0F;
+            state.snakeBodySwing = 2.0F;
+            state.snakeHoodFlared = false;
+        }
         state.litterBoxUsed = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityLitterBox lb && lb.getUsed();
         state.kittyBedColour = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityKittyBed kb ? kb.getSheetColour() : 0;
         state.jellyfishGlowing = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityJellyFish jf && jf.isGlowingNow();

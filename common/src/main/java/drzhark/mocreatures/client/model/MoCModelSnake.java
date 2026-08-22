@@ -18,17 +18,47 @@ import java.util.Set;
 /**
  * Snake model, converted faithfully from the legacy {@code MoCModelSnake} ({@code ModelBase}).
  *
- * <p>The legacy model built a {@code bodySnake[40]} array of segments procedurally and animated a
- * travelling sine wave through GL11 matrix pushes in {@code render()}; that per-segment matrix work
- * cannot be expressed through the modern {@link PartPose}/{@link ModelPart} pipeline, so the side
- * wave is dropped. The discrete geometry (body segments, head, nose, tongue, teeth, tail) is preserved
- * and the body still travels a per-segment sine yaw wave with the head tracking the look direction. The
- * type-6 cobra hood flare IS ported (the Wing1..5 L/R hood cubes, shown when {@code state.snakeHoodFlared}
- * — a cobra rearing at a nearby player). The type-7 rattlesnake rattle IS ported: the {@code tail} cube is
- * shown only for a rattlesnake and raised toward vertical with a fast shake (legacy {@code Tail.rotateAngleX}).
- * A subtle jaw split and tongue flick are ported from the legacy {@code getfMouth()}/{@code getfTongue()}
- * poses, synthesised from {@code ageInTicks}. NOT ported: the near-player head-rearing lift (that legacy pose
- * was driven by per-segment GL matrix work).
+ * <p>The legacy model built a {@code bodySnake[40]} array of segments procedurally and animated the whole
+ * body by pushing a GL matrix per segment in {@code render()} — a travelling lateral wave plus a few stacked
+ * pose translations (legacy {@code MoCModelSnake}:173-333). That maps one-for-one onto the modern pipeline:
+ * every snake part here is a direct child of the root, never a link in a parent chain, so {@link ModelPart#x}
+ * / {@code y} / {@code z} — which {@code translateAndRotate} applies before the part's own rotation, after
+ * dividing by 16 (mc262-ref {@code ModelPart}:166-175) — reproduce the legacy per-segment {@code glTranslatef}
+ * exactly. Legacy translated in block units, outside {@code ModelRenderer.render(0.0625F)}, hence the 16x
+ * conversion in {@link #offset}.</p>
+ *
+ * <p>Per segment the pose is the sum of: the travelling wave
+ * {@code 0.5*sin(1.5t - 0.3i) - (movInt/20)*sin(0.8t - 0.2i)} with {@code t = walkAnimationPos/2}
+ * (legacy :264-268) — a function of the walk position alone, never of the walk speed, so it freezes at its
+ * last phase rather than straightening out when the snake stops; the climbing arc; the near-player head rear
+ * with the {@code sideperf} ramp that damps the wave dead over the front sixth; the rattlesnake tail raise;
+ * and the picked-up rear-half droop (legacy :193-233). The attached parts — head/nose/teeth/tongues, the five
+ * cobra hood pairs, the rattle — inherit the offsets of the segment inside whose iteration legacy drew them
+ * (:281-330), which is also where their {@code visible} gating comes from: exactly one of the three tongue
+ * planes at a time, the hood only for a type-6 cobra rearing at a player, the rattle only for type 7.</p>
+ *
+ * <p>Legacy's {@code isResting} branch (:179-190) is deliberately not ported. Its body is entirely commented
+ * out, so the branch never posed anything itself; its only effect was heading the else-if chain and thereby
+ * SUPPRESSING the two branches below it. It cannot collide with the climbing branch, which needs upward
+ * motion while {@code isResting} needs a still snake. It genuinely CAN collide with the third branch,
+ * though: that branch fires on {@code nearPlayer || picked}, and {@code isResting} only excludes the
+ * {@code nearPlayer} half — being carried does not imply a player is near, so a carried, motionless,
+ * grounded snake satisfies both. (An earlier revision of this javadoc claimed otherwise; that proof was
+ * wrong.) What kept legacy out of the overlap was {@code onGround}: a legacy carried snake was a real
+ * passenger ({@code startRiding(player)}, legacy {@code MoCEntitySnake}:176-179), and legacy's own
+ * {@code onUpdate}:353 treats {@code !onGround && getRidingEntity() != null} as the ordinary carried case.</p>
+ *
+ * <p>PORT-SPECIFIC HAZARD. This port carries a pet with {@code MoCAnimal.tickCarried}, which pins it at the
+ * carrier's head with {@code setPos()} and never calls {@code move()} itself. {@code onGround()} is
+ * nonetheless still false while carried — but only incidentally, because {@code tickCarried} runs after
+ * {@code super.tick()}, so the server's {@code LivingEntity.travel} -> {@code Entity.move} still executes
+ * each tick and recomputes {@code onGround} from {@code verticalCollisionBelow} (mc262-ref
+ * {@code Entity}:764-767), which is false for a pet hanging in mid-air; the client then mirrors that flag
+ * (mc262-ref {@code ServerEntity}:155-170). Nothing in the carry code guarantees it. If {@code tickCarried}
+ * ever short-circuits the AI/travel step, {@code onGround()} would freeze at its stale pre-pickup
+ * {@code true}, {@code MoCEntitySnake.isResting()} would start returning true for a carried snake, and this
+ * omitted branch would begin to matter — legacy would then freeze the carried droop off. Harmless today
+ * because {@link #setupAnim} never reads {@code isResting()} at all.</p>
  */
 public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
 
@@ -184,21 +214,18 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
         this.bodySnake[3].xRot = rAX * 0.80F;
         this.bodySnake[4].xRot = rAX * 0.75F;
 
-        // Mouth split + tongue flick. The legacy model drove these from networked getfMouth()/getfTongue()
-        // timers; those aren't carried on the render state, so we synthesise them from ageInTicks:
-        //  - fMouth: a small, mostly-closed jaw split that opens periodically (legacy split nose up / lNose down).
-        //  - fTongue (f8 = cos(fTongue*10)/40 in legacy): a subtle tongue-tip flick offset.
-        float age = state.ageInTicks;
-        // periodic gentle jaw open (0..~0.18 rad), spends most of the cycle near closed.
-        float fMouth = 0.09F * (1F - Mth.cos(age * 0.18F)) * 0.5F;
-        // tongue flick, matching the legacy cos(.)/40 amplitude but on a faster, offset phase so it darts.
-        float fTongue = Mth.cos(age * 0.6F) / 40F;
+        // Jaw split + tongue flick, straight off the snake's client-side timers (legacy
+        // setRotationAngles:354-362). fMouth is 0 with the mouth shut and 0.1-0.5 through a gape; the tongue
+        // tip waves at cos(fTongue * 10) / 40.
+        float fMouth = state.snakeMouth;
+        float f8 = Mth.cos(state.snakeTongue * 10F) / 40F;
 
         this.nose.xRot = this.head.xRot - fMouth;
         this.lNose.xRot = this.head.xRot + fMouth;
-        this.tongue1.xRot = this.head.xRot + fTongue;
-        this.tongue.xRot = this.head.xRot + fTongue;
-        this.tongue0.xRot = this.lNose.xRot + fTongue;
+        this.tongue1.xRot = this.head.xRot + f8;
+        this.tongue.xRot = this.head.xRot + f8;
+        // legacy :360 — the retracted tongue rides the lower jaw flat, with no flick of its own
+        this.tongue0.xRot = this.lNose.xRot;
         this.teethUR.xRot = this.head.xRot - fMouth;
         this.teethUL.xRot = this.head.xRot - fMouth;
 
@@ -216,22 +243,30 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
         this.teethUR.yRot = this.head.yRot;
         this.teethUL.yRot = this.head.yRot;
 
-        // travelling side wave from the legacy render() loop, applied as a per-segment yaw
-        float w = 1.5F;
-        float t = state.walkAnimationPos / 2F;
-        for (int i = 5; i < BODYPARTS; i++) {
-            this.bodySnake[i].yRot = 0.1F * Mth.sin(w * t - 0.3F * i) * state.walkAnimationSpeed;
-        }
+        // Exactly one of the three tongue planes is drawn (legacy render:289-298): the retracted tongue0 while
+        // the flick timer is idle, the short tongue1 at the start and end of a flick (or whenever the jaw is
+        // open) and the long tongue in between. They overlap in z, so drawing more than one at a time reads as
+        // a single over-long stacked tongue.
+        boolean tongueOut = state.snakeTongue != 0.0F;
+        boolean shortTongue = tongueOut
+                && (state.snakeMouth != 0.0F || state.snakeTongue < 2.0F || state.snakeTongue > 7.0F);
+        this.tongue0.visible = !tongueOut;
+        this.tongue1.visible = shortTongue;
+        this.tongue.visible = tongueOut && !shortTongue;
 
-        // Cobra hood: shown only when a type-6 cobra rears at a nearby player (legacy nearplayer && typeI==6).
-        // Each hood cube tracks its neighbouring neck segment (body1..5) so the flare turns with the head.
+        // Cobra hood: shown only when a type-6 cobra rears at a nearby player (legacy render:304-326,
+        // typeI == 6 && nearplayer). Each hood cube tracks its neck segment so the flare turns with the head.
         boolean hood = state.snakeHoodFlared;
         for (int n = 0; n < 5; n++) {
             this.hoodL[n].visible = hood;
             this.hoodR[n].visible = hood;
             if (hood) {
-                float yr = this.bodySnake[n + 1].yRot;
-                float xr = this.bodySnake[n + 1].xRot;
+                // legacy setRotationAngles:378-401 — Wing1..4 copy bodySnake[1..4], and Wing5 copies
+                // bodySnake[4] as well; bodySnake[5] never carries a rotation, so copying it would leave the
+                // last hood pair behind when the neck turns.
+                int src = Math.min(n + 1, 4);
+                float yr = this.bodySnake[src].yRot;
+                float xr = this.bodySnake[src].xRot;
                 this.hoodL[n].yRot = yr;
                 this.hoodR[n].yRot = yr;
                 this.hoodL[n].xRot = xr;
@@ -239,15 +274,110 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
             }
         }
 
-        // Rattle: the legacy model only rendered the Tail cube for a rattlesnake (typeI == 7) and, when
-        // it was rattling, raised it toward vertical with a fast ±20° shake:
-        //   Tail.rotateAngleX = ((cos(f3 * 10F) * 20F) + 90F) / 57.29578F.
-        // The port had made 'tail' an always-on root child, so every snake variant showed a rattle. Gate it
-        // to type 7 and drive the raised-and-shaking pose off ageInTicks (no networked rattle timer here).
-        boolean rattlesnake = state.typeMoC == 7;
-        this.tail.visible = rattlesnake;
-        if (rattlesnake) {
-            this.tail.xRot = ((Mth.cos(age * 1.4F) * 20F) + 90F) * DEG_TO_RAD;
+        // Rattle: only a rattlesnake has one (legacy render:328-330), and it lies flat unless the snake is
+        // near a player or mid-rattle, when it stands up ~110 degrees and jitters ±20 with the head yaw
+        // (legacy setRotationAngles:404-412 — the shake argument is f3, the head yaw, not a clock).
+        this.tail.visible = state.typeMoC == 7;
+        if (this.tail.visible) {
+            this.tail.xRot = (state.snakeNearPlayer || state.snakeRattle != 0.0F)
+                    ? ((Mth.cos(state.yRot * 10F) * 20F) + 90F) * DEG_TO_RAD
+                    : 0.0F;
         }
+
+        // ---------------------------------------------------------------- per-segment body pose
+        // Legacy render():173-333 pushed a matrix per segment and accumulated every translate below onto it
+        // before drawing that segment; here they are summed and written once into the part's own offsets.
+        final float w = 1.5F;
+        final float t = state.walkAnimationPos / 2F; // legacy 'f' == limbSwing; NOT scaled by the walk speed
+        final float movInt = state.snakeMovInt;
+        // Legacy 'f6' == entitysnake.bodyswing, read straight off the entity (legacy render:154). It is a
+        // genuine client-side animation ramp, NOT a constant: legacy drove it from the isBiting flag inside
+        // onUpdate's if (world.isRemote) block (legacy :327-340), and the client learned about a bite from
+        // the MoCMessageAnimation packet the server broadcast. So 2.0 at rest, dropping 0.5 a tick through a
+        // bite and resetting to 2.5. It is deliberately NOT state.attackSwing: getAttackAnim is only ever
+        // written by updateSwingTime, which in 26.2 never runs for an Animal (mc262-ref Monster:43,
+        // Player:454, RemotePlayer:67, Mannequin:179 are its only callers), so attackSwing is pinned at 0
+        // for every Mo'Creatures animal and the old 2.0F * (1.0F - attackSwing) was a dead input.
+        final float bodySwing = state.snakeBodySwing;
+        final boolean climbing = state.snakeClimbing;
+        final boolean near = state.snakeNearPlayer;
+        final boolean picked = state.riding;
+
+        for (int i = 0; i < BODYPARTS; i++) {
+            float sideperf = 1.0F;
+            float dx = 0.0F;
+            float dy = 0.0F;
+            float dz = 0.0F;
+
+            if (climbing && i < BODYPARTS / 2) {
+                // legacy :193-196 — the front half rises up the wall (-Y is up in the model frame) and
+                // compresses back toward the rest of the body.
+                float yOff = (i - (BODYPARTS / 2)) * 0.08F;
+                dy += yOff / 3.0F;
+                dz += -yOff * 1.2F;
+            } else if (near || picked) {
+                // legacy :199-217 — the front third rears into a near-vertical column; bodySwing snaps it
+                // forward again through a bite.
+                if (i < BODYPARTS / 3) {
+                    float yOff = (i - (BODYPARTS / 3)) * 0.09F;
+                    float zOff = (i - (BODYPARTS / 3)) * 0.065F;
+                    dy += yOff / 1.5F;
+                    dz += -zOff * bodySwing;
+                }
+                // legacy :208-215 — the front sixth is dead straight, then the ramp is evaluated from the
+                // literal 'i - 7', which is deliberately a hair negative at i == 6 (the wave briefly inverts
+                // on that one segment) and clamps to 1 from i == 21 on.
+                sideperf = (i < BODYPARTS / 6) ? 0.0F : Math.min((i - 7) / (BODYPARTS / 3F), 1.0F);
+            }
+            if (state.typeMoC == 7 && near && i > (5 * BODYPARTS / 6) && !picked) {
+                // legacy :220-224 — a rattlesnake lifts its last six segments so the rattle shows.
+                float yOff = 0.55F + ((i - BODYPARTS) * 0.08F);
+                dy += -yOff / 1.5F;
+            }
+            if (picked && i > BODYPARTS / 2) {
+                // legacy :228-233 — carried, the back half hangs down and folds forward under the hand.
+                float yOff = (i - (BODYPARTS / 2)) * 0.08F;
+                dy += yOff / 1.5F;
+                dz += -yOff;
+            }
+
+            // legacy :264-268 — the travelling wave itself, damped by sideperf.
+            dx += sideperf * (0.5F * Mth.sin(w * t - 0.3F * i)
+                    - (movInt / 20F) * Mth.sin(0.8F * t - 0.2F * i));
+
+            offset(this.bodySnake[i], dx, dy, dz);
+            if (i == 0) { // legacy :281-300 — the head group rides segment 0
+                offset(this.head, dx, dy, dz);
+                offset(this.nose, dx, dy, dz);
+                offset(this.lNose, dx, dy, dz);
+                offset(this.teethUR, dx, dy, dz);
+                offset(this.teethUL, dx, dy, dz);
+                offset(this.tongue, dx, dy, dz);
+                offset(this.tongue1, dx, dy, dz);
+                offset(this.tongue0, dx, dy, dz);
+            }
+            if (i >= 1 && i <= 5) { // legacy :304-326 — hood pair n rides segment n
+                offset(this.hoodL[i - 1], dx, dy, dz);
+                offset(this.hoodR[i - 1], dx, dy, dz);
+            }
+            if (i == BODYPARTS - 1) { // legacy :328-330 — the rattle rides the last segment
+                offset(this.tail, dx, dy, dz);
+            }
+        }
+    }
+
+    /**
+     * Adds a legacy {@code glTranslatef} — given in BLOCKS, as legacy issued it outside
+     * {@code ModelRenderer.render(0.0625F)} — to a part's own offset, which {@code translateAndRotate} divides
+     * by 16 and applies before the part's rotation (mc262-ref {@code ModelPart}:167). Both are plain
+     * pre-rotation translations, so adding 16x the block offset onto the baked pose is exact.
+     *
+     * <p>{@code +=} rather than {@code =}: {@code super.setupAnim} has already called {@code resetPose()}
+     * (mc262-ref {@code Model}:46-54), restoring each part's baked {@code PartPose} for this frame.</p>
+     */
+    private static void offset(ModelPart part, float dx, float dy, float dz) {
+        part.x += dx * 16.0F;
+        part.y += dy * 16.0F;
+        part.z += dz * 16.0F;
     }
 }

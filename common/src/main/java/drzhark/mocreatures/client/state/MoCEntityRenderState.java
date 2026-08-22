@@ -73,6 +73,30 @@ public class MoCEntityRenderState extends LivingEntityRenderState {
     public boolean horseRearing;
     /** Cobra (snake type 6) is flaring its hood at a nearby player. */
     public boolean snakeHoodFlared;
+    /**
+     * Legacy {@code MoCEntitySnake.getMovInt()} (0-9): the amplitude of the snake's secondary body wave,
+     * re-rolled client-side every ~50 ticks so the coil pattern beats irregularly against the primary wave.
+     */
+    public int snakeMovInt;
+    /**
+     * Legacy {@code getNearPlayer()}: a venomous adult snake with a player inside 5 blocks (or mid-bite).
+     * Rears its front third, damps the wave over its front sixth, opens a cobra's hood and lifts a
+     * rattlesnake's tail.
+     */
+    public boolean snakeNearPlayer;
+    /**
+     * Legacy {@code MoCEntitySnake.bodyswing}: 2.0 at rest (2.5 once the snake has bitten at least once),
+     * falling 0.5 a tick through a bite. Scales how far the reared front third is thrown forward.
+     */
+    public float snakeBodySwing = 2.0F;
+    /** Legacy {@code isClimbing()}: the snake is climbing a wall — its front half arcs upward. */
+    public boolean snakeClimbing;
+    /** Legacy {@code getfTongue()} (0, or 0.1-8.1 through a flick): selects which tongue plane is drawn. */
+    public float snakeTongue;
+    /** Legacy {@code getfMouth()} (0, or 0.1-0.5 through a gape): splits the upper and lower jaw apart. */
+    public float snakeMouth;
+    /** Legacy {@code getfRattle()} (0, or 0.1-8.1): a rattlesnake is rattling, so its tail stays raised. */
+    public float snakeRattle;
     /** Litter box has been used (dirty) — render the used-litter cube instead of the clean one. */
     public boolean litterBoxUsed;
     /** Kitty-bed dye colour (0 = plain/untinted, 1..16 = DyeColor id + 1) — tints the placed bed. */
