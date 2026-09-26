@@ -26,4 +26,11 @@ public interface IMoCManticore {
 
     /** The maw is open for a roar or a bite (legacy {@code mouthCounter != 0}). */
     boolean getJawOpen();
+
+    /**
+     * Off the ground (legacy {@code isOnAir()}): the wings unfold and the legs tuck. The wild form is always
+     * server-simulated, so {@code !onGround()} is reliable for it; the pet can be a player-flown mount, whose
+     * {@code onGround} is not, and answers from a ground probe instead.
+     */
+    boolean isAirborne();
 }

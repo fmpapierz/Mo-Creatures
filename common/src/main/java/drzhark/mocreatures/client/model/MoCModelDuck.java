@@ -72,6 +72,25 @@ public class MoCModelDuck extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(24, 13).addBox(-1.0F, 0.0F, -3.0F, 1.0F, 4.0F, 6.0F),
                 PartPose.offset(4.0F, 13.0F, 0.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): each leg is a stick on its box's back face plus
+        // the webbed foot on its bottom face, seen through the empty front and top; the head box is open
+        // underneath. Each twin is the named face of that part's box turned to face into the box, with the same
+        // corners and texels.
+        MoCBackFaces.add(root, "head", CubeListBuilder.create()
+                .texOffs(-4, 0).mirror(false).addBox(-2.0F, -6.0F, -2.0F, 4.0F, 0.0F, 3.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(0, 0).mirror(true).addBox(-2.0F, -6.0F, -2.0F, 0.0F, 6.0F, 3.0F, MoCBackFaces.WEST) // back of the west face
+                // back of the north face, minus the band where the bill's back face lies flush on it (z-fight)
+                .texOffs(-1, 3).mirror(true).addBox(-2.0F, -6.0F, -2.0F, 4.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)
+                .texOffs(-1, 7).mirror(true).addBox(-2.0F, -2.0F, -2.0F, 4.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)
+                .texOffs(4, 0).mirror(true).addBox(2.0F, -6.0F, -2.0F, 0.0F, 6.0F, 3.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(10, 3).mirror(true).addBox(-2.0F, -6.0F, 1.0F, 4.0F, 6.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "left_leg", CubeListBuilder.create()
+                .texOffs(29, 0).mirror(false).addBox(-1.0F, 5.0F, -3.0F, 3.0F, 0.0F, 3.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(35, 3).mirror(true).addBox(-1.0F, 0.0F, 0.0F, 3.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "right_leg", CubeListBuilder.create()
+                .texOffs(29, 0).mirror(false).addBox(-1.0F, 5.0F, -3.0F, 3.0F, 0.0F, 3.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(35, 3).mirror(true).addBox(-1.0F, 0.0F, 0.0F, 3.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 
@@ -98,14 +117,10 @@ public class MoCModelDuck extends EntityModel<MoCEntityRenderState> {
         this.rightLeg.xRot = Mth.cos(limbSwing * 0.6662F) * 1.4F * limbAmount;
         this.leftLeg.xRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI) * 1.4F * limbAmount;
 
-        // Wings flap only while airborne (legacy airborne gate); folded flat against the body on the ground.
-        if (state.flying) {
-            float wingRot = Mth.cos((ageInTicks * 1.4F) + 3.141593F) * 0.6F;
-            this.rightWing.zRot = 0.5F + wingRot;
-            this.leftWing.zRot = -0.5F - wingRot;
-        } else {
-            this.rightWing.zRot = 0.0F;
-            this.leftWing.zRot = 0.0F;
-        }
+        // Wings flap only while airborne (legacy airborne gate) and lie folded flat against the body on the ground;
+        // scaled by state.wingOpen (eased over a few ticks) they fold down smoothly on landing instead of snapping.
+        float wingRot = Mth.cos((ageInTicks * 1.4F) + 3.141593F) * 0.6F;
+        this.rightWing.zRot = (0.5F + wingRot) * state.wingOpen;
+        this.leftWing.zRot = (-0.5F - wingRot) * state.wingOpen;
     }
 }

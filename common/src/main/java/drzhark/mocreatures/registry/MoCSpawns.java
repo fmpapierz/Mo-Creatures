@@ -108,10 +108,15 @@ public final class MoCSpawns {
         SpawnPlacementsRegistry.register(MoCEntities.MEDIUM_FISH, SpawnPlacementTypes.IN_WATER, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkDeepWaterAnimalSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.SILVER_SKELETON, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.MINI_GOLEM, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
-        // MANTICORE is a Nether mob (fire-immune), so it uses the any-light rule its Nether neighbours do
-        // rather than checkMonsterSpawnRules darkness gate. MANTICORE_PET never spawns naturally — the only
-        // way to get one is to hatch a manticore egg.
-        SpawnPlacementsRegistry.register(MoCEntities.MANTICORE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkAnyLightMonsterSpawnRules);
+        // MANTICORE: 12.0.5 spawned it in nearly every Overworld biome type AND the Nether (MoCEntities.java:450-453).
+        // In the Overworld it keeps legacy MoCEntityMob.getCanSpawnHere's EntityMob darkness rule (a night / cave
+        // hunter, like every other overworld monster); in the Nether it takes the any-light rule its fire-immune
+        // Nether neighbours use. MANTICORE_PET never spawns naturally — the only way to get one is to hatch the
+        // manticore egg a wild manticore drops.
+        SpawnPlacementsRegistry.register(MoCEntities.MANTICORE, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                (type, level, reason, pos, random) -> level.getLevel().dimension() == net.minecraft.world.level.Level.NETHER
+                        ? net.minecraft.world.entity.monster.Monster.checkAnyLightMonsterSpawnRules(type, level, reason, pos, random)
+                        : net.minecraft.world.entity.monster.Monster.checkMonsterSpawnRules(type, level, reason, pos, random));
         SpawnPlacementsRegistry.register(MoCEntities.HORSE_MOB, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules);
     }
 
@@ -223,6 +228,11 @@ public final class MoCSpawns {
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ENT.get());
         addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.SILVER_SKELETON.get());
         addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MINI_GOLEM.get());
+        // The manticore had a placement rule but was never added to a single biome's spawn list, so it could
+        // not spawn naturally at all. 12.0.5 listed it for SANDY/FOREST/SNOWY/JUNGLE/HILLS/MOUNTAIN/PLAINS/
+        // SWAMP/WASTELAND/DEAD/SPOOKY — every overworld terrain the port models — so it takes no biome group.
+        // Its coat still follows the biome it spawns in (MoCEntityManticore.selectType: frozen -> blue).
+        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MANTICORE.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BEAR.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BEE.get());
         addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BIG_CAT.get());
@@ -295,11 +305,14 @@ public final class MoCSpawns {
      * The Nether roster. Hell rats and flame wraiths are both {@code fireImmune} Nether natives that were
      * previously only ever added to Overworld biomes; the scorpion is listed here as well because
      * {@code MoCEntityScorpion.selectType} only produces the nether coat when {@code dimension() == NETHER}.
+     * The manticore is the same case: 12.0.5 listed it under {@code Type.NETHER}, and only a Nether-born
+     * manticore takes the red (fire) coat and drops the Fire Manticore Egg.
      */
     private static void addNetherSpawns(BiomeSpawnView view) {
         addSpawn(null, view, MobCategory.MONSTER, MoCEntities.HELL_RAT.get());
         addSpawn(null, view, MobCategory.MONSTER, MoCEntities.FLAME_WRAITH.get());
         addSpawn(null, view, MobCategory.MONSTER, MoCEntities.SCORPION.get());
+        addSpawn(null, view, MobCategory.MONSTER, MoCEntities.MANTICORE.get());
     }
 
     /**

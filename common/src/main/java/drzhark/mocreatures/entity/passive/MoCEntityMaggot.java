@@ -7,6 +7,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.damagesource.DamageSource;
 
 /**
  * Port of the legacy {@code MoCEntityMaggot}. A tiny ambient larva.
@@ -15,6 +16,12 @@ public class MoCEntityMaggot extends MoCAnimal {
 
     public MoCEntityMaggot(EntityType<? extends MoCEntityMaggot> type, Level level) {
         super(type, level);
+    }
+
+    /** Legacy {@code fall()} was overridden empty (12.0.5 MoCEntityMaggot): no fall damage. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float multiplier, DamageSource source) {
+        return false;
     }
 
     public static AttributeSupplier.Builder createAttributes() {

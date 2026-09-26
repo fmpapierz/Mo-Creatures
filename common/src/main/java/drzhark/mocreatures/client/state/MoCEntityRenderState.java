@@ -24,6 +24,14 @@ public class MoCEntityRenderState extends LivingEntityRenderState {
     public boolean humanForm;
     /** Airborne flyers (wyvern): true -> flap wings + tuck legs instead of the walking gait. */
     public boolean flying;
+    /**
+     * How far a winged creature's wings are spread, eased over a few ticks: 0 = folded (the grounded pose), 1 = the
+     * full flight pose. It follows {@link #flying} / {@link #manticoreAirborne}, so the wings fold smoothly on landing
+     * and open on take-off instead of snapping between the two poses (MoCMobRenderer.easeWingOpen).
+     */
+    public float wingOpen;
+    /** Bird wing lift in radians, legacy {@code MoCRenderBird.handleRotationFloat}: {@code (sin(flap) + 1) * flapSpeed}. */
+    public float birdWingFlap;
     /** Golem cube presence bit-mask: bit {@code i} set iff anatomical cube {@code i} is present. */
     public int golemCubeMask;
     /** Golem life-cycle state (0 spawned, 1 summoning, 2 complete, 3 half-life, 4 dying). */
@@ -110,6 +118,10 @@ public class MoCEntityRenderState extends LivingEntityRenderState {
     public boolean wyvernChested;
     /** Wyvern is sitting (grounded rest pose). */
     public boolean wyvernSitting;
+    /** Wyvern wing beat in progress (legacy {@code wingFlapCounter != 0}): full-amplitude flap instead of the glide. */
+    public boolean wyvernFlapping;
+    /** Wyvern is carrying a rider (legacy {@code isBeingRidden()}): straight neck in flight, reins shown. */
+    public boolean wyvernRidden;
     /** Scorpion is a female carrying young — render the on-back baby cluster. */
     public boolean scorpionHasBabies;
     /** Crocodile is in its death-roll spin (drives the barrel-roll render). */
@@ -136,6 +148,12 @@ public class MoCEntityRenderState extends LivingEntityRenderState {
     public boolean riding;
     /** Sprinting (legacy {@code isSprinting}) — drives the silver skeleton's forward charge lean. */
     public boolean sprinting;
+    /**
+     * Bunny bound progress 0..1 (0 = not hopping) from {@code MoCEntityBunny.getHopCompletion}. It drives
+     * {@code MoCModelBunny}'s legacy rotBunny body pitch and leap leg pose, the same pattern as
+     * vanilla's {@code RabbitRenderState.jumpCompletion}.
+     */
+    public float bunnyHop;
     /** Silver skeleton per-arm katana swing counters (legacy attackCounterLeft/Right): 0 idle, 1..10 swinging. */
     public int silverSkeletonLeftSwing;
     public int silverSkeletonRightSwing;

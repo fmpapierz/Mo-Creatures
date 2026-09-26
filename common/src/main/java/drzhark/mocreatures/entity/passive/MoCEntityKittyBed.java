@@ -9,12 +9,15 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
@@ -25,18 +28,21 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Port of the legacy {@code MoCEntityKittyBed}. A placeable piece of furniture — a bed the kitty
- * sleeps in and feeds from. It has no AI and cannot be pushed; it simply sits where the player placed
- * it. Faithful to the legacy entity it restores the milk/pet-food feeding, kitty-healing-while-nestled
- * and pickaxe-pickup mechanics:
+ * sleeps in and feeds from. It has no goals and cannot be pushed; it drops to the ground where the player
+ * placed it and then stays put. Faithful to the legacy entity it restores the milk/pet-food feeding,
+ * kitty-healing-while-nestled and pickaxe-pickup mechanics:
  *
  * <ul>
  *   <li>Right-click with a <b>milk bucket</b> to fill the bed with milk (the bucket is emptied);</li>
  *   <li>Right-click with <b>pet food</b> to fill the bed with food;</li>
  *   <li>Right-click with any <b>pickaxe</b> to pick the bed back up as its item (setDead);</li>
  *   <li>Right-click empty-handed (or with anything else) to carry the bed on your head / set it down;</li>
+ *   <li>Hit it (left-click) to break it: it drops its coloured item, or simply vanishes in creative;</li>
  *   <li>while a kitty is nestled in a stocked bed it heals to full, slowly draining the supply.</li>
  * </ul>
  */
@@ -55,9 +61,18 @@ public class MoCEntityKittyBed extends MoCAnimal {
     /** Server-side supply counter: rises +0.003/tick while a kitty feeds, emptying the bed past 2.0. */
     private float milkLevel;
 
+    /**
+     * No {@code setNoAi(true)} here, although the bed has no goals. In 26.2 NoAI does not only silence the
+     * brain: {@code LivingEntity.aiStep} calls {@code travel} — the ONLY place gravity and momentum are applied —
+     * solely when {@code isEffectiveAi()} (mc262-ref LivingEntity.java:3110), and {@code Mob.isEffectiveAi()} is
+     * {@code super && !isNoAi()} (Mob.java:1301-1302). A NoAI bed therefore never fell: it hung wherever it was
+     * created — at the player's feet while flying or jumping, one block up after a click on a grass tuft or a
+     * wall, and at head height after being carried and set down ({@code putDown}'s release impulse was never
+     * integrated either). Legacy was an ordinary {@code EntityLiving} that fell and then held still through its
+     * {@code move} gate, which {@link #move} reproduces.
+     */
     public MoCEntityKittyBed(EntityType<? extends MoCEntityKittyBed> type, Level level) {
         super(type, level);
-        this.setNoAi(true);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -207,6 +222,10 @@ public class MoCEntityKittyBed extends MoCAnimal {
         if (this.level().isClientSide()) {
             return;
         }
+        // Clear any grass or flower the bed came to rest in, so it doesn't poke up through the bedding.
+        if (this.onGround()) {
+            breakPlantsInside((ServerLevel) this.level());
+        }
         // While a kitty is nestled in a stocked bed it heals to full and slowly drains the supply
         // (legacy MoCEntityKitty state 4 set health = maxHealth; the bed drained milklevel in onUpdate).
         if ((getHasMilk() || getHasFood()) && this.isVehicle()) {
@@ -223,16 +242,110 @@ public class MoCEntityKittyBed extends MoCAnimal {
         }
     }
 
+    // ---------------------------------------------------------------------------------- movement
+
+    /**
+     * Legacy {@code MoCEntityKittyBed.move} ran the move only while the bed was riding, airborne, or
+     * {@code staticBed} was off (5.1.5 {@code MoCEntityKittyBed.java}:231-240; 12.0.5:195-202 tested
+     * {@code staticLitter} by copy-paste): a bed resting on the ground ignored every shove, so it fell into
+     * place and then held still. The same gate here, with one deliberate difference — a grounded bed still
+     * takes the DOWNWARD part of its motion. Legacy skipped {@code move} entirely, which also froze
+     * {@code onGround} (only {@code move} recomputes it, mc262-ref Entity.java:764-768), so a bed whose floor
+     * was dug out hovered in the air. Only the bed's own ({@link MoverType#SELF}) motion is gated — pistons and
+     * shulkers still move it — and the discarded momentum is cleared too, so an explosion or a water current
+     * cannot bank it for the next airborne tick.
+     */
+    @Override
+    public void move(MoverType type, Vec3 delta) {
+        if (type == MoverType.SELF && drzhark.mocreatures.config.MoCConfig.get().staticBed && this.onGround()) {
+            this.setDeltaMovement(0.0D, Math.min(0.0D, this.getDeltaMovement().y), 0.0D);
+            delta = new Vec3(0.0D, Math.min(0.0D, delta.y), 0.0D);
+        }
+        super.move(type, delta);
+    }
+
+    /** Legacy {@code fall()} was empty: dropping the bed from a height makes no fall sound or damage roll. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float damageModifier, DamageSource damageSource) {
+        return false;
+    }
+
+    /** Legacy {@code canBreatheUnderwater() == true}: a bed placed in water does not run an air supply. */
+    @Override
+    public boolean canBreatheUnderwater() {
+        return true;
+    }
+
+    /**
+     * A kitty that climbs into the bed sits ON THE CUSHION, inside the walls. With no seat of its own the bed used
+     * the default passenger attachment — the top of its 0.35-high hitbox — so the kitty hovered about 0.16 blocks
+     * above the cushion, level with the rim. The cushion (the wool sheet, {@code MoCModelKittyBed.Sheet}: model
+     * y 21-24) tops out 3 px = 0.1875 above the ground, and a kitty's feet are its vehicle attachment point
+     * (the AT_FEET default, mc262-ref EntityAttachment.java:8), so that is the seat. (Legacy seated it at the 1.12
+     * default {@code height * 0.75} = 0.225 of a 0.3-high bed, i.e. on the cushion as well.)
+     */
+    @Override
+    protected Vec3 getPassengerAttachmentPoint(Entity passenger, net.minecraft.world.entity.EntityDimensions dimensions,
+            float scale) {
+        return new Vec3(0.0D, (3.0D / 16.0D) * scale, 0.0D);
+    }
+
+    /**
+     * Whatever lies in the bed never steers it. With AI enabled, {@code Mob.getControllingPassenger} hands
+     * control to a mob passenger (mc262-ref Mob.java:221-224 — it was only null before because of NoAI), and a
+     * controlled mob's {@code getNavigation()}/{@code getMoveControl()} then return the VEHICLE's
+     * (Mob.java:208-218): a nestled kitty would have driven the bed's pathfinder instead of its own.
+     */
+    @Override
+    public @Nullable LivingEntity getControllingPassenger() {
+        return null;
+    }
+
     // ------------------------------------------------------------------------------------- damage
 
     /**
-     * Legacy {@code MoCEntityKittyBed.attackEntityFrom} returned {@code false}: the bed is indestructible
-     * furniture and can only be removed by right-clicking it with a pickaxe. Overriding the server damage
-     * entry to return false reproduces that (a bare MAX_HEALTH bump would still let it be killed).
+     * Legacy {@code MoCEntityKittyBed.attackEntityFrom} returned {@code false}: no mob, arrow, explosion, fire,
+     * fall or drowning can destroy the bed. The one exception is damage tagged
+     * {@code BYPASSES_INVULNERABILITY} — {@code /kill} and the void. {@code LivingEntity.kill} IS
+     * {@code hurtServer(genericKill, MAX_VALUE)} (mc262-ref LivingEntity.java:317-319) and falling out of the world
+     * is {@code hurt(fellOutOfWorld)} (:2162-2164), so the blanket {@code false} this used to return made the bed
+     * immune to {@code /kill} and let it fall through the void forever. Players break it through
+     * {@link #skipAttackInteraction} instead of through damage.
      */
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        return false;
+        return source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) && super.hurtServer(level, source, amount);
+    }
+
+    /**
+     * A player's hit breaks the bed and drops its item, carrying the sheet colour (none in creative), the way
+     * vanilla's paintings and item frames break ({@code BlockAttachedEntity.skipAttackInteraction}). Legacy's
+     * only removal was right-clicking with a pickaxe (kept in {@link #mobInteract}); punching did nothing,
+     * which is exactly what read as "I can't break them".
+     *
+     * <p>This hook, rather than {@link #hurtServer}, because {@code Player.attack} consults it only for the
+     * entity actually struck (mc262-ref Player.java:1010-1012) — a sword's sweep reaches bystanders through
+     * {@code hurtServer} (:1150-1157), so a fight next to the bed cannot shatter it by accident. It runs on both
+     * sides; returning {@code true} ends the attack there, so the client does not predict a damage flash and the
+     * weapon takes no wear. Spawn protection and the world border are honoured through {@code mayInteract},
+     * as vanilla furniture does. {@link #discard} ejects a nestled kitty (Entity.setRemoved:3921), and the
+     * kitty's own AI forgets a bed that is no longer alive.</p>
+     */
+    @Override
+    public boolean skipAttackInteraction(Entity attacker) {
+        if (!(attacker instanceof Player player)) {
+            return false;
+        }
+        if (this.level() instanceof ServerLevel serverLevel && !this.isRemoved()
+                && serverLevel.mayInteract(player, this.blockPosition())) {
+            if (!player.hasInfiniteMaterials()) {
+                this.spawnAtLocation(serverLevel, new ItemStack(bedItemForColour(getSheetColour())));
+            }
+            this.playSound(SoundEvents.ITEM_PICKUP, 0.2F,
+                    ((this.random.nextFloat() - this.random.nextFloat()) * 0.7F + 1.0F) * 2.0F);
+            this.discard();
+        }
+        return true;
     }
 
     // ------------------------------------------------------------------------------ push behaviour
@@ -266,5 +379,9 @@ public class MoCEntityKittyBed extends MoCAnimal {
         setHasFood(input.getBooleanOr("HasFood", false));
         setSheetColour(input.getIntOr("SheetColour", 0));
         milkLevel = input.getFloatOr("MilkLevel", 0.0F);
+        // Beds placed by the earlier build were saved with NoAI:1b (Mob.addAdditionalSaveData writes it and
+        // readAdditionalSaveData restores it, mc262-ref Mob.java:388-389 / :408), and would reload still frozen
+        // in mid-air. The bed has no AI to disable, so the flag only ever meant "no gravity": clear it.
+        this.setNoAi(false);
     }
 }

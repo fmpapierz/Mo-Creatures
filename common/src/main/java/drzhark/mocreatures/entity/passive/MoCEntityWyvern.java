@@ -4,6 +4,7 @@ import drzhark.mocreatures.entity.MoCAnimal;
 import drzhark.mocreatures.registry.MoCEntities;
 import drzhark.mocreatures.registry.MoCItems;
 import drzhark.mocreatures.registry.MoCSounds;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -35,6 +36,7 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
@@ -46,7 +48,20 @@ import org.jspecify.annotations.Nullable;
  */
 public class MoCEntityWyvern extends MoCAnimal {
 
+    /**
+     * Legacy {@code getIsFlying()} (12.0.5 MoCEntityWyvern:64): the WILD cruise is under way. Set only by the
+     * server-side cruise in {@link #updateFlightState()}; cleared while ridden or sitting, as legacy
+     * onLivingUpdate:329 cleared it whenever movement was ceased. Not the airborne test — see
+     * {@link #isWyvernFlying()}.
+     */
     private static final EntityDataAccessor<Boolean> FLYING =
+            SynchedEntityData.defineId(MoCEntityWyvern.class, EntityDataSerializers.BOOLEAN);
+    /**
+     * Legacy {@code wingFlapCounter != 0}: a 20-tick wing beat is running. The counter lives server-side; legacy
+     * mirrored it to clients with a MoCMessageAnimation(3) packet, this flag does the same job (the manticore
+     * pet's FLAPPING pattern).
+     */
+    private static final EntityDataAccessor<Boolean> FLAPPING =
             SynchedEntityData.defineId(MoCEntityWyvern.class, EntityDataSerializers.BOOLEAN);
     /** Worn barding tier (legacy getArmorType): 0 none, 1 iron, 2 gold, 3 diamond. */
     private static final EntityDataAccessor<Integer> ARMOR_TYPE =
@@ -60,6 +75,8 @@ public class MoCEntityWyvern extends MoCAnimal {
     private int walkTimer;
     /** Cooldown (ticks) between wild bites; 0 = ready. */
     private int attackCooldown;
+    /** Legacy {@code wingFlapCounter}: runs 1..20 through a beat (flap sound on tick 5), 0 between beats. Server-side. */
+    private int wingFlapCounter;
     /**
      * Fitted storage inventory (legacy 14-slot {@code MoCAnimalChest}). Sized to a clean two-row vanilla
      * chest screen (18 slots), mirroring how the ostrich/horse present their animal chests. Persisted in
@@ -83,6 +100,7 @@ public class MoCEntityWyvern extends MoCAnimal {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(FLYING, false);
+        builder.define(FLAPPING, false);
         builder.define(ARMOR_TYPE, 0);
         builder.define(CHESTED, false);
     }
@@ -168,12 +186,8 @@ public class MoCEntityWyvern extends MoCAnimal {
                     ? this.random.nextInt(3) == 0        // mothers: legacy 1-in-3
                     : this.random.nextInt(100) < chance; // lesser: config %, legacy base rate 1-in-10
             if (drop) {
-                ItemStack egg = new ItemStack(MoCItems.MOCEGG.get());
-                net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
-                tag.putInt("EggType", getTypeMoC() + 49); // legacy fishyegg meta: preserves the parent's coat
-                egg.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
-                        net.minecraft.world.item.component.CustomData.of(tag));
-                spawnAtLocation(level, egg);
+                // Legacy fishyegg meta type+49 preserves the parent's coat; createEgg also sets the coat's icon tint.
+                spawnAtLocation(level, drzhark.mocreatures.item.MoCThrownEggItem.createEgg(getTypeMoC() + 49));
             }
         }
     }
@@ -210,9 +224,41 @@ public class MoCEntityWyvern extends MoCAnimal {
         applyTypeHealth(false);
     }
 
-    /** Synched flight state (stable, hysteresis-free) — drives the wing-flap + leg-tuck animation. */
+    /**
+     * Airborne, for the wing pose and the wing beats: legacy 12.0.5 {@code MoCModelWyvern.render}:792
+     * {@code onAir = wyvern.isOnAir() || wyvern.getIsFlying()} — the synched wild-cruise flag, or legacy's block
+     * probe {@link #isOnAir()}. Both read the same on the server and on every client (the model evaluates this
+     * per frame through {@code MoCMobRenderer.extractRenderState}).
+     *
+     * <p>Plus one port-only case: a rider-steered wyvern flies with gravity OFF (see {@link #travel}), so it can
+     * hover or skim lower than isOnAir's 1.2-block probe; it counts as airborne whenever no block lies within
+     * 0.25 below its feet. This must NOT be {@code !onGround()}: 26.2 {@code Entity.move} rewrites onGround on
+     * the authoritative side even for a zero vertical move ({@code movedVertically || isLocalInstanceAuthoritative()},
+     * mc262-ref Entity.java:764-767), and a gravity-free ridden wyvern standing still has dy == 0, so the rider's
+     * client — and, through {@code ServerboundMoveVehiclePacket.onGround}, the server — reads it as NOT on the
+     * ground. The old ridden rule {@code FLYING = !onGround()} therefore put a parked mount into the flight pose.</p>
+     */
     public boolean isWyvernFlying() {
-        return this.entityData.get(FLYING);
+        if (this.entityData.get(FLYING) || isOnAir()) {
+            return true;
+        }
+        if (getControllingPassenger() instanceof Player) {
+            AABB box = this.getBoundingBox();
+            return this.level().noBlockCollision(this,
+                    new AABB(box.minX, box.minY - 0.25D, box.minZ, box.maxX, box.minY, box.maxZ));
+        }
+        return false;
+    }
+
+    /**
+     * Legacy {@code MoCEntityAnimal.isOnAir()} (12.0.5 MoCEntityAnimal:1020-1024): the blocks 0.2 and 1.2 below
+     * the feet are both air, i.e. at least a block of clear air under the wyvern. Block-based, so it needs no
+     * synching, and walking down a 1-block step never trips it.
+     */
+    public boolean isOnAir() {
+        Level level = this.level();
+        return level.isEmptyBlock(BlockPos.containing(this.getX(), this.getY() - 0.2D, this.getZ()))
+                && level.isEmptyBlock(BlockPos.containing(this.getX(), this.getY() - 1.2D, this.getZ()));
     }
 
     private void setWyvernFlying(boolean flying) {
@@ -221,22 +267,82 @@ public class MoCEntityWyvern extends MoCAnimal {
         }
     }
 
-    /**
-     * Faithful port of the legacy {@code getCustomSpeed()}: a ridden wyvern moves at {@code 2.0} (the
-     * lesser types 1-4) or {@code 3.0} (the larger types 5+, e.g. mother/light/dark); a wild one at
-     * {@code 0.8}. The legacy 1.12.2 ride model accumulated momentum
-     * ({@code motion += rider.motion * getCustomSpeed()} then {@code * 0.8} friction), so its terminal
-     * speed was ~4x the per-tick add. The {@code SPEED_CALIBRATION} factor in travel() reproduces that
-     * same terminal velocity in 26.2's different physics (an exact 1:1 port isn't possible).
-     */
-    private double getCustomSpeed() {
-        if (this.isVehicle()) {
-            return getTypeMoC() < 5 ? 2.0D : 3.0D;
-        }
-        return 0.8D;
+    /** A wing beat is running (legacy {@code wingFlapCounter != 0}): the model sweeps the wings full-amplitude. */
+    public boolean isWingFlapping() {
+        return this.entityData.get(FLAPPING);
     }
 
-    /** Converts the legacy getCustomSpeed multiplier into a 26.2 per-tick flight velocity (tunable). */
+    /** Legacy {@code wingFlap()} (MoCEntityWyvern:381-389): starts a 20-tick beat; a running beat is not restarted. */
+    private void wingFlap() {
+        if (this.wingFlapCounter == 0) {
+            this.wingFlapCounter = 1;
+            this.entityData.set(FLAPPING, true);
+        }
+    }
+
+    /**
+     * Legacy wing-beat clock (12.0.5 MoCEntityWyvern.onLivingUpdate:304-309 and :349-358), server-side from
+     * {@code tick()} (which, unlike the AI step, still runs while a player rides): a beat lasts 20 ticks with the
+     * flap sound on its 5th. While airborne the beats run back to back, so the wings beat steadily the whole time
+     * it is up — hovering included — the way the pegasus flaps. Legacy started each beat on a random roll
+     * (1-in-5 free; ridden, {@code 1-in-(25 - speed * 10)}, i.e. 1-in-25 at a standstill), which left the wings
+     * stalled between beats; a hovering mount hung in the air on still wings for most of every second.
+     */
+    private void tickWingFlap() {
+        boolean airborne = isWyvernFlying();
+        if (this.wingFlapCounter > 0 && ++this.wingFlapCounter > 20) {
+            this.wingFlapCounter = airborne ? 1 : 0; // next beat straight away while airborne
+            if (!airborne) {
+                this.entityData.set(FLAPPING, false);
+            }
+        }
+        if (this.wingFlapCounter == 5) {
+            // legacy MoCTools.playCustomSound: volume 1, pitch 1 +/- 0.2
+            this.playSound(MoCSounds.WYVERNWINGFLAP.get(), 1.0F,
+                    1.0F + ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F));
+        }
+        if (airborne) {
+            wingFlap(); // starts a beat only when none is running
+        }
+    }
+
+    /** Legacy {@code makeEntityJump} (MoCEntityWyvern:916-920): the mount-jump key also beats the wings. */
+    @Override
+    public void makeEntityJump() {
+        wingFlap();
+        super.makeEntityJump();
+    }
+
+    /**
+     * 12.0.5 {@code getCustomSpeed} (MoCEntityWyvern:856-861): 1.0 under a rider, whatever the type, and 0.8 wild.
+     * (The port used to carry 5.1.5's ridden 2.0 / 3.0, MoCEntityWyvern:958-969.) A greater wyvern flies faster
+     * through its {@link #flyerFriction}, not through this.
+     */
+    private double getCustomSpeed() {
+        return this.isVehicle() ? 1.0D : 0.8D;
+    }
+
+    /**
+     * 12.0.5 {@code flyerFriction} (MoCEntityWyvern:906-914): 0.96 for the greater wyverns (mother, undead, light,
+     * dark), 0.94 for the rest. In legacy's flying-mount physics ({@link #travelRiddenFlightLegacy}) that sets both the
+     * top speed, 1.50 against 1.08 blocks a tick, and how long the wyvern takes to reach it and to coast to a stop.
+     */
+    @Override
+    protected float flyerFriction() {
+        return getTypeMoC() >= 5 ? 0.96F : 0.94F;
+    }
+
+    /**
+     * 12.0.5's ridden wyvern walks on the ground with ordinary land physics at its movement speed (0.3): a push of
+     * {@code 0.98 * speed} a tick against grass friction {@code 0.6 * 0.91}, which settles at
+     * {@code speed * 0.98 / (1 - 0.546)}, 0.65 blocks a tick. {@link #travelRiddenFlight} settles at 10/11 of the
+     * speed it is given, hence the {@code 1.1}.
+     */
+    private double getRiddenGroundSpeed() {
+        return this.getAttributeValue(Attributes.MOVEMENT_SPEED) * 0.98D / (1.0D - 0.6D * 0.91D) * 1.1D;
+    }
+
+    /** Converts the wild getCustomSpeed (0.8) into the wild cruise's per-tick flight velocity (tunable). */
     private static final double SPEED_CALIBRATION = 0.64D;
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -278,36 +384,15 @@ public class MoCEntityWyvern extends MoCAnimal {
     @Override
     public void travel(Vec3 input) {
         if (this.isAlive() && this.isVehicle() && getControllingPassenger() instanceof Player rider) {
-            // Steer to the rider's look (halved pitch keeps the nose from pointing straight up/down).
-            this.setYRot(rider.getYRot());
-            this.yRotO = this.getYRot();
-            this.setXRot(rider.getXRot() * 0.5F);
-            this.yBodyRot = this.getYRot();
-            this.yHeadRot = this.getYRot();
-
-            this.setNoGravity(true);
-            float fwd = rider.zza;
-            float str = rider.xxa;
-            // Speed from the legacy getCustomSpeed (2.0 types 1-4 / 3.0 types 5+), calibrated to the
-            // legacy momentum terminal velocity — so larger wyverns fly 1.5x faster, just like the original.
-            float speed = (float) (getCustomSpeed() * SPEED_CALIBRATION);
-            if (fwd != 0.0F || str != 0.0F) {
-                Vec3 look = rider.getLookAngle();
-                // Forward ONLY when actually pressing W/S — fwd==0 must add no forward motion, otherwise
-                // strafing alone drifts diagonally. Side uses the LEFT vector to match xxa (A/left = +1),
-                // so D strafes right and A strafes left.
-                double fwdScale = fwd > 0.0F ? speed : (fwd < 0.0F ? -speed * 0.4D : 0.0D);
-                Vec3 forward = look.scale(fwdScale);
-                Vec3 side = new Vec3(look.z, 0.0D, -look.x).normalize().scale(str * speed * 0.5D);
-                Vec3 desired = forward.add(side);
-                this.setDeltaMovement(this.getDeltaMovement().scale(0.5D).add(desired.scale(0.5D)));
+            // Rider-steered: fly to the rider's look. In the air, 12.0.5's flying-mount physics — speed builds up,
+            // drifts through turns and coasts when released, topping out at 1.08 blocks a tick (1.50 for the
+            // greater wyverns). On the ground, 12.0.5's ridden walk speed; the wyvern stays in the gravity-free
+            // steering there too (flyOnGround), which has always been its walk under a rider.
+            if (isOffGround()) {
+                travelRiddenFlightLegacy(rider, getCustomSpeed());
             } else {
-                // No input: dampen horizontal speed and sink very slowly (a gentle hover).
-                Vec3 dm = this.getDeltaMovement();
-                this.setDeltaMovement(dm.x * 0.7D, Math.max(dm.y * 0.8D, -0.04D), dm.z * 0.7D);
+                travelRiddenFlight(rider, getRiddenGroundSpeed(), true);
             }
-            this.move(MoverType.SELF, this.getDeltaMovement());
-            this.setDeltaMovement(this.getDeltaMovement().scale(0.9D));
         } else if (this.wildFlyTimer > 0) {
             // Wild cruise: powered, gravity-free level flight in the facing direction (the vanilla flight
             // goal alone can't keep this large entity aloft, so the flight is driven directly here).
@@ -354,6 +439,7 @@ public class MoCEntityWyvern extends MoCAnimal {
         if (this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             updateAggression(serverLevel); // acquire/refresh the wild hunt target before the flight state reads it
             updateFlightState();
+            tickWingFlap(); // after the flight state, so a cruise starting this tick already beats
             // Maturation (legacy onLivingUpdate edad growth): an egg-hatched YOUNG wyvern ages up and turns adult,
             // which is what unlocks riding, saddling and barding (all gated on getIsAdult()). Without this a hatched
             // wyvern would stay non-adult forever and be permanently un-rideable. Naturally-spawned wyverns spawn
@@ -383,7 +469,10 @@ public class MoCEntityWyvern extends MoCAnimal {
         if (this.attackCooldown > 0) {
             this.attackCooldown--;
         }
-        if (!getIsAdult() || level.getDifficulty() == Difficulty.PEACEFUL) {
+        // Legacy EntityAINearestAttackableTargetMoC.shouldExecute:88 acquired nothing while isMovementCeased(), which
+        // for the wyvern is "ridden or sitting" (12.0.5 MoCEntityWyvern:650-652). Without this a WILD wyvern that a
+        // player had mounted to break it in picked its own rider — the nearest vulnerable player — and bit them.
+        if (!getIsAdult() || level.getDifficulty() == Difficulty.PEACEFUL || isVehicle() || isSitting()) {
             this.huntTarget = null;
             return;
         }
@@ -503,12 +592,14 @@ public class MoCEntityWyvern extends MoCAnimal {
 
     private void updateFlightState() {
         if (this.isVehicle()) {
-            // Ridden: stop AI navigation so the flight move-control can't fight the rider's steering;
-            // flight pose whenever airborne.
+            // Ridden: stop AI navigation so the flight move-control can't fight the rider's steering. Not the wild
+            // cruise (legacy onLivingUpdate:329 clears getIsFlying whenever movement is ceased); the ridden flight
+            // pose comes from isWyvernFlying()'s own airborne test. (This used to be FLYING = !onGround(), which
+            // reads true for a parked ridden wyvern — see isWyvernFlying.)
             this.wildFlyTimer = 0;
             this.walkTimer = 0;
             this.getNavigation().stop();
-            setWyvernFlying(!this.onGround());
+            setWyvernFlying(false);
             return;
         }
         if (this.wildFlyTimer > 0) {
@@ -590,6 +681,17 @@ public class MoCEntityWyvern extends MoCAnimal {
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+
+        // 12.0.5: a wild wyvern takes no saddle (MoCEntityWyvern.processInteract:426 gates saddling on getIsTamed())
+        // and so can never be ridden; the only way to own one is to hatch it. Legacy ignored the click silently;
+        // say so instead, without using up the saddle.
+        if (!getIsTamed() && (stack.is(Items.SADDLE) || stack.is(MoCItems.HORSESADDLE.get()))) {
+            if (player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.mocreatures.wild_wyvern_saddle"));
+            }
+            return InteractionResult.SUCCESS;
+        }
 
         // KEY opens the fitted storage (vanilla two-row chest screen), whatever else may be true.
         if (getIsTamed() && getIsChested() && stack.is(MoCItems.KEY.get())) {

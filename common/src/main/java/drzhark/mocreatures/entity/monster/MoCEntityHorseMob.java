@@ -62,6 +62,18 @@ public class MoCEntityHorseMob extends MoCMob {
         }
     }
 
+    /**
+     * The undead cavalry rider sits on the horse's back where a saddle would be, as on the tame horse
+     * ({@code MoCEntityHorse.getPassengerAttachmentPoint}, legacy {@code updatePassenger}: a quarter-block behind
+     * the centre), not on the default seat at the top-centre of the hitbox, which floated it over the withers.
+     */
+    @Override
+    protected net.minecraft.world.phys.Vec3 getPassengerAttachmentPoint(Entity passenger,
+            net.minecraft.world.entity.EntityDimensions dimensions, float scale) {
+        return new net.minecraft.world.phys.Vec3(0.0D, 1.4D * scale, -0.25D * scale)
+                .yRot(-this.getYRot() * net.minecraft.util.Mth.DEG_TO_RAD);
+    }
+
     @Override
     public boolean fireImmune() {
         // The nightmare (type 38) is a fire horse and, like the legacy isImmuneToFire flag, ignores fire/lava.

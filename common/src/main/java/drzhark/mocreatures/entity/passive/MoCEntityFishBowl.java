@@ -43,9 +43,15 @@ public class MoCEntityFishBowl extends MoCAnimal {
     private int swimRotation;
     private boolean swimming;
 
+    /**
+     * No {@code setNoAi(true)}, although the bowl has no goals: in 26.2 a NoAI mob never runs {@code travel} —
+     * the only place gravity is applied ({@code LivingEntity.aiStep}, mc262-ref LivingEntity.java:3110, gated on
+     * {@code isEffectiveAi()} = {@code !isNoAi()}, Mob.java:1301-1302) — so a bowl placed on the side of a block
+     * hung in mid-air forever. Legacy was an ordinary entity that fell and then held still (see {@link #move}).
+     * Same fix as {@link MoCEntityKittyBed}.
+     */
     public MoCEntityFishBowl(EntityType<? extends MoCEntityFishBowl> type, Level level) {
         super(type, level);
-        this.setNoAi(true);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -68,6 +74,10 @@ public class MoCEntityFishBowl extends MoCAnimal {
     @Override
     public void tick() {
         super.tick();
+        // Clear any grass or flower the bowl came to rest in, so it doesn't grow up through the glass.
+        if (this.level() instanceof ServerLevel serverLevel && this.onGround()) {
+            breakPlantsInside(serverLevel);
+        }
         // Faithful legacy swim: ~every 80 ticks toggle whether the fish is swimming; while swimming, turn
         // 0-9 degrees per tick and wrap at 360. Client and server tick independently, but only the client's
         // value is ever rendered, so no syncing is needed for this purely cosmetic circling.
@@ -129,15 +139,69 @@ public class MoCEntityFishBowl extends MoCAnimal {
     }
 
     /**
-     * Legacy {@code MoCEntityFishBowl.attackEntityFrom} returned {@code false} unconditionally: a placed bowl
-     * is immune to every damage source (mobs, players, fire, lava, cactus, drowning, etc.) and can only be
-     * removed by right-clicking it with a pickaxe. Overriding the server damage entry to return false
-     * reproduces that — a bare MAX_HEALTH value would still let the bowl (and its captured fishy) be killed.
-     * Mirrors {@link MoCEntityKittyBed#hurtServer}.
+     * Legacy {@code MoCEntityFishBowl.moveEntity} (5.1.5 :242-251) ran the move only while the bowl was carried
+     * or airborne, so it fell into place and then ignored every shove. Same gate as
+     * {@link MoCEntityKittyBed#move}: a grounded bowl keeps only the DOWNWARD part of its own motion (so it still
+     * drops if its floor is removed), and the discarded momentum is cleared so a current can't bank it.
+     */
+    @Override
+    public void move(net.minecraft.world.entity.MoverType type, net.minecraft.world.phys.Vec3 delta) {
+        if (type == net.minecraft.world.entity.MoverType.SELF && this.onGround()) {
+            this.setDeltaMovement(0.0D, Math.min(0.0D, this.getDeltaMovement().y), 0.0D);
+            delta = new net.minecraft.world.phys.Vec3(0.0D, Math.min(0.0D, delta.y), 0.0D);
+        }
+        super.move(type, delta);
+    }
+
+    /** Legacy {@code fall()} was empty: a dropped bowl makes no fall sound or damage roll. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float damageModifier, DamageSource damageSource) {
+        return false;
+    }
+
+    /** Legacy {@code canBreatheUnderwater() == true}: a bowl set down in water does not drown. */
+    @Override
+    public boolean canBreatheUnderwater() {
+        return true;
+    }
+
+    /**
+     * Legacy {@code MoCEntityFishBowl.attackEntityFrom} returned {@code false} unconditionally: no mob, arrow,
+     * fire, lava, cactus or drowning can destroy a placed bowl (or the fish in it). The one exception here is
+     * damage tagged {@code BYPASSES_INVULNERABILITY} — {@code /kill} and the void — which the blanket
+     * {@code false} used to block too ({@code LivingEntity.kill} IS {@code hurtServer(genericKill, MAX_VALUE)},
+     * mc262-ref LivingEntity.java:317-319), leaving a bowl that nothing could remove. Players break it through
+     * {@link #skipAttackInteraction}. Mirrors {@link MoCEntityKittyBed#hurtServer}.
      */
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        return false;
+        return source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)
+                && super.hurtServer(level, source, amount);
+    }
+
+    /**
+     * A player's hit breaks the bowl and drops it as its item WITH its contents (the matching empty / water /
+     * fish bowl, {@link MoCFishBowlItem#toItemStack}), or simply removes it in creative — the way vanilla
+     * paintings and item frames break. Legacy's only removal was the pickaxe right-click (still in
+     * {@link #mobInteract}); punching did nothing. This hook rather than {@link #hurtServer} so a sword sweep or a
+     * mob never breaks it (Player.attack consults it only for the entity actually struck), and spawn protection
+     * is honoured through {@code mayInteract}. Mirrors {@link MoCEntityKittyBed#skipAttackInteraction}.
+     */
+    @Override
+    public boolean skipAttackInteraction(Entity attacker) {
+        if (!(attacker instanceof Player player)) {
+            return false;
+        }
+        if (this.level() instanceof ServerLevel serverLevel && !this.isRemoved()
+                && serverLevel.mayInteract(player, this.blockPosition())) {
+            if (!player.hasInfiniteMaterials()) {
+                this.spawnAtLocation(serverLevel, MoCFishBowlItem.toItemStack(getBowlType()));
+            }
+            this.playSound(SoundEvents.ITEM_PICKUP, 0.2F,
+                    ((this.random.nextFloat() - this.random.nextFloat()) * 0.7F + 1.0F) * 2.0F);
+            this.discard();
+        }
+        return true;
     }
 
     @Override
@@ -179,5 +243,8 @@ public class MoCEntityFishBowl extends MoCAnimal {
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
         setType(input.getIntOr("BowlType", 1));
+        // Bowls placed by earlier builds were saved with NoAI:1b (Mob.addAdditionalSaveData writes it) and would
+        // reload frozen in mid-air. The bowl has no AI to disable, so the flag only ever meant "no gravity".
+        this.setNoAi(false);
     }
 }

@@ -359,6 +359,88 @@ public class MoCModelManticore extends MoCModelBigCat {
                 CubeListBuilder.create().texOffs(118, 29).mirror().addBox(-0.5F, 1.9F, 8.0F, 1, 1, 4),
                 PartPose.offsetAndRotation(0.0F, 8.0F, 0.0F, 1.213985F, 0.0F, 0.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): each wing membrane is painted on the top face of
+        // its wing box, whose underside is transparent, so from below the membrane was seen from behind; the collar
+        // medallion, front claws and saddle foot rings are the big cat's (MoCModelBigCat adds the same twins to its
+        // own mesh). Each twin is the named face of that part's box turned to face into the box, with the same
+        // corners and texels.
+        MoCBackFaces.add(root, "chest/left_upper_leg/left_lower_leg/left_front_foot/left_claw1", CubeListBuilder.create()
+                .texOffs(15, 125).mirror(false).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(17, 125).mirror(false).addBox(-0.5F, 1.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 125).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(17, 127).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(17, 125).mirror(true).addBox(0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(21, 127).mirror(true).addBox(-0.5F, 0.0F, 1.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "chest/left_upper_leg/left_lower_leg/left_front_foot/left_claw2", CubeListBuilder.create()
+                .texOffs(15, 125).mirror(false).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(17, 125).mirror(false).addBox(-0.5F, 1.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 125).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(17, 127).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(17, 125).mirror(true).addBox(0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(21, 127).mirror(true).addBox(-0.5F, 0.0F, 1.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "chest/left_upper_leg/left_lower_leg/left_front_foot/left_claw3", CubeListBuilder.create()
+                .texOffs(15, 125).mirror(false).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(17, 125).mirror(false).addBox(-0.5F, 1.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 125).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(17, 127).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(17, 125).mirror(true).addBox(0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(21, 127).mirror(true).addBox(-0.5F, 0.0F, 1.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "chest/neck_base/collar", CubeListBuilder.create()
+                .texOffs(25, 1).mirror(true).addBox(-2.5F, 0.0F, 1.0F, 5.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "chest/right_upper_leg/right_lower_leg/right_front_foot/right_claw1", CubeListBuilder.create()
+                .texOffs(15, 125).mirror(false).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(17, 125).mirror(false).addBox(-0.5F, 1.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 125).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(17, 127).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(17, 125).mirror(true).addBox(0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(21, 127).mirror(true).addBox(-0.5F, 0.0F, 1.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "chest/right_upper_leg/right_lower_leg/right_front_foot/right_claw2", CubeListBuilder.create()
+                .texOffs(15, 125).mirror(false).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(17, 125).mirror(false).addBox(-0.5F, 1.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 125).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(17, 127).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(17, 125).mirror(true).addBox(0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(21, 127).mirror(true).addBox(-0.5F, 0.0F, 1.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "chest/right_upper_leg/right_lower_leg/right_front_foot/right_claw3", CubeListBuilder.create()
+                .texOffs(15, 125).mirror(false).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(17, 125).mirror(false).addBox(-0.5F, 1.0F, -0.5F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 125).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(17, 127).mirror(true).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(17, 125).mirror(true).addBox(0.5F, 0.0F, -0.5F, 0.0F, 1.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(21, 127).mirror(true).addBox(-0.5F, 0.0F, 1.5F, 1.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        // (The foot rings' top and body-side faces lie flush on the harness strap and the chest, facing the same
+        // way, so those two get no twin: it would z-fight with that face.)
+        MoCBackFaces.add(root, "chest/saddle/left_foot_harness/left_foot_ring", CubeListBuilder.create()
+                .texOffs(108, 31).mirror(false).addBox(0.0F, 2.0F, 0.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(108, 33).mirror(true).addBox(0.0F, 0.0F, 0.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(108, 31).mirror(true).addBox(1.0F, 0.0F, 0.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(112, 33).mirror(true).addBox(0.0F, 0.0F, 2.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "chest/saddle/right_foot_harness/right_foot_ring", CubeListBuilder.create()
+                .texOffs(102, 31).mirror(false).addBox(0.0F, 2.0F, 0.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(101, 31).mirror(true).addBox(0.0F, 0.0F, 0.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(102, 33).mirror(true).addBox(0.0F, 0.0F, 0.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(106, 33).mirror(true).addBox(0.0F, 0.0F, 2.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "inner_wing", CubeListBuilder.create()
+                .texOffs(19, 115).mirror(false).addBox(0.0F, 0.0F, 0.0F, 7.0F, 0.0F, 11.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(30, 126).mirror(true).addBox(0.0F, 0.0F, 0.0F, 7.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "inner_wing_right", CubeListBuilder.create()
+                .texOffs(19, 102).mirror(false).addBox(-7.0F, 0.0F, 0.0F, 7.0F, 0.0F, 11.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(30, 113).mirror(true).addBox(-7.0F, 0.0F, 0.0F, 7.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "mid_wing", CubeListBuilder.create()
+                .texOffs(24, 89).mirror(false).addBox(1.0F, 0.1F, 1.0F, 12.0F, 0.0F, 11.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(35, 100).mirror(true).addBox(1.0F, 0.1F, 1.0F, 12.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "mid_wing_right", CubeListBuilder.create()
+                .texOffs(70, 89).mirror(false).addBox(-13.0F, 0.1F, 1.0F, 12.0F, 0.0F, 11.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(81, 100).mirror(true).addBox(-13.0F, 0.1F, 1.0F, 12.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "outer_wing", CubeListBuilder.create()
+                .texOffs(40, 115).mirror(false).addBox(0.0F, 0.0F, 0.0F, 22.0F, 0.0F, 11.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(51, 126).mirror(true).addBox(0.0F, 0.0F, 0.0F, 22.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(84, 115).mirror(true).addBox(22.0F, 0.0F, 0.0F, 0.0F, 2.0F, 11.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "outer_wing_right", CubeListBuilder.create()
+                .texOffs(40, 102).mirror(false).addBox(-22.0F, 0.0F, 0.0F, 22.0F, 0.0F, 11.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(62, 102).mirror(true).addBox(-22.0F, 0.0F, 0.0F, 0.0F, 2.0F, 11.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(51, 113).mirror(true).addBox(-22.0F, 0.0F, 0.0F, 22.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+
         return LayerDefinition.create(mesh, 128, 128);
     }
 
@@ -384,22 +466,19 @@ public class MoCModelManticore extends MoCModelBigCat {
 
         // ------------------------------------------------------------------ wings
         // Legacy setRotationAngles:902-966. A beating wing swings on the animation timer at full 1.2 rad
-        // amplitude; a cruising one just breathes with the gait. On the ground the wings snap folded back
-        // (outer panels rotated 90deg inward at a fixed 60deg lift).
-        float wingRot;
+        // amplitude; a cruising one just breathes with the gait. On the ground the wings fold back (outer panels
+        // rotated 90deg inward at a fixed 60deg lift). Legacy snapped between the two; the pose blends by
+        // state.wingOpen, which eases over a few ticks, so the wings fold down on landing.
+        float beat;
         if (state.manticoreFlapping) {
-            wingRot = Mth.cos((state.ageInTicks * 0.3F) + 3.141593F) * 1.2F;
+            beat = Mth.cos((state.ageInTicks * 0.3F) + 3.141593F) * 1.2F;
         } else {
-            wingRot = Mth.cos(limbSwing * 0.5F) * 0.1F;
+            beat = Mth.cos(limbSwing * 0.5F) * 0.1F;
         }
-        if (state.manticoreAirborne) {
-            this.outerWing.yRot = -0.3228859F + (wingRot / 2.0F);
-            this.outerWingR.yRot = 0.3228859F - (wingRot / 2.0F);
-        } else {
-            wingRot = 60.0F * DEG_TO_RAD;
-            this.outerWing.yRot = -90.0F * DEG_TO_RAD;
-            this.outerWingR.yRot = 90.0F * DEG_TO_RAD;
-        }
+        float open = state.wingOpen;
+        float wingRot = Mth.lerp(open, 60.0F * DEG_TO_RAD, beat);
+        this.outerWing.yRot = Mth.lerp(open, -90.0F * DEG_TO_RAD, -0.3228859F + (beat / 2.0F));
+        this.outerWingR.yRot = Mth.lerp(open, 90.0F * DEG_TO_RAD, 0.3228859F - (beat / 2.0F));
 
         // Hand-built hinge: the outer panel orbits the inner one at a radius of 12 (the gap between their
         // rotation points), so cos/sin of the lift angle place it on that arc. Legacy did exactly this

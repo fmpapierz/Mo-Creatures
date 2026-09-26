@@ -105,10 +105,20 @@ public class MoCModelFly extends EntityModel<MoCEntityRenderState> {
         float limbAmount = state.walkAnimationSpeed;
         float ageInTicks = state.ageInTicks;
 
-        // wing beat (always, legacy)
-        float wingRot = Mth.cos(ageInTicks * 3.0F) * 0.7F;
+        // Legacy render() drew the spread, beating wings only in flight and the folded pair only when not flying; the
+        // port drew all three at once. The spread wings swing back along the body and stop beating by
+        // state.wingOpen (eased over a few ticks), handing over to the folded pair once they are nearly tucked, so a
+        // landing fly folds its wings instead of swapping them in one frame.
+        float open = state.wingOpen;
+        boolean wingsOut = open > 0.15F;
+        this.leftWing.visible = wingsOut;
+        this.rightWing.visible = wingsOut;
+        this.foldedWings.visible = !wingsOut;
+        float wingRot = Mth.cos(ageInTicks * 3.0F) * 0.7F * open;
         this.rightWing.zRot = wingRot;
         this.leftWing.zRot = -wingRot;
+        this.leftWing.yRot = 1.047198F * open;
+        this.rightWing.yRot = -1.047198F * open;
 
         float legMov;
         float legMovB;

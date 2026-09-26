@@ -100,9 +100,19 @@ public class MoCModelSmallFish extends EntityModel<MoCEntityRenderState> {
         offset.addOrReplaceChild("upper_fin_b",
                 CubeListBuilder.create().texOffs(0, 0).addBox(-2.5F, -1.0F, -0.5F, 4.0F, 1.0F, 1.0F),
                 PartPose.offset(0.0F, 13.5F, 0.0F));
-        // Zero-thickness dorsal sail (legacy 8x3x0), exactly as vanilla's tropical-fish fins are built.
+        // Zero-thickness dorsal sail (legacy 8x3x0). Its two faces carry different pictures, and 1.12 (culling off)
+        // drew both at the same depth, the south face last, so from EITHER side the south picture lay on top
+        // wherever it is painted, with the north one showing through its gaps. Culled, a plain box shows each side
+        // only its own picture: part of the angler's spines went missing from its left. So the sail is built as
+        // four single faces in 1.12's draw order, the north picture first on both sides, then the south picture
+        // on both sides; a face drawn later at the same depth wins, as it did in 1.12. The south-side copy of the
+        // north picture and the north-side copy of the south picture are MoCBackFaces twins (same corners and texels).
         offset.addOrReplaceChild("upper_fin_c",
-                CubeListBuilder.create().texOffs(0, 18).addBox(-5.0F, -2.0F, 0.0F, 8.0F, 3.0F, 0.0F),
+                CubeListBuilder.create()
+                        .texOffs(0, 18).addBox(-5.0F, -2.0F, 0.0F, 8.0F, 3.0F, 0.0F, MoCBackFaces.NORTH) // north picture
+                        .texOffs(-8, 18).mirror().addBox(-5.0F, -2.0F, 0.0F, 8.0F, 3.0F, 0.0F, MoCBackFaces.SOUTH) // same, seen from the south
+                        .texOffs(8, 18).addBox(-5.0F, -2.0F, 0.0F, 8.0F, 3.0F, 0.0F, MoCBackFaces.NORTH) // south picture, seen from the north
+                        .texOffs(0, 18).mirror(false).addBox(-5.0F, -2.0F, 0.0F, 8.0F, 3.0F, 0.0F, MoCBackFaces.SOUTH), // south picture
                 PartPose.offset(0.0F, 13.5F, 0.0F));
         offset.addOrReplaceChild("lower_fin_a",
                 CubeListBuilder.create().texOffs(16, 0).addBox(-0.5F, -0.3F, -0.5F, 2.0F, 1.0F, 1.0F),
@@ -118,6 +128,43 @@ public class MoCModelSmallFish extends EntityModel<MoCEntityRenderState> {
         offset.addOrReplaceChild("tail",
                 CubeListBuilder.create().texOffs(10, 7).addBox(0.0F, 0.0F, -0.5F, 3.0F, 3.0F, 1.0F),
                 PartPose.offsetAndRotation(1.3F, 15.0F, 0.0F, 0.0F, 0.0F, DIAMOND));
+
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the fins, tail and body plate are painted with
+        // open faces, so their painted sides showed from behind through the empty ones. Each twin is the named face
+        // of that part's box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "fish/offset/body_romboid", CubeListBuilder.create()
+                .texOffs(-4, 7).mirror(false).addBox(0.0F, 0.0F, -0.5F, 4.0F, 0.0F, 1.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(4, 7).mirror(false).addBox(0.0F, 4.0F, -0.5F, 4.0F, 0.0F, 1.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 7).mirror(true).addBox(0.0F, 0.0F, -0.5F, 0.0F, 4.0F, 1.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(-3, 8).mirror(true).addBox(0.0F, 0.0F, -0.5F, 4.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(6, 8).mirror(true).addBox(0.0F, 0.0F, 0.5F, 4.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "fish/offset/lower_fin_a", CubeListBuilder.create()
+                .texOffs(18, 0).mirror(false).addBox(-0.5F, 0.7F, -0.5F, 2.0F, 0.0F, 1.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 0).mirror(true).addBox(-0.5F, -0.3F, -0.5F, 0.0F, 1.0F, 1.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(15, 1).mirror(true).addBox(-0.5F, -0.3F, -0.5F, 2.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(18, 0).mirror(true).addBox(1.5F, -0.3F, -0.5F, 0.0F, 1.0F, 1.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(20, 1).mirror(true).addBox(-0.5F, -0.3F, 0.5F, 2.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "fish/offset/mid_body_fin", CubeListBuilder.create()
+                .texOffs(0, 12).mirror(true).addBox(0.0F, -0.5F, 0.0F, 0.0F, 2.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 16).mirror(true).addBox(0.0F, -0.5F, 0.0F, 4.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "fish/offset/tail", CubeListBuilder.create()
+                .texOffs(7, 7).mirror(false).addBox(0.0F, 0.0F, -0.5F, 3.0F, 0.0F, 1.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(13, 7).mirror(false).addBox(0.0F, 3.0F, -0.5F, 3.0F, 0.0F, 1.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(10, 7).mirror(true).addBox(0.0F, 0.0F, -0.5F, 0.0F, 3.0F, 1.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(8, 8).mirror(true).addBox(0.0F, 0.0F, -0.5F, 3.0F, 3.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(13, 7).mirror(true).addBox(3.0F, 0.0F, -0.5F, 0.0F, 3.0F, 1.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(15, 8).mirror(true).addBox(0.0F, 0.0F, 0.5F, 3.0F, 3.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "fish/offset/upper_fin_a", CubeListBuilder.create()
+                .texOffs(8, 0).mirror(false).addBox(-0.5F, -1.3F, -0.5F, 2.0F, 0.0F, 1.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(10, 0).mirror(true).addBox(-0.5F, -1.3F, -0.5F, 0.0F, 1.0F, 1.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(9, 1).mirror(true).addBox(-0.5F, -1.3F, -0.5F, 2.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(12, 0).mirror(true).addBox(1.5F, -1.3F, -0.5F, 0.0F, 1.0F, 1.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(14, 1).mirror(true).addBox(-0.5F, -1.3F, 0.5F, 2.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "fish/offset/upper_fin_b", CubeListBuilder.create()
+                .texOffs(-4, 0).mirror(false).addBox(-2.5F, -1.0F, -0.5F, 4.0F, 0.0F, 1.0F, MoCBackFaces.UP) // back of the down face
+                // (no twin for its bottom: the body plate's top lies flush on it, facing the same way)
+                .texOffs(-3, 1).mirror(true).addBox(-2.5F, -1.0F, -0.5F, 4.0F, 1.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(6, 1).mirror(true).addBox(-2.5F, -1.0F, 0.5F, 4.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
 
         return LayerDefinition.create(mesh, 32, 32);
     }

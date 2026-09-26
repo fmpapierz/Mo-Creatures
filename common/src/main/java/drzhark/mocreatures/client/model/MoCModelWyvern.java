@@ -17,7 +17,10 @@ import java.util.Set;
 /**
  * Wyvern model, converted faithfully from the legacy {@code MoCModelWyvern} ({@code ModelBase}).
  * Geometry, texture offsets and the parent/child hierarchy are preserved; armour / saddle parts
- * are kept but left in their default pose. Only the core walking/neck/tail/wing animation is ported.
+ * are kept but left in their default pose. {@link #setupAnim} is legacy 12.0.5
+ * {@code setRotationAngles}:943-1165 (neck, tail, the flap / glide / folded wing poses, legs, sitting); only
+ * the mouth timing is approximated (see the jaw block) and the rider-dive pose is absent (the port has no dive
+ * key, legacy {@code diveCounter} was fed only by it).
  */
 public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
 
@@ -25,11 +28,19 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
 
     // Zero-thickness planes (ear skins, wing membranes) are split into two single-face boxes (painted face
     // + a re-aimed opposite face sampling the same painted tile) so the culled render type keeps them
-    // visible from both sides. The control ropes' tile pair is painted on both sides and stays a plain box.
+    // visible from both sides. The second face must carry the same texel at every point, which is what 1.12
+    // (culling off) showed from behind: the membranes' re-aimed NORTH face is mirror()ed (NORTH and SOUTH lay
+    // a tile out in opposite x directions, so unmirrored the membrane's outline was flipped end for end on
+    // its north side), and each ear skin's second face is the painted face again with mirror(), which turns
+    // an X face round without changing its texture layout (see MoCBackFaces).
+    // The control ropes' tile pair is painted on both sides and stays a plain box.
+    // The eye sockets are rebuilt from single inward-facing faces for the same reason (see createBodyLayer).
     private static final Set<Direction> NORTH_ONLY = Set.of(Direction.NORTH);
     private static final Set<Direction> SOUTH_ONLY = Set.of(Direction.SOUTH);
     private static final Set<Direction> WEST_ONLY = Set.of(Direction.WEST);
     private static final Set<Direction> EAST_ONLY = Set.of(Direction.EAST);
+    private static final Set<Direction> UP_ONLY = Set.of(Direction.UP);
+    private static final Set<Direction> DOWN_ONLY = Set.of(Direction.DOWN);
 
     private final ModelPart tailGroup;
     private final ModelPart back1;
@@ -80,6 +91,7 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
 
     // saddle + tack (visible only when saddled)
     private final ModelPart saddle;
+    private final ModelPart mouthrod;
     private final ModelPart chestbelt;
     private final ModelPart stomachbelt;
     private final ModelPart helmetstrap1;
@@ -168,18 +180,18 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
 
         // intermediate parts needed to resolve equipment children
         ModelPart snout = this.head.getChild("snout");
-        ModelPart mouthrod = this.head.getChild("mouthrod");
         ModelPart leftSpine1 = this.leftEarSkin.getChild("left_spine1");
         ModelPart rightSpine1 = this.rightEarSkin.getChild("right_spine1");
 
         // saddle + tack
         this.saddle = root.getChild("saddle");
+        this.mouthrod = this.head.getChild("mouthrod");
         this.chestbelt = root.getChild("chestbelt");
         this.stomachbelt = root.getChild("stomachbelt");
         this.helmetstrap1 = this.head.getChild("helmetstrap1");
         this.helmetstrap2 = this.head.getChild("helmetstrap2");
-        this.controlrope1 = mouthrod.getChild("controlrope1");
-        this.controlrope2 = mouthrod.getChild("controlrope2");
+        this.controlrope1 = this.mouthrod.getChild("controlrope1");
+        this.controlrope2 = this.mouthrod.getChild("controlrope2");
 
         // storage + armour
         this.storage = root.getChild("storage");
@@ -287,11 +299,40 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
         snout.addOrReplaceChild("beak",
                 CubeListBuilder.create().texOffs(60, 85).addBox(-1.5F, -2.5F, -1.5F, 3, 5, 3),
                 PartPose.offsetAndRotation(0F, 0.8F, -8.0F, -6F * DEG, 45F * DEG, -6F * DEG));
+        // Eye sockets. Legacy 12.0.5 MoCModelWyvern:268-276 builds each as a plain 1x2x4 box (texOffs 70,108 and
+        // 70,114) tucked into the head's front corner, and DrZhark painted it as a RECESSED eye. On all twelve
+        // wyvern sheets the head's own side tile (texels u102-105 / u113-116, v79-80) and front tile (u106 /
+        // u112, v79-80) are transparent exactly over the socket; the socket's OUTER and FRONT faces are
+        // transparent too; and the eye is painted on the socket's INWARD-facing wall (right sock: its +X face,
+        // u75-78 v112-113; left sock: its -X face, u70-73 v118-119), with the ceiling, floor and rear wall
+        // painted around it. 1.12.2 showed that wall from behind because LivingEntityRenderer.render turns GL
+        // face culling off for the whole model (1.12.2 client, obf caa.a(vp,DDDFF): GlStateManager.disableCull()
+        // at entry, enableCull() at exit). Under this model's entityCutoutCull every painted wall faces away from
+        // an outside viewer and is culled, so the eye was a see-through hole that showed the OTHER socket's wall
+        // six units deep inside the head (mirror-image art, wrong depth) or open air.
+        // Rebuilt from the four painted walls alone, each a single face turned to face INTO the socket (out
+        // through the head's hole): the same four corners carrying the same texel as the legacy box face, so it
+        // reads exactly like the 1.12 back-face view, but it survives culling. mirror() reverses a face's winding
+        // (and flips an X face's normal) without moving a zero-thickness plane; the X walls need it to face
+        // inward, and the rear wall needs it to keep legacy's left-to-right texel order. The fully transparent
+        // outer/front faces are dropped (they never drew a pixel).
         head.addOrReplaceChild("right_eye_sock",
-                CubeListBuilder.create().texOffs(70, 108).addBox(0F, 0F, 0F, 1, 2, 4),
+                CubeListBuilder.create()
+                        // inner wall = the eye (legacy +X face), facing -X out of the socket at x = 1
+                        .texOffs(71, 108).mirror().addBox(1F, 0F, 0F, 0.0F, 2.0F, 4.0F, EAST_ONLY)
+                        // rear wall (legacy +Z face), facing -Z toward the front opening at z = 4
+                        .texOffs(79, 112).addBox(0F, 0F, 4F, 1.0F, 2.0F, 0.0F, NORTH_ONLY).mirror(false)
+                        // ceiling (legacy -Y face) facing down into the socket, floor (legacy +Y face) facing up
+                        .texOffs(69, 108).addBox(0F, 0F, 0F, 1.0F, 0.0F, 4.0F, UP_ONLY)
+                        .texOffs(71, 108).addBox(0F, 2F, 0F, 1.0F, 0.0F, 4.0F, DOWN_ONLY),
                 PartPose.offset(-3.5F, -2.5F, -8F));
         head.addOrReplaceChild("left_eye_sock",
-                CubeListBuilder.create().texOffs(70, 114).addBox(0F, 0F, 0F, 1, 2, 4),
+                CubeListBuilder.create()
+                        // inner wall = the eye (legacy -X face), facing +X out of the socket at x = 0
+                        .texOffs(70, 114).mirror().addBox(0F, 0F, 0F, 0.0F, 2.0F, 4.0F, WEST_ONLY)
+                        .texOffs(79, 118).addBox(0F, 0F, 4F, 1.0F, 2.0F, 0.0F, NORTH_ONLY).mirror(false)
+                        .texOffs(69, 114).addBox(0F, 0F, 0F, 1.0F, 0.0F, 4.0F, UP_ONLY)
+                        .texOffs(71, 114).addBox(0F, 2F, 0F, 1.0F, 0.0F, 4.0F, DOWN_ONLY),
                 PartPose.offset(2.5F, -2.5F, -8F));
         head.addOrReplaceChild("jaw",
                 CubeListBuilder.create().texOffs(72, 82).addBox(-2F, -1F, -9F, 4, 2, 9),
@@ -320,11 +361,11 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
 
         PartDefinition rightEarSkin = head.addOrReplaceChild("right_ear_skin",
                 CubeListBuilder.create().texOffs(112, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, EAST_ONLY)
-                        .texOffs(120, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, WEST_ONLY),
+                        .texOffs(112, 201).mirror().addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, EAST_ONLY),
                 PartPose.offset(-3F, -0.5F, 0F));
         PartDefinition leftEarSkin = head.addOrReplaceChild("left_ear_skin",
                 CubeListBuilder.create().texOffs(96, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, WEST_ONLY)
-                        .texOffs(88, 201).addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, EAST_ONLY),
+                        .texOffs(96, 201).mirror().addBox(0F, -4F, 0F, 0.0F, 8.0F, 8.0F, WEST_ONLY),
                 PartPose.offset(3F, -0.5F, 0F));
 
         PartDefinition rightSpine1 = rightEarSkin.addOrReplaceChild("right_spine1",
@@ -427,15 +468,15 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 PartPose.offsetAndRotation(0F, 14F, 0F, 0F, 0F, 30F * DEG));
         leftFing1a.addOrReplaceChild("left_wing_flap1",
                 CubeListBuilder.create().texOffs(74, 153).addBox(3.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, SOUTH_ONLY)
-                        .texOffs(88, 153).addBox(3.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, NORTH_ONLY),
+                        .texOffs(88, 153).mirror().addBox(3.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, 70F * DEG));
         leftFing2a.addOrReplaceChild("left_wing_flap2",
                 CubeListBuilder.create().texOffs(36, 153).addBox(-7F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, SOUTH_ONLY)
-                        .texOffs(55, 153).addBox(-7F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, NORTH_ONLY),
+                        .texOffs(55, 153).mirror().addBox(-7F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, 40F * DEG));
         leftFing3a.addOrReplaceChild("left_wing_flap3",
                 CubeListBuilder.create().texOffs(0, 153).addBox(-17.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, SOUTH_ONLY)
-                        .texOffs(18, 153).addBox(-17.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, NORTH_ONLY),
+                        .texOffs(18, 153).mirror().addBox(-17.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offset(0F, 0F, 0F));
 
         // right wing
@@ -455,7 +496,7 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 PartPose.offsetAndRotation(0F, 14F, 0F, 0F, 0F, -35F * DEG));
         rightFing1a.addOrReplaceChild("right_wing_flap1",
                 CubeListBuilder.create().texOffs(74, 177).addBox(-17.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, SOUTH_ONLY)
-                        .texOffs(88, 177).addBox(-17.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, NORTH_ONLY),
+                        .texOffs(88, 177).mirror().addBox(-17.5F, -3F, 0.95F, 14.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, -70F * DEG));
         PartDefinition rightFing2a = rightLowArm.addOrReplaceChild("right_fing2a",
                 CubeListBuilder.create().texOffs(44, 30).addBox(-1F, 0F, 0F, 2, 15, 2),
@@ -467,7 +508,7 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 // Both tiles read as painted here, but the NORTH tile is overlapping foreign art (its mirror
                 // left_wing_flap2 is SOUTH-only), so this splits to SOUTH like the other membranes.
                 CubeListBuilder.create().texOffs(36, 177).addBox(-19F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, SOUTH_ONLY)
-                        .texOffs(55, 177).addBox(-19F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, NORTH_ONLY),
+                        .texOffs(55, 177).mirror().addBox(-19F, 1.05F, 1.05F, 19.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offsetAndRotation(0F, 0F, 0F, 0F, 0F, -40F * DEG));
         PartDefinition rightFing3a = rightLowArm.addOrReplaceChild("right_fing3a",
                 CubeListBuilder.create().texOffs(52, 30).addBox(-1F, 0F, 1F, 2, 15, 2),
@@ -477,7 +518,7 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 PartPose.offsetAndRotation(0F, 14F, 0F, 0F, 0F, -30F * DEG));
         rightFing3a.addOrReplaceChild("right_wing_flap3",
                 CubeListBuilder.create().texOffs(0, 177).addBox(-0.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, SOUTH_ONLY)
-                        .texOffs(18, 177).addBox(-0.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, NORTH_ONLY),
+                        .texOffs(18, 177).mirror().addBox(-0.5F, 1F, 1.1F, 18.0F, 24.0F, 0.0F, NORTH_ONLY),
                 PartPose.offset(0F, 0F, 0F));
 
         // left leg
@@ -600,17 +641,75 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 219).addBox(-5.5F, 2.2F, -13.5F, 11, 11, 5),
                 PartPose.offsetAndRotation(0F, 0F, 0F, -0.2602503F, 0F, 0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces), beyond the eye sockets rebuilt above: the snout
+        // beak is a V painted on two faces (north + east) of its box, whose other faces are empty, so from behind
+        // (a rider's view) it was seen through them; tail1 has a gap in its top on the mix sheet; the armour helmets
+        // have eye holes and the bit (mouthrod) open faces. Each twin is the named face of that part's box turned to
+        // face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "main_head/neck2/neck1/head/diamond_helmet", CubeListBuilder.create()
+                .texOffs(15, 226).mirror(false).addBox(-4.0F, -4.0F, -9.0F, 8.0F, 0.0F, 9.0F, MoCBackFaces.UP) // back of the down face
+                // back of the up face, minus the bands where the tack straps and the bit lie flush on it (z-fight)
+                .texOffs(38, 230).mirror(false).addBox(-4.0F, 0.0F, -6.0F, 8.0F, 0.0F, 2.0F, MoCBackFaces.DOWN)
+                .texOffs(38, 226).mirror(false).addBox(-4.0F, 0.0F, -2.0F, 8.0F, 0.0F, 2.0F, MoCBackFaces.DOWN)
+                .texOffs(23, 226).mirror(true).addBox(-4.0F, -4.0F, -9.0F, 0.0F, 4.0F, 9.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(24, 235).mirror(true).addBox(-4.0F, -4.0F, -9.0F, 8.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(31, 226).mirror(true).addBox(4.0F, -4.0F, -9.0F, 0.0F, 4.0F, 9.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(49, 235).mirror(true).addBox(-4.0F, -4.0F, 0.0F, 8.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "main_head/neck2/neck1/head/gold_helmet", CubeListBuilder.create()
+                .texOffs(86, 226).mirror(false).addBox(-4.0F, -4.0F, -9.0F, 8.0F, 0.0F, 9.0F, MoCBackFaces.UP) // back of the down face
+                // back of the up face, minus the bands where the tack straps and the bit lie flush on it (z-fight)
+                .texOffs(109, 230).mirror(false).addBox(-4.0F, 0.0F, -6.0F, 8.0F, 0.0F, 2.0F, MoCBackFaces.DOWN)
+                .texOffs(109, 226).mirror(false).addBox(-4.0F, 0.0F, -2.0F, 8.0F, 0.0F, 2.0F, MoCBackFaces.DOWN)
+                .texOffs(94, 226).mirror(true).addBox(-4.0F, -4.0F, -9.0F, 0.0F, 4.0F, 9.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(95, 235).mirror(true).addBox(-4.0F, -4.0F, -9.0F, 8.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(102, 226).mirror(true).addBox(4.0F, -4.0F, -9.0F, 0.0F, 4.0F, 9.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(120, 235).mirror(true).addBox(-4.0F, -4.0F, 0.0F, 8.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "main_head/neck2/neck1/head/iron_helmet", CubeListBuilder.create()
+                .texOffs(24, 128).mirror(false).addBox(-4.0F, -4.0F, -9.0F, 8.0F, 0.0F, 9.0F, MoCBackFaces.UP) // back of the down face
+                // back of the up face, minus the bands where the tack straps and the bit lie flush on it (z-fight)
+                .texOffs(47, 132).mirror(false).addBox(-4.0F, 0.0F, -6.0F, 8.0F, 0.0F, 2.0F, MoCBackFaces.DOWN)
+                .texOffs(47, 128).mirror(false).addBox(-4.0F, 0.0F, -2.0F, 8.0F, 0.0F, 2.0F, MoCBackFaces.DOWN)
+                .texOffs(32, 128).mirror(true).addBox(-4.0F, -4.0F, -9.0F, 0.0F, 4.0F, 9.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(33, 137).mirror(true).addBox(-4.0F, -4.0F, -9.0F, 8.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(40, 128).mirror(true).addBox(4.0F, -4.0F, -9.0F, 0.0F, 4.0F, 9.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(58, 137).mirror(true).addBox(-4.0F, -4.0F, 0.0F, 8.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "main_head/neck2/neck1/head/mouthrod", CubeListBuilder.create()
+                // back of the down face, ends only: the middle lies flush on the underside of a worn helmet (z-fight)
+                .texOffs(103, 50).mirror(false).addBox(-5.0F, -1.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP)
+                .texOffs(112, 50).mirror(false).addBox(4.0F, -1.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP)
+                .texOffs(104, 50).mirror(true).addBox(-5.0F, -1.0F, -1.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(96, 52).mirror(true).addBox(-5.0F, -1.0F, -1.0F, 10.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(114, 50).mirror(true).addBox(5.0F, -1.0F, -1.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(118, 52).mirror(true).addBox(-5.0F, -1.0F, 1.0F, 10.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "main_head/neck2/neck1/head/snout/beak", CubeListBuilder.create()
+                .texOffs(57, 85).mirror(false).addBox(-1.5F, -2.5F, -1.5F, 3.0F, 0.0F, 3.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(60, 88).mirror(true).addBox(-1.5F, -2.5F, -1.5F, 3.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(63, 85).mirror(true).addBox(1.5F, -2.5F, -1.5F, 0.0F, 5.0F, 3.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "tail_group/tail1", CubeListBuilder.create()
+                .texOffs(8, 22).mirror(false).addBox(-4.0F, 8.0F, 0.0F, 8.0F, 0.0F, 10.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 22).mirror(true).addBox(-4.0F, 0.0F, 0.0F, 0.0F, 8.0F, 10.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(2, 32).mirror(true).addBox(-4.0F, 0.0F, 0.0F, 8.0F, 8.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(8, 22).mirror(true).addBox(4.0F, 0.0F, 0.0F, 0.0F, 8.0F, 10.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(28, 32).mirror(true).addBox(-4.0F, 0.0F, 10.0F, 8.0F, 8.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 128, 256);
     }
 
     @Override
     public void setupAnim(MoCEntityRenderState state) {
         super.setupAnim(state);
-        float limbSwing = state.walkAnimationPos;
-        float limbAmount = state.walkAnimationSpeed;
-        float ageInTicks = state.ageInTicks;
-        float netHeadYaw = state.yRot;
-        float headPitch = state.xRot;
+        // Legacy setRotationAngles(f, f1, f2, f3, f4, f5) inputs, in 1.12 RenderLivingBase.renderModel order.
+        float limbSwing = state.walkAnimationPos;    // f
+        float limbAmount = state.walkAnimationSpeed; // f1
+        float ageInTicks = state.ageInTicks;         // f2
+        float netHeadYaw = state.yRot;               // f3
+        float headPitch = state.xRot;                // f4
+        // Legacy render():788-796 flags. onAir is legacy "isOnAir() || getIsFlying()", evaluated entity-side by
+        // MoCEntityWyvern.isWyvernFlying(); flapWings is legacy "wingFlapCounter != 0" (a 20-tick beat started
+        // server-side, synched); ridden is legacy isBeingRidden().
+        boolean onAir = state.flying;
+        boolean flapWings = state.wyvernFlapping;
+        boolean ridden = state.wyvernRidden;
 
         float rLegXRot = Mth.cos((limbSwing * 0.6662F) + 3.141593F) * 0.8F * limbAmount;
         float lLegXRot = Mth.cos(limbSwing * 0.6662F) * 0.8F * limbAmount;
@@ -627,6 +726,20 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
         this.neck1.yRot = (yaw * (1F / 3F)) * DEG;
         this.head.yRot = 0F;
         this.head.zRot = 0F;
+
+        // Mounted (legacy :967-981): the neck points straight ahead; in the air it stretches out flat, lowering
+        // the head out of the rider's view, and on the ground it bobs with the stride instead of the look pitch.
+        if (ridden) {
+            this.neck1.yRot = 0F;
+            this.neck2.yRot = 0F;
+            if (onAir) {
+                this.neck1.xRot = 0F;
+                this.neck2.xRot = 0F;
+            } else {
+                this.neck2.xRot = -66F * DEG + (rLegXRot * (1F / 60F));
+                this.neck1.xRot = 30F * DEG + (rLegXRot * (2F / 60F));
+            }
+        }
 
         // tail base poses
         this.tail1.xRot = -19F * DEG;
@@ -646,69 +759,64 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
         this.tail4.yRot = a * Mth.sin(w * t - k * (float) i++);
         this.tail5.yRot = a * Mth.sin(w * t - k * (float) i++);
 
-        // wings cruising
-        float wingSpread = Mth.cos(ageInTicks * 0.3F + 3.141593F) * 1.2F;
-
-        boolean onAir = state.flying;
-        if (onAir) {
-            // --- Flight pose: wings spread and flapping, legs tucked back (no walking gait) ---
-            float flap = Mth.sin(ageInTicks * 0.5F);
-
-            this.leftLowArm.zRot = 0F;
-            this.leftFing1a.zRot = 0F;
-            this.leftFing2a.zRot = 0F;
-            this.rightLowArm.zRot = 0F;
-            this.rightFing1a.zRot = 0F;
-            this.rightFing2a.zRot = 0F;
-
-            // up-arm zRot oscillates -> the whole wing beats up and down
-            this.leftUpArm.zRot = (25F + flap * 35F) * DEG;
-            this.leftUpArm.yRot = -70F * DEG;
-            this.leftLowArm.yRot = 105F * DEG;
-            this.leftFing1a.yRot = -20F * DEG;
-            this.leftFing2a.yRot = -26F * DEG;
-            this.leftFing3a.yRot = -32F * DEG;
-
-            this.rightUpArm.zRot = (-25F - flap * 35F) * DEG;
-            this.rightUpArm.yRot = 70F * DEG;
-            this.rightLowArm.yRot = -105F * DEG;
-            this.rightFing1a.yRot = 16F * DEG;
-            this.rightFing2a.yRot = 26F * DEG;
-            this.rightFing3a.yRot = 32F * DEG;
-
-            // legs tucked back/up against the body, no walk swing
-            this.leftUpLeg.xRot = 35F * DEG;
-            this.rightUpLeg.xRot = 35F * DEG;
-            this.leftMidLeg.xRot = 25F * DEG;
-            this.rightMidLeg.xRot = 25F * DEG;
-            this.leftLowLeg.xRot = -55F * DEG;
-            this.rightLowLeg.xRot = -55F * DEG;
-            this.leftFoot.xRot = 30F * DEG;
-            this.rightFoot.xRot = 30F * DEG;
-            this.leftToe1.xRot = 0F; this.leftToe2.xRot = 0F; this.leftToe3.xRot = 0F;
-            this.rightToe1.xRot = 0F; this.rightToe2.xRot = 0F; this.rightToe3.xRot = 0F;
+        // Wing beat (legacy :1011-1025). During a beat the whole chain sweeps through +/-1.2 rad on a ~21-tick
+        // cos(ageInTicks) cycle (one beat is almost exactly one 20-tick wingFlapCounter burst); between beats the
+        // wings glide nearly still (+/-0.1 rad, keyed to the stride). As in legacy the phase is global, not
+        // restarted per beat.
+        float wingSpread;
+        if (flapWings) {
+            wingSpread = Mth.cos((ageInTicks * 0.3F) + 3.141593F) * 1.2F;
         } else {
-            this.leftLowArm.zRot = 0F;
-            this.leftFing1a.zRot = 0F;
-            this.leftFing2a.zRot = 0F;
-            this.rightLowArm.zRot = 0F;
-            this.rightFing1a.zRot = 0F;
-            this.rightFing2a.zRot = 0F;
+            wingSpread = Mth.cos(limbSwing * 0.5F) * 0.1F;
+        }
 
-            this.leftUpArm.zRot = 30F * DEG;
-            this.leftUpArm.yRot = -60F * DEG + (lLegXRot / 5F);
-            this.leftLowArm.yRot = 105F * DEG;
-            this.leftFing1a.yRot = -20F * DEG;
-            this.leftFing2a.yRot = -26F * DEG;
-            this.leftFing3a.yRot = -32F * DEG;
+        // --- Wings. Flight (legacy :1027-1068): the wings OPEN. Up-arm yRot -10 / low-arm 15 / fingers 70-35-(-5)
+        // is the bind-pose splay, so the three membranes fan out to the sides; the beat is zRot down the chain
+        // (up-arm 2/3, low-arm 0.1, finger1 1.0, finger2 0.8 of wingSpread) plus a +/-wingSpread/2.5 fore-aft
+        // sweep of both arm bones. Ground (legacy :1070-1116): folded back along the flanks, swinging with the
+        // stride. Legacy switched between the two in one frame; here the pose blends by state.wingOpen, which
+        // eases over a few ticks, so a landing wyvern folds its wings and a rising one spreads them. The chain's
+        // pivots are constants in legacy too (no per-frame setRotationPoint anywhere in the wyvern), so rotations
+        // alone reproduce both poses.
+        float open = state.wingOpen;
+        this.leftUpArm.zRot = Mth.lerp(open, 30F * DEG, wingSpread * 2F / 3F);
+        this.leftUpArm.yRot = Mth.lerp(open, -60F * DEG + (lLegXRot / 5F), -10F * DEG - (wingSpread / 2.5F));
+        this.leftLowArm.zRot = Mth.lerp(open, 0F, wingSpread * 0.1F);
+        this.leftLowArm.yRot = Mth.lerp(open, 105F * DEG, 15F * DEG + (wingSpread / 2.5F));
+        this.leftFing1a.zRot = Mth.lerp(open, 0F, wingSpread);
+        this.leftFing1a.yRot = Mth.lerp(open, -20F * DEG, 70F * DEG);
+        this.leftFing2a.zRot = Mth.lerp(open, 0F, wingSpread * 0.8F);
+        this.leftFing2a.yRot = Mth.lerp(open, -26F * DEG, 35F * DEG);
+        this.leftFing3a.yRot = Mth.lerp(open, -32F * DEG, -5F * DEG);
+        this.rightUpArm.zRot = Mth.lerp(open, -30F * DEG, -wingSpread * 2F / 3F);
+        this.rightUpArm.yRot = Mth.lerp(open, 60F * DEG - (rLegXRot / 5F), 10F * DEG + (wingSpread / 2.5F));
+        this.rightLowArm.zRot = Mth.lerp(open, 0F, -wingSpread * 0.1F);
+        this.rightLowArm.yRot = Mth.lerp(open, -105F * DEG, -15F * DEG - (wingSpread / 2.5F));
+        this.rightFing1a.zRot = Mth.lerp(open, 0F, -wingSpread);
+        this.rightFing1a.yRot = Mth.lerp(open, 16F * DEG, -70F * DEG);
+        this.rightFing2a.zRot = Mth.lerp(open, 0F, -wingSpread * 0.8F);
+        this.rightFing2a.yRot = Mth.lerp(open, 26F * DEG, -35F * DEG);
+        this.rightFing3a.yRot = Mth.lerp(open, 32F * DEG, 5F * DEG);
 
-            this.rightUpArm.yRot = 60F * DEG - (rLegXRot / 5F);
-            this.rightUpArm.zRot = -30F * DEG;
-            this.rightLowArm.yRot = -105F * DEG;
-            this.rightFing1a.yRot = 16F * DEG;
-            this.rightFing2a.yRot = 26F * DEG;
-            this.rightFing3a.yRot = 32F * DEG;
+        if (onAir) {
+            // --- Flight legs (legacy :1027-1068): they trail back with airspeed; low legs keep the bind pose
+            // (legacy never sets them in this branch).
+            float speedMov = limbAmount * 0.5F;
 
+            this.leftUpLeg.xRot = speedMov;
+            this.leftMidLeg.xRot = speedMov;
+            this.leftFoot.xRot = 25F * DEG;
+            this.leftToe1.xRot = speedMov;
+            this.leftToe2.xRot = speedMov;
+            this.leftToe3.xRot = speedMov;
+            this.rightFoot.xRot = 25F * DEG;
+            this.rightUpLeg.xRot = speedMov;
+            this.rightMidLeg.xRot = speedMov;
+            this.rightToe1.xRot = speedMov;
+            this.rightToe2.xRot = speedMov;
+            this.rightToe3.xRot = speedMov;
+        } else {
+            // --- Ground legs (legacy :1070-1116): the walking stride. ---
             this.leftUpLeg.xRot = -25F * DEG + lLegXRot;
             this.rightUpLeg.xRot = -25F * DEG + rLegXRot;
             this.leftMidLeg.xRot = 0F;
@@ -747,25 +855,26 @@ public class MoCModelWyvern extends EntityModel<MoCEntityRenderState> {
         float earFlap = Mth.cos(ageInTicks * 0.18F) * 0.12F;
         float jawCycle = Mth.cos(ageInTicks * 0.12F);
         float mouthOpen = Mth.clamp((jawCycle - 0.6F) / 0.4F, 0F, 1F) * 0.55F;
-        this.jaw.xRot = -10F * DEG - mouthOpen;
+        // Legacy :1155 ADDS the gape (-10deg + mouthMov, mouthMov >= 0 through the open phase), and a positive
+        // xRot swings the jaw's tip (local z -9) DOWN. This used to subtract it, so every "roar" swung the jaw UP
+        // through the snout, right in front of the eyes.
+        this.jaw.xRot = -10F * DEG + mouthOpen;
         // Ears flare wider while the jaw is open, echoing the legacy mouth-open ear splay.
         this.leftEarSkin.yRot = earFlap + mouthOpen * 0.5F;
         this.rightEarSkin.yRot = -earFlap - mouthOpen * 0.5F;
-        // touch wingSpread so it is not flagged unused while preserving the formula
-        if (wingSpread == Float.MAX_VALUE) {
-            this.leftWing.zRot = wingSpread;
-            this.rightWing.zRot = wingSpread;
-        }
 
-        // equipment visibility: saddle + tack only when saddled
+        // Equipment visibility (legacy render():829-848): saddle and tack only when saddled — including the bit
+        // (mouthrod), which was left always visible here, a bar through every wild wyvern's mouth — and the
+        // reins (control ropes, children of the bit) only while someone is actually riding.
         boolean tack = state.saddled;
         this.saddle.visible = tack;
+        this.mouthrod.visible = tack;
         this.chestbelt.visible = tack;
         this.stomachbelt.visible = tack;
         this.helmetstrap1.visible = tack;
         this.helmetstrap2.visible = tack;
-        this.controlrope1.visible = tack;
-        this.controlrope2.visible = tack;
+        this.controlrope1.visible = tack && ridden;
+        this.controlrope2.visible = tack && ridden;
 
         // Storage bag shows when the wyvern is fitted with a chest; the armour set matching the worn tier
         // (1 iron / 2 gold / 3 diamond, legacy getArmorType) shows, the others stay hidden.

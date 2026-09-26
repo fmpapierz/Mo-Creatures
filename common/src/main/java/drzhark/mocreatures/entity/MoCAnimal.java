@@ -103,7 +103,14 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         if (behavior().canBreed) {
             this.goalSelector.addGoal(2, new BreedGoal(this, 1.0D));
         }
-        this.goalSelector.addGoal(5, new MoCFollowOwnerGoal(this, 1.1D, 10.0F, 4.0F));
+        // No follow-the-owner goal: a tamed Mo'Creature roams like a wild one, exactly as in legacy. 5.1.5's
+        // MoCEntityAnimal only ever pathed to a player who held a rope on it or held its favourite food
+        // (updateEntityActionState / followPlayer:1732), and 12.0.5's EntityAIFollowOwnerPlayer — attached to
+        // only nine species — only started with the owner already 2-10 blocks away and stopped the moment the
+        // owner was inside 10 (shouldContinueExecuting needs distance > maxDist), so it never chased anyone.
+        // The port used to give every tamed creature a follow goal that teleported it after its owner, so pets
+        // trailed the player everywhere instead of living where they were left. To bring a pet along, put a
+        // rope or a lead on it; the whip toggles a pet between staying put and roaming (MoCWhipItem).
         this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 1.0D));
         this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 6.0F));
         this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
@@ -112,11 +119,13 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
             this.goalSelector.addGoal(3, new net.minecraft.world.entity.ai.goal.MeleeAttackGoal(this, 1.3D, true));
             // Retaliate when hurt — but a TAMED big cat never rounds on a player attacker, including its
             // own owner (legacy MoCEntityBigCat.attackEntityFrom returned false without setting
-            // entityToAttack when a tamed cat was struck by a player).
+            // entityToAttack when a tamed cat was struck by a player). The pet manticore IS a big cat in
+            // legacy (MoCEntityManticorePet extends MoCEntityBigCat), so it inherits the same restraint.
             this.targetSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal(this) {
                 @Override
                 public boolean canUse() {
-                    if (MoCAnimal.this instanceof drzhark.mocreatures.entity.passive.MoCEntityBigCat
+                    if ((MoCAnimal.this instanceof drzhark.mocreatures.entity.passive.MoCEntityBigCat
+                                    || MoCAnimal.this instanceof drzhark.mocreatures.entity.passive.MoCEntityManticorePet)
                             && MoCAnimal.this.getIsTamed()
                             && MoCAnimal.this.getLastHurtByMob() instanceof Player) {
                         return false;
@@ -545,6 +554,20 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
             }
             return InteractionResult.SUCCESS;
         }
+        // A medallion the creature is not ready for. Legacy silently ignored it, and nothing in the game says
+        // that a big cat or manticore must first be a cub that has eaten meat off the ground (or a kitty, a
+        // cooked fish), so the refusal read as "taming is broken". Say what is missing instead; nothing is used.
+        if (spec.tame == MoCBehavior.Tame.MEDALLION && !getIsTamed()
+                && stack.is(MoCItems.MEDALLION.get()) && !stack.has(DataComponents.CUSTOM_NAME)
+                && requiresFeedingBeforeTaming() && !getHasEatenMoC()) {
+            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                String hint = this instanceof drzhark.mocreatures.entity.passive.MoCEntityKitty ? "tame_hint_kitty"
+                        : getIsAdult() ? "tame_hint_adult" : "tame_hint_cub";
+                serverPlayer.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.mocreatures." + hint, getDisplayName()));
+            }
+            return InteractionResult.SUCCESS;
+        }
         // Feed a TAMED big cat raw pork/fish (PORKCHOP/COD): legacy MoCEntityBigCat.interact set
         // health = getMaxHealth(), cleared hunger (setHungry(false)) and played the "eating" sound at
         // ANY health, and did NOT consume the item (no stack decrement). Special-cased before the generic
@@ -596,8 +619,9 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         }
         // Saddle a tamed rideable creature that needs a saddle (the mod horse-saddle works like the vanilla one).
         // A wyvern must be adult first (legacy edad > 90), matching its barding gate.
-        // A ride-tameable creature (horse, wyvern) may be saddled while still WILD — that is how you get on it
-        // to break it in (legacy MoCEntityHorse:1328 / MoCEntityWyvern:363 have no tamed gate here).
+        // A ride-tameable creature (the horse) may be saddled while still WILD — that is how you get on it to
+        // break it in (legacy MoCEntityHorse:1328 has no tamed gate here). The wyvern is NOT ride-tameable: it
+        // follows 12.0.5, where only a tamed (hatched) wyvern takes a saddle (see its MoCBehavior spec).
         if ((getIsTamed() || spec.rideTames) && spec.rideable && spec.rideNeedsSaddle && !isSaddled() && rideAgeOk
                 && (stack.is(Items.SADDLE) || stack.is(drzhark.mocreatures.registry.MoCItems.HORSESADDLE.get()))) {
             if (server) {
@@ -754,9 +778,217 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         return new Vec3(strafe, 0.0D, forward);
     }
 
+    /**
+     * How much faster a mount goes while its rider sprints — the player's own walk-to-sprint ratio. Legacy
+     * mounts had no sprint at all (a 1.12 rider could not sprint); 26.2 lets a vehicle opt in, as the camel does.
+     */
+    private static final float SPRINT_MULTIPLIER = 1.3F;
+
+    /**
+     * Every rideable Mo'Creature can be sprinted, the vanilla camel's opt-in ({@code Camel.canSprint}): the
+     * client only lets a rider start sprinting when the vehicle answers true here
+     * ({@code LocalPlayer.vehicleCanSprint}), and the rider's sprint then speeds the mount up through
+     * {@link #getRiddenSpeed} and {@link #travelRiddenFlight}.
+     */
     @Override
-    protected float getRiddenSpeed(Player controller) {
+    public boolean canSprint() {
+        return isRideable();
+    }
+
+    /** Ground speed under a rider: the species' own pace ({@link #getMountSpeed}), boosted while the rider sprints. */
+    @Override
+    protected final float getRiddenSpeed(Player controller) {
+        float speed = getMountSpeed(controller);
+        return controller.isSprinting() ? speed * SPRINT_MULTIPLIER : speed;
+    }
+
+    /** The species' ridden ground pace before any sprint boost; mounts with a legacy custom speed override this. */
+    protected float getMountSpeed(Player controller) {
         return (float) this.getAttributeValue(Attributes.MOVEMENT_SPEED);
+    }
+
+    // ------------------------------------------------------------------------------- placeable furniture
+
+    /**
+     * For the placeable furniture (fish bowl, kitty bed, litter box): break the plant growing in the block this
+     * entity rests in — short/tall grass, ferns, flowers, saplings, dead bushes, vines, leaf litter — the way
+     * placing a real block there would clear it, so the plant no longer shows through the glass or the bedding.
+     * Only walk-through vegetation ({@code #replaceable_by_trees}, {@code #flowers}, {@code #saplings} with an
+     * empty collision shape and no fluid): never a torch, redstone, a carpet or water. It drops like breaking it
+     * by hand. Server-side; call while the furniture is on the ground.
+     */
+    protected void breakPlantsInside(ServerLevel level) {
+        net.minecraft.core.BlockPos pos = this.blockPosition();
+        if (isClearablePlant(level, pos)) {
+            level.destroyBlock(pos, true, this);
+        }
+    }
+
+    /**
+     * Walk-through vegetation that placed furniture clears: {@code #replaceable_by_trees} (grass, ferns, bushes,
+     * vines, leaf litter, tall flowers...), {@code #flowers} and {@code #saplings}, with no collision shape and no
+     * fluid — never a torch, redstone, a rail or water.
+     */
+    public static boolean isClearablePlant(net.minecraft.world.level.BlockGetter level, net.minecraft.core.BlockPos pos) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+        return !state.isAir() && state.getFluidState().isEmpty() && state.getCollisionShape(level, pos).isEmpty()
+                && (state.is(net.minecraft.tags.BlockTags.REPLACEABLE_BY_TREES)
+                        || state.is(net.minecraft.tags.BlockTags.FLOWERS)
+                        || state.is(net.minecraft.tags.BlockItemTags.SAPLINGS.block()));
+    }
+
+    // ------------------------------------------------------------------------------- winged mounts
+
+    /**
+     * Whether nothing solid lies within {@code depth} blocks under this creature's feet. This is the airborne
+     * test for the winged mounts, and it has to be a block probe rather than {@code !onGround()}: 26.2
+     * {@code Entity.move} rewrites {@code onGround} on the authoritative side even for a zero vertical move
+     * (mc262-ref Entity.java:764-767), and a gravity-free mount that is not moving up or down reports "not on
+     * the ground" while standing on it. A flight mode keyed on {@code onGround} therefore flipped between
+     * flying and landed every tick at ground level — the manticore's wings snapped open and shut in place.
+     * Works the same on the server and on every client, from block data alone.
+     */
+    public boolean hasGroundBelow(double depth) {
+        net.minecraft.world.phys.AABB box = this.getBoundingBox();
+        return !this.level().noBlockCollision(this,
+                new net.minecraft.world.phys.AABB(box.minX, box.minY - depth, box.minZ, box.maxX, box.minY, box.maxZ));
+    }
+
+    /** Airborne for the winged mounts' wing pose, wing beats and flight mode: no ground within 0.2 blocks. */
+    public boolean isOffGround() {
+        return !hasGroundBelow(0.2D);
+    }
+
+    /**
+     * A ridden flyer has landed: it is within 0.2 of the ground ({@link #hasGroundBelow}) or has come down on water,
+     * where it swims (legacy flyingMount also required isOnAir), and its rider is not looking up past 25 degrees,
+     * which is how a rider takes off again from either. The caller then walks it with gravity.
+     */
+    protected boolean isRiddenFlightLanded(Player rider) {
+        return rider.getXRot() >= -25.0F && (hasGroundBelow(0.2D) || this.isInWater());
+    }
+
+    /**
+     * The port's own snappy rider-steering: it settles at 10/11 of {@code speed} within a few ticks and stops as
+     * quickly. Every winged mount used to fly with it; they now fly with 12.0.5's physics
+     * ({@link #travelRiddenFlightLegacy}), and it only moves the wyvern along the ground. Pitch steers: looking up past
+     * 25 degrees takes off, looking down dives; W/S drive forward and brake; A/D strafe; sprinting is 1.3x faster.
+     * With no input it glides down under legacy's flying-mount fall, {@code motionY = motionY * 0.6 - 0.055}. Unless
+     * {@code flyOnGround} keeps it in this mode, {@link #isRiddenFlightLanded} hands the mount back to gravity.
+     *
+     * <p>Runs wherever {@code travel} runs — for a ridden mount that is the rider's own client (26.2
+     * {@code LivingEntity.travelRidden}; the server only checks the moves it is sent), so nothing here may be
+     * server-only. The wing beats that go with it are driven server-side from {@code aiStep}, not from here.</p>
+     *
+     * @param speed the mount's flight speed before the sprint boost
+     * @return true when this tick was flown here; false when the caller should walk it with gravity
+     */
+    protected boolean travelRiddenFlight(Player rider, double speed, boolean flyOnGround) {
+        if (!flyOnGround && isRiddenFlightLanded(rider)) {
+            this.setNoGravity(false);
+            return false;
+        }
+        faceRider(rider);
+        this.setNoGravity(true);
+        float fwd = rider.zza;
+        float str = rider.xxa;
+        double flySpeed = rider.isSprinting() ? speed * SPRINT_MULTIPLIER : speed;
+        if (fwd != 0.0F || str != 0.0F) {
+            // Forward ONLY when actually pressing W/S — fwd == 0 must add no forward motion, otherwise strafing
+            // alone drifts diagonally. Side uses the LEFT vector to match xxa (A/left = +1).
+            Vec3 look = rider.getLookAngle();
+            double fwdScale = fwd > 0.0F ? flySpeed : (fwd < 0.0F ? -flySpeed * 0.4D : 0.0D);
+            Vec3 forward = look.scale(fwdScale);
+            Vec3 side = new Vec3(look.z, 0.0D, -look.x).normalize().scale(str * flySpeed * 0.5D);
+            Vec3 desired = forward.add(side);
+            this.setDeltaMovement(this.getDeltaMovement().scale(0.5D).add(desired.scale(0.5D)));
+        } else {
+            Vec3 dm = this.getDeltaMovement();
+            this.setDeltaMovement(dm.x * 0.7D, (dm.y * 0.6D) - 0.055D, dm.z * 0.7D);
+        }
+        this.move(net.minecraft.world.entity.MoverType.SELF, this.getDeltaMovement());
+        this.setDeltaMovement(this.getDeltaMovement().scale(0.9D));
+        return true;
+    }
+
+    /**
+     * 12.0.5 {@code MoCEntityAnimal.flyerFriction} (:829): how much of its speed a flying mount keeps each tick, 0.91
+     * unless the species sets its own (the wyvern). It sets both a mount's top speed and how long it takes to reach it
+     * and to coast to a stop; see {@link #travelRiddenFlightLegacy}.
+     */
+    protected float flyerFriction() {
+        return 0.91F;
+    }
+
+    /**
+     * Extra damping on a gliding mount's fall, applied at the start of the tick: 1 = none. 12.0.5's horse multiplied
+     * a falling flyer's or floater's motionY by 0.6 at the top of every {@code onLivingUpdate}
+     * ({@code MoCEntityHorse}:2119-2125), so a gliding pegasus sinks at about 1 block a second instead of 2.6.
+     */
+    protected double flyerFallDamping() {
+        return 1.0D;
+    }
+
+    /**
+     * 12.0.5's own flying-mount physics ({@code MoCEntityAnimal.moveWithRider}:743-748), steered like
+     * {@link #travelRiddenFlight}. Legacy moved the mount first, then pushed it along the rider's facing by
+     * {@code input * customSpeed * flyerFriction / 10} ({@code moveRelative}, which scales an input longer than 1
+     * back to 1), then multiplied the horizontal motion by {@link #flyerFriction}. So the mount builds up speed over a
+     * second or two, drifts through turns and glides on when the rider lets go, instead of snapping to a set speed.
+     * A 1.12 rider steered it on their own client, which also damped a rider-steered mount by 0.98 every tick (1.12.2
+     * {@code EntityLivingBase.onLivingUpdate}, the {@code !isServerWorld()} branch) and sent the result to the
+     * server. So the top speed is {@code 0.98 * a * f / (1 - 0.98 * f)} with {@code a = 0.98 * customSpeed * f / 10},
+     * the push capped at {@code f / 10}: 0.75 blocks a tick for the default friction 0.91 (a pegasus or the pet
+     * manticore), 1.08 for 0.94 and 1.50 for 0.96 (the wyverns).
+     *
+     * <p>Port changes: the push follows the rider's look, pitch included, so looking up climbs and looking down
+     * dives (legacy flew level and climbed by flapping), and while steering the vertical motion takes the same
+     * friction, so a climb or a level cruise holds. With no input it glides as legacy did: the horizontal motion
+     * drifts on and the fall is {@link #flyerFallDamping} then {@code motionY * 0.6 - 0.055}. S pushes back at 0.4 and
+     * sprinting pushes 1.3x harder, as in {@link #travelRiddenFlight}. Call it only while airborne (see
+     * {@link #isRiddenFlightLanded}); like that method, it runs wherever {@code travel} runs.</p>
+     *
+     * @param customSpeed the species' legacy {@code getCustomSpeed()} under a rider
+     */
+    protected void travelRiddenFlightLegacy(Player rider, double customSpeed) {
+        faceRider(rider);
+        this.setNoGravity(true);
+        float flyerFriction = flyerFriction();
+        float fwd = rider.zza;
+        float str = rider.xxa;
+        boolean steering = fwd != 0.0F || str != 0.0F;
+        Vec3 motion = this.getDeltaMovement();
+        if (!steering && motion.y < 0.0D) {
+            motion = new Vec3(motion.x, motion.y * flyerFallDamping(), motion.z);
+        }
+        motion = motion.scale(0.98D);
+        this.setDeltaMovement(motion);
+        this.move(net.minecraft.world.entity.MoverType.SELF, motion);
+        motion = this.getDeltaMovement(); // move() zeroes a blocked axis
+        if (steering) {
+            double forward = (fwd < 0.0F ? fwd * 0.4D : fwd) * customSpeed;
+            double strafe = str * 0.5D * customSpeed;
+            double push = (flyerFriction / 10.0D) / Math.max(1.0D, Math.sqrt(forward * forward + strafe * strafe));
+            if (rider.isSprinting()) {
+                push *= SPRINT_MULTIPLIER;
+            }
+            float yawRad = this.getYRot() * net.minecraft.util.Mth.DEG_TO_RAD;
+            Vec3 left = new Vec3(net.minecraft.util.Mth.cos(yawRad), 0.0D, net.minecraft.util.Mth.sin(yawRad));
+            motion = motion.add(rider.getLookAngle().scale(forward * push)).add(left.scale(strafe * push))
+                    .scale(flyerFriction);
+        } else {
+            motion = new Vec3(motion.x * flyerFriction, (motion.y * 0.6D) - 0.055D, motion.z * flyerFriction);
+        }
+        this.setDeltaMovement(motion);
+    }
+
+    /** A ridden flyer turns with its rider: yaw, body and head follow the rider, pitch at half the rider's. */
+    private void faceRider(Player rider) {
+        this.setYRot(rider.getYRot());
+        this.yRotO = this.getYRot();
+        this.setXRot(rider.getXRot() * 0.5F);
+        this.yBodyRot = this.getYRot();
+        this.yHeadRot = this.getYRot();
     }
 
     // ------------------------------------------------------------------------------------ damage
@@ -856,11 +1088,12 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
     /**
      * Legacy {@code MoCEntityAnimal.onLivingUpdate}:1096-1142 — breaking in a wild mount.
      *
-     * <p>While an untamed ride-tameable creature (horse, wyvern) carries a rider it bucks: it hops, veers, and
+     * <p>While an untamed ride-tameable creature (the horse) carries a rider it bucks: it hops, veers, and
      * on a 1-in-50 tick throws the rider off with its angry sound. Every tick it also rolls
      * {@code rand.nextInt((maxTemper - temper) * 8) == 0}; when that hits, the creature submits and is tamed.
-     * Feeding it wheat / sugar lump / bread raises its temper and so shortens the odds. This is the ONLY way
-     * legacy tamed a wyvern, and the ordinary way it tamed a wild horse.</p>
+     * Feeding it wheat / sugar lump / bread raises its temper and so shortens the odds. This is the ordinary way
+     * legacy tamed a wild horse. (5.1.5 also broke in wild wyverns this way; 12.0.5 removed that, and so does
+     * the port — a wyvern is only ever hatched.)</p>
      */
     private void tickBreakingIn() {
         if (!(this.level() instanceof ServerLevel serverLevel) || getIsTamed() || !isVehicle()) {
@@ -882,7 +1115,14 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
                     this.random.nextDouble() / 10.0D));
             this.hurtMarked = true;
         }
-        // Throw the rider off.
+        // Throw the rider off: the rider is set down beside the mount (vanilla dismount placement).
+        //
+        // Legacy also wrote `passenger.motionY += 0.9; passenger.motionZ -= 0.3` (5.1.5 MoCEntityAnimal:1113-1118,
+        // 12.0.5 :776-778), but that was a server-side change to a PLAYER's motion without velocityChanged, which
+        // 1.6/1.12 never sent to the client — so in legacy the buck-off simply set you down. The port used to add
+        // hurtMarked, which made the launch real: every throw fired the rider ~5 blocks into the air, straight
+        // past the angry mount's jaws, and dropped them for fall damage that armour does not reduce. Breaking in a
+        // wild wyvern takes ~16 throws on average, and that alone killed a rider in full netherite.
         if (this.random.nextInt(50) == 0) {
             net.minecraft.sounds.SoundEvent mad = getAngrySound();
             if (mad != null) {
@@ -890,8 +1130,6 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
                         1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.2F);
             }
             rider.stopRiding();
-            rider.setDeltaMovement(rider.getDeltaMovement().add(0.0D, 0.9D, -0.3D));
-            rider.hurtMarked = true;
             return;
         }
         // Submit? The closer temper is to maxTemper, the shorter the odds.

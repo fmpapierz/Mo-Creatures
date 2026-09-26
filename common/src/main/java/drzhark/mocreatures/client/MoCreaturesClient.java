@@ -67,7 +67,6 @@ public final class MoCreaturesClient {
         EntityModelLayerRegistry.register(MoCModelLayers.WRAITH, drzhark.mocreatures.client.model.MoCModelWraith::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.HELL_RAT, drzhark.mocreatures.client.model.MoCModelHellRat::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.FLAME_WRAITH, drzhark.mocreatures.client.model.MoCModelFlameWraith::createBodyLayer);
-        EntityModelLayerRegistry.register(MoCModelLayers.HORSE_MOB, drzhark.mocreatures.client.model.MoCModelHorseMob::createBodyLayer);
 
         EntityModelLayerRegistry.register(MoCModelLayers.ANT, drzhark.mocreatures.client.model.MoCModelAnt::createBodyLayer);
         EntityModelLayerRegistry.register(MoCModelLayers.RACCOON, drzhark.mocreatures.client.model.MoCModelRaccoon::createBodyLayer);
@@ -128,13 +127,16 @@ public final class MoCreaturesClient {
         EntityRendererRegistry.register(MoCEntities.WRAITH, context -> new drzhark.mocreatures.client.renderer.MoCWraithRenderer(context));
         EntityRendererRegistry.register(MoCEntities.HELL_RAT, context -> new MoCMobRenderer<>(context, MoCModelLayers.HELL_RAT, drzhark.mocreatures.client.model.MoCModelHellRat::new, 0.35F));
         EntityRendererRegistry.register(MoCEntities.FLAME_WRAITH, context -> new drzhark.mocreatures.client.renderer.MoCFlameWraithRenderer(context));
-        EntityRendererRegistry.register(MoCEntities.HORSE_MOB, context -> new MoCMobRenderer<>(context, MoCModelLayers.HORSE_MOB, drzhark.mocreatures.client.model.MoCModelHorseMob::new, 0.7F));
+        // The hostile undead / skeleton / bat / nightmare horse is drawn by the tame horse's model, as legacy did
+        // (MoCModelNewHorseMob extends MoCModelNewHorse). A separate horse-mob model gave the bat horse the fairy
+        // membrane wings, whose tiles are blank on horsebat.png, so its wings were invisible and its legs came apart.
+        EntityRendererRegistry.register(MoCEntities.HORSE_MOB, context -> new MoCMobRenderer<>(context, MoCModelLayers.HORSE, drzhark.mocreatures.client.model.MoCModelHorse::new, 0.7F));
         EntityRendererRegistry.register(MoCEntities.ROCK, context -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(context));
         EntityRendererRegistry.register(MoCEntities.THROWN_EGG, context -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(context));
         EntityRendererRegistry.register(MoCEntities.THROWN_DUCK_EGG, context -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(context));
         EntityRendererRegistry.register(MoCEntities.THROWABLE_ROCK, context -> new drzhark.mocreatures.client.renderer.MoCThrowableRockRenderer(context));
-        EntityRendererRegistry.register(MoCEntities.EGG, context -> new MoCMobRenderer<>(context, MoCModelLayers.EGG, drzhark.mocreatures.client.model.MoCModelEgg::new, 0.2F));
-        EntityRendererRegistry.register(MoCEntities.KITTY_BED, context -> new drzhark.mocreatures.client.renderer.MoCKittyBedRenderer(context, MoCModelLayers.KITTY_BED, drzhark.mocreatures.client.model.MoCModelKittyBed::new, 0.0F));
+        EntityRendererRegistry.register(MoCEntities.EGG, context -> new MoCMobRenderer<>(context, MoCModelLayers.EGG, drzhark.mocreatures.client.model.MoCModelEgg::new, 0.0F)); // legacy MoCRenderEgg: no shadow
+        EntityRendererRegistry.register(MoCEntities.KITTY_BED, context -> new drzhark.mocreatures.client.renderer.MoCKittyBedRenderer(context, MoCModelLayers.KITTY_BED, drzhark.mocreatures.client.model.MoCModelKittyBed::new, 0.3F)); // legacy shadow size 0.3
         EntityRendererRegistry.register(MoCEntities.LITTER_BOX, context -> new MoCMobRenderer<>(context, MoCModelLayers.LITTER_BOX, drzhark.mocreatures.client.model.MoCModelLitterBox::new, 0.0F));
         EntityRendererRegistry.register(MoCEntities.FISH_BOWL, context -> new MoCMobRenderer<>(context, MoCModelLayers.FISH_BOWL, drzhark.mocreatures.client.model.MoCModelFishBowl::new, 0.3F));
 

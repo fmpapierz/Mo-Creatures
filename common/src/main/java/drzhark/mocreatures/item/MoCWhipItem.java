@@ -23,7 +23,7 @@ import net.minecraft.world.phys.AABB;
  * The Whip — cracking it (right-click a block) commands every owned, tamed Mo'Creature within 12
  * blocks; right-clicking one creature directly commands just that one.
  *
- * <p>An unridden creature toggles between following its owner and staying put; a horse told to wait
+ * <p>An unridden creature toggles between roaming freely and staying put; a horse told to wait
  * grazes and an ostrich buries its head, the legacy flourishes for those two. A creature you are RIDING
  * is urged on instead: an ostrich sprints, an elephant charges, and a horse surges forward (a nightmare
  * with a fiery burst). A wyvern in flight and a kitty that is not calm ignore the crack, as in legacy.
@@ -81,10 +81,10 @@ public class MoCWhipItem extends Item {
     }
 
     /**
-     * Toggles a tamed creature between following its owner and staying put, and tells the owner which it
-     * is now doing. This is the generic command every tamed Mo'Creature answers to — the port gives every
-     * tamed creature a follow-the-owner AI ({@code MoCFollowOwnerGoal}), so every one of them needs a way
-     * to be told to wait somewhere. A creature that is currently being ridden or carried is left alone.
+     * Toggles a tamed creature between roaming freely and staying put, and tells the owner which it is now
+     * doing. This is the generic command every tamed Mo'Creature answers to: a tamed pet wanders on its own
+     * (legacy pets had no follow-the-owner AI), so the whip is how you pin one to a spot — and let it go
+     * again. A creature that is currently being ridden or carried is left alone.
      */
     private static void toggleStay(Level level, MoCAnimal moc, @org.jspecify.annotations.Nullable Player player) {
         if (moc.isVehicle() || moc.isPassenger()) {
@@ -95,7 +95,7 @@ public class MoCWhipItem extends Item {
         feedback(level, moc);
         if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
             serverPlayer.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
-                    moc.isSitting() ? "message.mocreatures.staying" : "message.mocreatures.following",
+                    moc.isSitting() ? "message.mocreatures.staying" : "message.mocreatures.roaming",
                     moc.getDisplayName()));
         }
     }
@@ -133,11 +133,10 @@ public class MoCWhipItem extends Item {
      * Dispatch one crack to a creature.
      *
      * <p>Legacy {@code MoCItemWhip} branched on six species (BigCat, Horse, Kitty, Wyvern, Ostrich,
-     * Elephant) and left every other tamed creature untouched, because legacy pets had no follow-owner AI
-     * to switch off — they simply wandered. This port gives every tamed creature
-     * {@link drzhark.mocreatures.entity.MoCFollowOwnerGoal}, so the sit/stay toggle that legacy reserved
-     * for the big cat now applies to every tamed Mo'Creature (bunny, goat, bear, fox, deer, turkey,
-     * komodo, elephant, horse, ...). Without it a tamed bunny could never be told to wait.</p>
+     * Elephant) and left every other tamed creature untouched. Legacy pets simply wandered, and so do this
+     * port's; the sit/stay toggle that legacy reserved for the big cat is extended to every tamed
+     * Mo'Creature (bunny, goat, bear, fox, deer, turkey, komodo, elephant, horse, ...) so any pet can be
+     * told to wait in one spot instead of drifting off — and released to roam again.</p>
      *
      * <p>The one legacy refusal kept verbatim: a wyvern ignores the whip in flight, because it cannot sit
      * mid-air. (The legacy kitty gate {@code getKittyState() > 2 && whipeable()} excluded only the

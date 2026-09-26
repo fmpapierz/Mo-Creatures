@@ -128,6 +128,12 @@ public class MoCEntityKitty extends MoCAnimal {
         this.goalSelector.addGoal(4, new drzhark.mocreatures.entity.MoCKittyPlayGoal(this));
     }
 
+    /** Legacy {@code fall()} was overridden empty (12.0.5 MoCEntityKitty): no fall damage. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float multiplier, DamageSource source) {
+        return false;
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
         return Animal.createAnimalAttributes()
                 .add(Attributes.MAX_HEALTH, 15.0D)

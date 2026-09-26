@@ -40,10 +40,11 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
 
     // Face selectors for the flat (zero-thickness) tusk-armour fins: only the WEST side of each fin
-    // is painted on the sheet, so under the culled render type each fin box is split into a painted
-    // face plus an opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    // is painted on the sheet, so under the culled render type each fin box is split into the painted
+    // WEST face plus the same WEST face again with mirror(), which turns an X face round (facing +X)
+    // without changing its texture layout: every point carries the texel 1.12 (culling off) showed there
+    // from behind. A re-aimed EAST face lays the tile out back to front along the fin (see MoCBackFaces).
     private static final Set<Direction> WEST_FACE = Set.of(Direction.WEST);
-    private static final Set<Direction> EAST_FACE = Set.of(Direction.EAST);
 
     private final ModelPart head;
     private final ModelPart neck;
@@ -421,12 +422,12 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("tusk_lw4",
                 CubeListBuilder.create()
                         .texOffs(46, 164).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
-                        .texOffs(41, 164).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
+                        .texOffs(46, 164).mirror().addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_lw5",
                 CubeListBuilder.create()
                         .texOffs(52, 192).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
-                        .texOffs(44, 192).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
+                        .texOffs(52, 192).mirror().addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_rw1",
                 CubeListBuilder.create().texOffs(56, 166).addBox(-4.3F, 5.5F, -24.2F, 3.0F, 3.0F, 7.0F),
@@ -440,12 +441,12 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("tusk_rw4",
                 CubeListBuilder.create()
                         .texOffs(46, 157).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
-                        .texOffs(41, 157).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
+                        .texOffs(46, 157).mirror().addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_rw5",
                 CubeListBuilder.create()
                         .texOffs(52, 199).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
-                        .texOffs(44, 199).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
+                        .texOffs(52, 199).mirror().addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
 
         // Iron (tier 2)
@@ -461,12 +462,12 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("tusk_li4",
                 CubeListBuilder.create()
                         .texOffs(96, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
-                        .texOffs(91, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
+                        .texOffs(96, 175).mirror().addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_li5",
                 CubeListBuilder.create()
                         .texOffs(112, 209).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
-                        .texOffs(104, 209).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
+                        .texOffs(112, 209).mirror().addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_ri1",
                 CubeListBuilder.create().texOffs(108, 180).addBox(-4.3F, 5.5F, -24.2F, 3.0F, 3.0F, 7.0F),
@@ -480,12 +481,12 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("tusk_ri4",
                 CubeListBuilder.create()
                         .texOffs(96, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
-                        .texOffs(91, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
+                        .texOffs(96, 163).mirror().addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_ri5",
                 CubeListBuilder.create()
                         .texOffs(112, 216).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
-                        .texOffs(104, 216).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
+                        .texOffs(112, 216).mirror().addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
 
         // Diamond (tier 3)
@@ -501,12 +502,12 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("tusk_ld4",
                 CubeListBuilder.create()
                         .texOffs(86, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
-                        .texOffs(81, 175).addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
+                        .texOffs(86, 175).mirror().addBox(2.7F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_ld5",
                 CubeListBuilder.create()
                         .texOffs(112, 225).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
-                        .texOffs(104, 225).addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
+                        .texOffs(112, 225).mirror().addBox(2.7F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, -0.1745329F));
         root.addOrReplaceChild("tusk_rd1",
                 CubeListBuilder.create().texOffs(108, 207).addBox(-4.3F, 5.5F, -24.2F, 3.0F, 3.0F, 7.0F),
@@ -520,12 +521,12 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("tusk_rd4",
                 CubeListBuilder.create()
                         .texOffs(86, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE)
-                        .texOffs(81, 163).addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, EAST_FACE),
+                        .texOffs(86, 163).mirror().addBox(-2.8F, 14.5F, -21.9F, 0.0F, 7.0F, 5.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, 0.1745329F, 0.0F, 0.1745329F));
         root.addOrReplaceChild("tusk_rd5",
                 CubeListBuilder.create()
                         .texOffs(112, 232).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE)
-                        .texOffs(104, 232).addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, EAST_FACE),
+                        .texOffs(112, 232).mirror().addBox(-2.8F, 22.9F, -17.5F, 0.0F, 7.0F, 8.0F, WEST_FACE),
                 PartPose.offsetAndRotation(0.0F, -10.0F, -16.5F, -0.3490659F, 0.0F, 0.1745329F));
 
         // ---- Harness (armorStage >= 1) ----
@@ -624,6 +625,51 @@ public class MoCModelElephant extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("storage_up_right",
                 CubeListBuilder.create().texOffs(76, 208).addBox(-11.5F, 1.0F, -14.0F, 5.0F, 8.0F, 10.0F),
                 PartPose.offsetAndRotation(0.0F, -16.0F, 10.0F, 0.0F, 0.0F, 0.3839724F));
+
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the Indian elephant's and mammoth's ears are
+        // painted with transparent margins, the tail tuft is an open box, and the howdah (cabin, cabin roof, skirt)
+        // is hollow with openings through which its inner walls showed. Each twin is the named face of that part's
+        // box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "cabin", CubeListBuilder.create()
+                .texOffs(-14, 128).mirror(false).addBox(-7.0F, 0.0F, -7.0F, 14.0F, 0.0F, 14.0F, MoCBackFaces.UP) // back of the down face
+                // back of the west face, minus the band behind the right rail, which lies flush on it (z-fight)
+                .texOffs(0, 128).mirror(true).addBox(-7.0F, 0.0F, -7.0F, 0.0F, 10.0F, 14.0F, MoCBackFaces.WEST)
+                .texOffs(0, 139).mirror(true).addBox(-7.0F, 11.0F, -7.0F, 0.0F, 9.0F, 14.0F, MoCBackFaces.WEST)
+                .texOffs(0, 142).mirror(true).addBox(-7.0F, 0.0F, -7.0F, 14.0F, 20.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                // back of the east face, minus the band behind the left rail, which lies flush on it (z-fight)
+                .texOffs(14, 128).mirror(true).addBox(7.0F, 0.0F, -7.0F, 0.0F, 10.0F, 14.0F, MoCBackFaces.EAST)
+                .texOffs(14, 139).mirror(true).addBox(7.0F, 11.0F, -7.0F, 0.0F, 9.0F, 14.0F, MoCBackFaces.EAST)
+                .texOffs(42, 142).mirror(true).addBox(-7.0F, 0.0F, 7.0F, 14.0F, 20.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "cabin_roof", CubeListBuilder.create()
+                .texOffs(41, 128).mirror(false).addBox(-7.5F, 0.0F, -7.5F, 15.0F, 0.0F, 15.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(56, 128).mirror(true).addBox(-7.5F, 0.0F, -7.5F, 0.0F, 4.0F, 15.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(56, 143).mirror(true).addBox(-7.5F, 0.0F, -7.5F, 15.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(71, 128).mirror(true).addBox(7.5F, 0.0F, -7.5F, 0.0F, 4.0F, 15.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(101, 143).mirror(true).addBox(-7.5F, 0.0F, 7.5F, 15.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "left_big_ear", CubeListBuilder.create()
+                .texOffs(90, 0).mirror(false).addBox(2.0F, -8.0F, -5.0F, 12.0F, 0.0F, 1.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(114, 0).mirror(false).addBox(2.0F, 6.0F, -5.0F, 12.0F, 0.0F, 1.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(102, 0).mirror(true).addBox(2.0F, -8.0F, -5.0F, 0.0F, 14.0F, 1.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(91, 1).mirror(true).addBox(2.0F, -8.0F, -5.0F, 12.0F, 14.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(114, 0).mirror(true).addBox(14.0F, -8.0F, -5.0F, 0.0F, 14.0F, 1.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(116, 1).mirror(true).addBox(2.0F, -8.0F, -4.0F, 12.0F, 14.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "right_big_ear", CubeListBuilder.create()
+                .texOffs(90, 15).mirror(false).addBox(-14.0F, -8.0F, -5.0F, 12.0F, 0.0F, 1.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(114, 15).mirror(false).addBox(-14.0F, 6.0F, -5.0F, 12.0F, 0.0F, 1.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(91, 16).mirror(true).addBox(-14.0F, -8.0F, -5.0F, 12.0F, 14.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(114, 15).mirror(true).addBox(-2.0F, -8.0F, -5.0F, 0.0F, 14.0F, 1.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(116, 16).mirror(true).addBox(-14.0F, -8.0F, -4.0F, 12.0F, 14.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "skirt", CubeListBuilder.create()
+                .texOffs(12, 94).mirror(false).addBox(-8.0F, -10.0F, -6.0F, 16.0F, 0.0F, 6.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(44, 94).mirror(false).addBox(-8.0F, 18.0F, -6.0F, 16.0F, 0.0F, 6.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(28, 94).mirror(true).addBox(-8.0F, -10.0F, -6.0F, 0.0F, 28.0F, 6.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(44, 94).mirror(true).addBox(8.0F, -10.0F, -6.0F, 0.0F, 28.0F, 6.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "tail_plush", CubeListBuilder.create()
+                .texOffs(23, 76).mirror(false).addBox(-1.5F, 15.5F, -0.7F, 3.0F, 0.0F, 3.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(26, 76).mirror(true).addBox(-1.5F, 15.5F, -0.7F, 0.0F, 6.0F, 3.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(26, 79).mirror(true).addBox(-1.5F, 15.5F, -0.7F, 3.0F, 6.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(29, 76).mirror(true).addBox(1.5F, 15.5F, -0.7F, 0.0F, 6.0F, 3.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(35, 79).mirror(true).addBox(-1.5F, 15.5F, 2.3F, 3.0F, 6.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
 
         return LayerDefinition.create(mesh, 128, 256);
     }

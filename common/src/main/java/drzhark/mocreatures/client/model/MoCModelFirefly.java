@@ -132,20 +132,28 @@ public class MoCModelFirefly extends EntityModel<MoCEntityRenderState> {
         float f1 = state.walkAnimationSpeed;
         boolean flying = state.flying;
 
-        // Shell/wing swap: open elytra + flapping wings while airborne, closed shell (no wings) grounded.
-        this.rightShellOpen.visible = flying;
-        this.leftShellOpen.visible = flying;
-        this.leftWing.visible = flying;
-        this.rightWing.visible = flying;
-        this.rightShell.visible = !flying;
-        this.leftShell.visible = !flying;
+        // Legacy swapped an open elytra + beating wings (airborne) for a closed shell with no wings (grounded) in one
+        // frame. The open and closed shells are the same box on the same pivot, only pitched differently (1.22 open,
+        // 0.0175 closed), so one shell pair is swung between the two by state.wingOpen (eased over a few ticks), and
+        // the wings stop beating and swing back flat along the body before they go, so the shell closes over them.
+        float open = state.wingOpen;
+        this.rightShellOpen.visible = false;
+        this.leftShellOpen.visible = false;
+        this.rightShell.visible = true;
+        this.leftShell.visible = true;
+        this.rightShell.xRot = Mth.lerp(open, 0.0174533F, 1.22F);
+        this.leftShell.xRot = Mth.lerp(open, 0.0174533F, 1.22F);
+        boolean wingsOut = open > 0.15F; // tucked flat under the shell below this, where they would z-fight it
+        this.leftWing.visible = wingsOut;
+        this.rightWing.visible = wingsOut;
+        float flap = Mth.cos(state.ageInTicks * 1.8F) * 0.8F;
+        this.leftWing.zRot = (1.047198F + flap) * open;
+        this.rightWing.zRot = (-1.047198F - flap) * open;
+        this.leftWing.yRot = 1.047198F * open;
+        this.rightWing.yRot = -1.047198F * open;
 
         if (flying) {
-            // Membranous wings beat quickly; the front legs lift and the leg drive speeds up (legacy isFlying).
-            float flap = Mth.cos(state.ageInTicks * 1.8F) * 0.8F;
-            this.leftWing.zRot = 1.047198F + flap;
-            this.rightWing.zRot = -1.047198F - flap;
-
+            // The front legs lift and the leg drive speeds up (legacy isFlying).
             float legMov = Mth.cos((f * 1.5F) + 3.141593F) * 2.0F * f1 * 1.5F;
             float legMovB = Mth.cos(f * 1.5F) * 2.0F * f1 * 1.5F;
             this.frontLegs.xRot = -0.8328009F + 1.4F + legMov;

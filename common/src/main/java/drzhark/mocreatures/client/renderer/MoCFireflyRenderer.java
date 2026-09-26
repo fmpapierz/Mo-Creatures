@@ -28,9 +28,9 @@ public class MoCFireflyRenderer extends MoCMobRenderer<MoCEntityFirefly> {
     protected void setupRotations(MoCEntityRenderState state, PoseStack poseStack, float bodyRot, float scale) {
         super.setupRotations(state, poseStack, bodyRot, scale);
         // A flying firefly angles its body forward as it drifts through the air (legacy rotateFirefly:
-        // glRotatef(40, -1, 0, 0)).
-        if (state.flying) {
-            poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-40.0F));
+        // glRotatef(40, -1, 0, 0)); the tilt follows the eased wing spread, so it levels out as it lands.
+        if (state.wingOpen > 0.0F) {
+            poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-40.0F * state.wingOpen));
         }
     }
 

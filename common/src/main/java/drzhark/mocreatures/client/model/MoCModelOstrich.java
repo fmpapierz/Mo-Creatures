@@ -27,9 +27,12 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
     // Face selectors for the flat (zero-thickness) parts (demon wing membranes, neck feathers,
     // reptile helmet ears, flags): only one side of each quad is painted on the sheets that use them,
     // so under the culled render type each box is split into a painted face plus an opposite face
-    // re-aimed (via a shifted texOffs) at the same painted tile.
+    // re-aimed (via a shifted texOffs) at the same painted tile. For the side-on (X) quads — feathers,
+    // helmet ears, flags — that second face is the painted WEST face again with mirror(), which turns an
+    // X face round without changing its texture layout, so every point carries the texel 1.12 (culling
+    // off) showed there from behind; a re-aimed EAST face lays the tile out back to front (a flag's design
+    // would read mirrored and shifted). DOWN/UP membranes need no mirror (see MoCBackFaces).
     private static final Set<Direction> WEST_FACE = Set.of(Direction.WEST);
-    private static final Set<Direction> EAST_FACE = Set.of(Direction.EAST);
     private static final Set<Direction> DOWN_FACE = Set.of(Direction.DOWN);
     private static final Set<Direction> UP_FACE = Set.of(Direction.UP);
 
@@ -326,12 +329,12 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("neck_u_feather",
                 CubeListBuilder.create()
                         .texOffs(0, 73).addBox(0F, -16F, -2F, 0, 9, 4, WEST_FACE)
-                        .texOffs(-4, 73).addBox(0F, -16F, -2F, 0, 9, 4, EAST_FACE),
+                        .texOffs(0, 73).mirror().addBox(0F, -16F, -2F, 0, 9, 4, WEST_FACE),
                 PartPose.offset(0F, 3F, -6F));
         root.addOrReplaceChild("neck_l_feather",
                 CubeListBuilder.create()
                         .texOffs(8, 73).addBox(0F, -8F, -0.5F, 0, 7, 4, WEST_FACE)
-                        .texOffs(4, 73).addBox(0F, -8F, -0.5F, 0, 7, 4, EAST_FACE),
+                        .texOffs(8, 73).mirror().addBox(0F, -8F, -0.5F, 0, 7, 4, WEST_FACE),
                 PartPose.offsetAndRotation(0F, 3F, -6F, 0.2007129F, 0F, 0F));
 
         // ---- Five-segment darkness tail (legacy Tailpart1-5; shown for type 6 in place of Tail1/Tail2/Tail3). ----
@@ -423,12 +426,12 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("helmet_reptile_ear1",
                 CubeListBuilder.create()
                         .texOffs(114, 50).addBox(-2.5F, -16.5F, -2F, 0, 5, 5, WEST_FACE)
-                        .texOffs(109, 50).addBox(-2.5F, -16.5F, -2F, 0, 5, 5, EAST_FACE),
+                        .texOffs(114, 50).mirror().addBox(-2.5F, -16.5F, -2F, 0, 5, 5, WEST_FACE),
                 PartPose.offsetAndRotation(0F, 3F, -6F, 0F, -0.6108652F, 0F));
         root.addOrReplaceChild("helmet_reptile_ear2",
                 CubeListBuilder.create()
                         .texOffs(114, 45).addBox(2.5F, -16.5F, -2F, 0, 5, 5, WEST_FACE)
-                        .texOffs(109, 45).addBox(2.5F, -16.5F, -2F, 0, 5, 5, EAST_FACE),
+                        .texOffs(114, 45).mirror().addBox(2.5F, -16.5F, -2F, 0, 5, 5, WEST_FACE),
                 PartPose.offsetAndRotation(0F, 3F, -6F, 0F, 0.6108652F, 0F));
         root.addOrReplaceChild("helmet_green_chitin",
                 CubeListBuilder.create().texOffs(80, 64).addBox(-2F, -16.5F, -5F, 4, 5, 4),
@@ -456,83 +459,209 @@ public class MoCModelOstrich extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("flag_orange",
                 CubeListBuilder.create()
                         .texOffs(88, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(78, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(88, 24).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_purple",
                 CubeListBuilder.create()
                         .texOffs(88, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(78, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(88, 32).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_light_blue",
                 CubeListBuilder.create()
                         .texOffs(68, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(58, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(68, 32).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_yellow",
                 CubeListBuilder.create()
                         .texOffs(48, 46).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(38, 46).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(48, 46).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_green",
                 CubeListBuilder.create()
                         .texOffs(48, 38).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(38, 38).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(48, 38).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_light_red",
                 CubeListBuilder.create()
                         .texOffs(108, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(98, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(108, 28).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_grey",
                 CubeListBuilder.create()
                         .texOffs(108, 12).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(98, 12).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(108, 12).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_grey",
                 CubeListBuilder.create()
                         .texOffs(108, 16).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(98, 16).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(108, 16).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_cyan",
                 CubeListBuilder.create()
                         .texOffs(48, 50).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(38, 50).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(48, 50).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_purple",
                 CubeListBuilder.create()
                         .texOffs(88, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(78, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(88, 28).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_blue",
                 CubeListBuilder.create()
                         .texOffs(68, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(58, 28).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(68, 28).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_brown",
                 CubeListBuilder.create()
                         .texOffs(48, 42).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(38, 42).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(48, 42).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_dark_green",
                 CubeListBuilder.create()
                         .texOffs(108, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(98, 32).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(108, 32).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_red",
                 CubeListBuilder.create()
                         .texOffs(108, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(98, 24).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(108, 24).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_black",
                 CubeListBuilder.create()
                         .texOffs(108, 8).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(98, 8).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(108, 8).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
         root.addOrReplaceChild("flag_white",
                 CubeListBuilder.create()
                         .texOffs(108, 20).addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE)
-                        .texOffs(98, 20).addBox(0F, -2.1F, 0F, 0, 4, 10, EAST_FACE),
+                        .texOffs(108, 20).mirror().addBox(0F, -2.1F, 0F, 0, 4, 10, WEST_FACE),
                 PartPose.offsetAndRotation(0F, -12F, 8F, -0.2602503F, 0F, 0F));
+
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the wing feather boxes have transparent notches
+        // on some sheets, and the helmets and saddle rings have eye holes / open faces, through which their inner
+        // walls showed. Each twin is the named face of that part's box turned to face into the box, with the same
+        // corners and texels.
+        MoCBackFaces.add(root, "helmet_black_chitin", CubeListBuilder.create()
+                .texOffs(28, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(36, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(32, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(32, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(36, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(44, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_blue_chitin", CubeListBuilder.create()
+                .texOffs(12, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(20, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(16, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(20, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(28, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_diamond", CubeListBuilder.create()
+                .texOffs(92, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(100, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(96, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(96, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(100, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(108, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_fur", CubeListBuilder.create()
+                .texOffs(80, 0).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(88, 0).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(84, 0).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(84, 4).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(88, 0).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(96, 4).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_gold", CubeListBuilder.create()
+                .texOffs(108, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(116, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(112, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(112, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(116, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(124, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_green_chitin", CubeListBuilder.create()
+                .texOffs(76, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(84, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(80, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(80, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(84, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(92, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_hide", CubeListBuilder.create()
+                .texOffs(92, 5).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(100, 5).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(96, 5).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(96, 9).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(100, 5).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(108, 9).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_iron", CubeListBuilder.create()
+                .texOffs(80, 46).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(88, 46).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(84, 46).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(84, 50).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(88, 46).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(96, 50).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_leather", CubeListBuilder.create()
+                .texOffs(62, 0).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(70, 0).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(66, 0).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(66, 4).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(70, 0).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(78, 4).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_red_chitin", CubeListBuilder.create()
+                .texOffs(44, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(52, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(48, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(52, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(60, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_reptile", CubeListBuilder.create()
+                .texOffs(60, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(68, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(64, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(64, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(68, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(76, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "helmet_yellow_chitin", CubeListBuilder.create()
+                .texOffs(-4, 64).mirror(false).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(4, 64).mirror(false).addBox(-2.0F, -11.5F, -5.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 64).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 68).mirror(true).addBox(-2.0F, -16.5F, -5.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(4, 64).mirror(true).addBox(2.0F, -16.5F, -5.0F, 0.0F, 5.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(12, 68).mirror(true).addBox(-2.0F, -16.5F, -1.0F, 4.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "l_wing_b", CubeListBuilder.create()
+                .texOffs(67, 46).mirror(false).addBox(-0.5F, -3.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(69, 46).mirror(false).addBox(-0.5F, 1.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(68, 46).mirror(true).addBox(-0.5F, -3.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(81, 60).mirror(true).addBox(-0.5F, -3.0F, 0.0F, 1.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(69, 46).mirror(true).addBox(0.5F, -3.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "l_wing_c", CubeListBuilder.create()
+                .texOffs(97, 46).mirror(false).addBox(-1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(99, 46).mirror(false).addBox(-1.0F, 4.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(98, 46).mirror(true).addBox(-1.0F, 0.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(111, 60).mirror(true).addBox(-1.0F, 0.0F, 0.0F, 1.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(99, 46).mirror(true).addBox(0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "r_wing_b", CubeListBuilder.create()
+                .texOffs(67, 0).mirror(false).addBox(-0.5F, -3.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(69, 0).mirror(false).addBox(-0.5F, 1.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(68, 0).mirror(true).addBox(-0.5F, -3.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(81, 14).mirror(true).addBox(-0.5F, -3.0F, 0.0F, 1.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(69, 0).mirror(true).addBox(0.5F, -3.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "r_wing_c", CubeListBuilder.create()
+                .texOffs(97, 0).mirror(false).addBox(0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(99, 0).mirror(false).addBox(0.0F, 4.0F, 0.0F, 1.0F, 0.0F, 14.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(98, 0).mirror(true).addBox(0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(111, 14).mirror(true).addBox(0.0F, 0.0F, 0.0F, 1.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(99, 0).mirror(true).addBox(1.0F, 0.0F, 0.0F, 0.0F, 4.0F, 14.0F, MoCBackFaces.EAST)); // back of the east face
+        // (the saddle rings' tops lie flush on the stirrup straps, facing the same way: no twin there, it would z-fight)
+        MoCBackFaces.add(root, "saddle_l2", CubeListBuilder.create()
+                .texOffs(77, 30).mirror(false).addBox(-0.5F, 8.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(76, 30).mirror(true).addBox(-0.5F, 6.0F, -1.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(77, 32).mirror(true).addBox(-0.5F, 6.0F, -1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(77, 30).mirror(true).addBox(0.5F, 6.0F, -1.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(81, 32).mirror(true).addBox(-0.5F, 6.0F, 1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "saddle_r2", CubeListBuilder.create()
+                .texOffs(89, 30).mirror(false).addBox(-0.5F, 8.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(88, 30).mirror(true).addBox(-0.5F, 6.0F, -1.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(89, 32).mirror(true).addBox(-0.5F, 6.0F, -1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(89, 30).mirror(true).addBox(0.5F, 6.0F, -1.0F, 0.0F, 2.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(93, 32).mirror(true).addBox(-0.5F, 6.0F, 1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
 
         return LayerDefinition.create(mesh, 128, 128);
     }

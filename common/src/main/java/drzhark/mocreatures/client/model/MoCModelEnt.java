@@ -220,6 +220,121 @@ public class MoCModelEnt extends EntityModel<MoCEntityRenderState> {
                     PartPose.offset(0.0F, -44.0F, 0.0F));
         }
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the leaf cubes, finger clusters, feet, tree base,
+        // thigh and ankles are painted with transparent gaps, through which their inner walls showed (the leaf crown
+        // read as dense foliage rather than a see-through shell). Each twin is the named face of that part's box
+        // turned to face into the box, with the same corners and texels. Faces that lie flush on a neighbouring
+        // leaf cube's face (the crown is a layer of twelve touching cubes with four more on top) get no twin: it
+        // would z-fight there.
+        MoCBackFaces.add(root, "LAnkle", CubeListBuilder.create()
+                .texOffs(41, 29).mirror(false).addBox(1.5F, 45.0F, -4.5F, 9.0F, 0.0F, 9.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(32, 29).mirror(true).addBox(1.5F, 25.0F, -4.5F, 0.0F, 20.0F, 9.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(32, 38).mirror(true).addBox(1.5F, 25.0F, -4.5F, 9.0F, 20.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(41, 29).mirror(true).addBox(10.5F, 25.0F, -4.5F, 0.0F, 20.0F, 9.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(59, 38).mirror(true).addBox(1.5F, 25.0F, 4.5F, 9.0F, 20.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "LFingers", CubeListBuilder.create()
+                .texOffs(88, 176).mirror(true).addBox(1.0F, 33.0F, -7.0F, 0.0F, 15.0F, 10.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(88, 186).mirror(true).addBox(1.0F, 33.0F, -7.0F, 10.0F, 15.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(98, 176).mirror(true).addBox(11.0F, 33.0F, -7.0F, 0.0F, 15.0F, 10.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "LFoot", CubeListBuilder.create()
+                .texOffs(-9, 206).mirror(false).addBox(1.5F, 38.0F, -23.5F, 9.0F, 0.0F, 9.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(0, 206).mirror(true).addBox(1.5F, 38.0F, -23.5F, 0.0F, 5.0F, 9.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 215).mirror(true).addBox(1.5F, 38.0F, -23.5F, 9.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(9, 206).mirror(true).addBox(10.5F, 38.0F, -23.5F, 0.0F, 5.0F, 9.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(27, 215).mirror(true).addBox(1.5F, 38.0F, -14.5F, 9.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "LThigh", CubeListBuilder.create()
+                .texOffs(17, 64).mirror(false).addBox(2.5F, 4.0F, -3.5F, 7.0F, 0.0F, 7.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(31, 64).mirror(false).addBox(2.5F, 16.0F, -3.5F, 7.0F, 0.0F, 7.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(24, 64).mirror(true).addBox(2.5F, 4.0F, -3.5F, 0.0F, 12.0F, 7.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(31, 64).mirror(true).addBox(9.5F, 4.0F, -3.5F, 0.0F, 12.0F, 7.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(45, 71).mirror(true).addBox(2.5F, 4.0F, 3.5F, 7.0F, 12.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "Leave1", CubeListBuilder.create()
+                .texOffs(16, 224).mirror(false).addBox(-16.0F, -29.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN)); // back of the up face
+        MoCBackFaces.add(root, "Leave10", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(-16.0F, -45.0F, 15.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(-16.0F, -29.0F, 15.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 224).mirror(true).addBox(-16.0F, -45.0F, 15.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 240).mirror(true).addBox(-16.0F, -45.0F, 31.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "Leave11", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(-32.0F, -45.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(-32.0F, -29.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 224).mirror(true).addBox(-32.0F, -45.0F, -1.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 240).mirror(true).addBox(-32.0F, -45.0F, 15.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "Leave12", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(-32.0F, -45.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(-32.0F, -29.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 224).mirror(true).addBox(-32.0F, -45.0F, -17.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 240).mirror(true).addBox(-32.0F, -45.0F, -17.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "Leave13", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(-16.0F, -61.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(0, 224).mirror(true).addBox(-16.0F, -61.0F, -17.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 240).mirror(true).addBox(-16.0F, -61.0F, -17.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "Leave14", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(0.0F, -61.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(0, 240).mirror(true).addBox(0.0F, -61.0F, -17.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(16, 224).mirror(true).addBox(16.0F, -61.0F, -17.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "Leave15", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(0.0F, -61.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(true).addBox(16.0F, -61.0F, -1.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(48, 240).mirror(true).addBox(0.0F, -61.0F, 15.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "Leave16", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(-16.0F, -61.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(0, 224).mirror(true).addBox(-16.0F, -61.0F, -1.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 240).mirror(true).addBox(-16.0F, -61.0F, 15.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "Leave2", CubeListBuilder.create()
+                .texOffs(16, 224).mirror(false).addBox(0.0F, -29.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN)); // back of the up face
+        MoCBackFaces.add(root, "Leave3", CubeListBuilder.create()
+                .texOffs(16, 224).mirror(false).addBox(0.0F, -29.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN)); // back of the up face
+        MoCBackFaces.add(root, "Leave4", CubeListBuilder.create()
+                .texOffs(16, 224).mirror(false).addBox(-16.0F, -29.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN)); // back of the up face
+        MoCBackFaces.add(root, "Leave5", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(-16.0F, -45.0F, -33.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(-16.0F, -29.0F, -33.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 224).mirror(true).addBox(-16.0F, -45.0F, -33.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 240).mirror(true).addBox(-16.0F, -45.0F, -33.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "Leave6", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(0.0F, -45.0F, -33.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(0.0F, -29.0F, -33.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 240).mirror(true).addBox(0.0F, -45.0F, -33.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(16, 224).mirror(true).addBox(16.0F, -45.0F, -33.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "Leave7", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(16.0F, -45.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(16.0F, -29.0F, -17.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 240).mirror(true).addBox(16.0F, -45.0F, -17.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(16, 224).mirror(true).addBox(32.0F, -45.0F, -17.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "Leave8", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(16.0F, -45.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(16.0F, -29.0F, -1.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 224).mirror(true).addBox(32.0F, -45.0F, -1.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(48, 240).mirror(true).addBox(16.0F, -45.0F, 15.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "Leave9", CubeListBuilder.create()
+                .texOffs(-16, 224).mirror(false).addBox(0.0F, -45.0F, 15.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(16, 224).mirror(false).addBox(0.0F, -29.0F, 15.0F, 16.0F, 0.0F, 16.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(16, 224).mirror(true).addBox(16.0F, -45.0F, 15.0F, 0.0F, 16.0F, 16.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(48, 240).mirror(true).addBox(0.0F, -45.0F, 31.0F, 16.0F, 16.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "RAnkle", CubeListBuilder.create()
+                .texOffs(41, 0).mirror(false).addBox(-10.5F, 45.0F, -4.5F, 9.0F, 0.0F, 9.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(32, 0).mirror(true).addBox(-10.5F, 25.0F, -4.5F, 0.0F, 20.0F, 9.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(32, 9).mirror(true).addBox(-10.5F, 25.0F, -4.5F, 9.0F, 20.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(41, 0).mirror(true).addBox(-1.5F, 25.0F, -4.5F, 0.0F, 20.0F, 9.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(59, 9).mirror(true).addBox(-10.5F, 25.0F, 4.5F, 9.0F, 20.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "RFingers", CubeListBuilder.create()
+                .texOffs(88, 201).mirror(true).addBox(-11.0F, 33.0F, -7.0F, 0.0F, 15.0F, 10.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(88, 211).mirror(true).addBox(-11.0F, 33.0F, -7.0F, 10.0F, 15.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(98, 201).mirror(true).addBox(-1.0F, 33.0F, -7.0F, 0.0F, 15.0F, 10.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "RFoot", CubeListBuilder.create()
+                .texOffs(-9, 192).mirror(false).addBox(-10.5F, 38.0F, -23.5F, 9.0F, 0.0F, 9.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(0, 192).mirror(true).addBox(-10.5F, 38.0F, -23.5F, 0.0F, 5.0F, 9.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 201).mirror(true).addBox(-10.5F, 38.0F, -23.5F, 9.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(9, 192).mirror(true).addBox(-1.5F, 38.0F, -23.5F, 0.0F, 5.0F, 9.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(27, 201).mirror(true).addBox(-10.5F, 38.0F, -14.5F, 9.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "TreeBase", CubeListBuilder.create()
+                .texOffs(20, 136).mirror(false).addBox(-10.0F, -18.5F, -11.5F, 20.0F, 0.0F, 20.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 136).mirror(true).addBox(-10.0F, -31.5F, -11.5F, 0.0F, 13.0F, 20.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 156).mirror(true).addBox(-10.0F, -31.5F, -11.5F, 20.0F, 13.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(20, 136).mirror(true).addBox(10.0F, -31.5F, -11.5F, 0.0F, 13.0F, 20.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(60, 156).mirror(true).addBox(-10.0F, -31.5F, 8.5F, 20.0F, 13.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 128, 256);
     }
 

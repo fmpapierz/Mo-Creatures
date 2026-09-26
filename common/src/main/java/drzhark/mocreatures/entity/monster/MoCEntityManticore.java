@@ -3,7 +3,7 @@ package drzhark.mocreatures.entity.monster;
 import drzhark.mocreatures.config.MoCConfig;
 import drzhark.mocreatures.entity.IMoCManticore;
 import drzhark.mocreatures.entity.MoCMob;
-import drzhark.mocreatures.registry.MoCEntities;
+import drzhark.mocreatures.item.MoCThrownEggItem;
 import drzhark.mocreatures.registry.MoCItems;
 import drzhark.mocreatures.registry.MoCSounds;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -13,6 +13,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -26,7 +27,6 @@ import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
 import net.minecraft.world.entity.monster.zombie.Zombie;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
@@ -193,6 +193,11 @@ public class MoCEntityManticore extends MoCMob implements IMoCManticore {
         return this.entityData.get(OPEN_JAW);
     }
 
+    @Override
+    public boolean isAirborne() {
+        return !this.onGround();
+    }
+
     /** Legacy {@code openMouth()}: gapes the maw for a roar or a bite. Server-side only. */
     private void openJaw() {
         if (this.level().isClientSide()) {
@@ -248,21 +253,22 @@ public class MoCEntityManticore extends MoCMob implements IMoCManticore {
         }
 
         // --- wing beat (legacy onUpdate:202-204 + onLivingUpdate:238-249) ---
-        // The beat runs 20 ticks; its downstroke (tick 5) is what you hear.
+        // The beat runs 20 ticks; its downstroke (tick 5) is what you hear. Airborne, beats run back to back so
+        // the wings never stall mid-air (legacy rolled each new beat 1-in-5, which left visible pauses); a
+        // grounded one stretches its wings now and then (1-in-500).
+        boolean airborne = !this.onGround();
         if (this.wingFlapCounter > 0 && ++this.wingFlapCounter > 20) {
-            this.wingFlapCounter = 0;
-            this.entityData.set(FLAPPING, false);
+            this.wingFlapCounter = airborne ? 1 : 0; // next beat straight away while airborne
+            if (!airborne) {
+                this.entityData.set(FLAPPING, false);
+            }
         }
         if (this.wingFlapCounter == 5) {
             level.playSound(null, blockPosition(), MoCSounds.WINGFLAP.get(), SoundSource.HOSTILE, 1.0F,
                     1.0F + ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F));
         }
-        // Airborne manticores beat constantly (legacy rolled 1-in-5 per tick while off the ground, and again
-        // on a speed-derived 1-in-5..1-in-25); a grounded one stretches its wings now and then (1-in-500).
-        if (!this.onGround() && this.random.nextInt(5) == 0) {
-            wingFlap();
-        } else if (this.onGround() && this.random.nextInt(500) == 0) {
-            wingFlap();
+        if (airborne || this.random.nextInt(500) == 0) {
+            wingFlap(); // starts a beat only when none is running
         }
 
         // --- sting cycle (legacy onLivingUpdate:251-260) ---
@@ -418,13 +424,12 @@ public class MoCEntityManticore extends MoCMob implements IMoCManticore {
      * separate {@code rareItemDropChance} rolls:
      *
      * <ol>
-     *   <li>The FIRST roll replaces the whole drop with a manticore egg. Legacy dropped
-     *       {@code mocegg} metadata {@code getType() + 61}, which hatched a coat-matched
-     *       {@link drzhark.mocreatures.entity.passive.MoCEntityManticorePet}. The port's egg entity decodes
-     *       only the legacy composite ids 1-54 ({@code MoCEntityEgg.setEggType}) and has no 62-65 range, so
-     *       an egg dropped with that id would silently hatch an OSTRICH. The faithful substitute — an item
-     *       that yields a tameable baby manticore — is the manticore-pet spawn egg, which spawns exactly the
-     *       cub the legacy egg hatched. The one thing lost is coat inheritance: the pet re-rolls its coat.</li>
+     *   <li>The FIRST roll replaces the whole drop with a manticore egg: legacy dropped {@code mocegg}
+     *       metadata {@code getType() + 61} ({@code :440}), i.e. ids 62-65, which {@code MoCEntityEgg} hatches
+     *       into a coat-matched {@link drzhark.mocreatures.entity.passive.MoCEntityManticorePet} cub, tamed to
+     *       the nearest player. This used to drop the manticore-pet SPAWN egg instead, written when the egg
+     *       entity could not yet decode 62-65 — a creative item standing in for the real one, and a pet that
+     *       re-rolled its coat. The egg entity has decoded 62-65 since, so the real egg is back.</li>
      *   <li>Failing that, it drops 0-2 copies (vanilla {@code dropFewItems}) of ONE coat-keyed item, itself
      *       chosen by a second rare roll: the coat's scorpion sting, else the coat's chitin.</li>
      * </ol>
@@ -436,8 +441,9 @@ public class MoCEntityManticore extends MoCMob implements IMoCManticore {
             return; // server-admin loot suppression, same gate MoCBehavior.dropLoot applies
         }
         if (this.random.nextInt(100) < RARE_ITEM_DROP_CHANCE) {
-            SpawnEggItem.byId(MoCEntities.MANTICORE_PET.get()).ifPresent(
-                    holder -> spawnAtLocation(level, new ItemStack(holder.value())));
+            // Coat 1 red / 2 dark / 3 blue / 4 green -> Fire / Dark / Snow / (green) Manticore Egg, 62-65.
+            int coat = Mth.clamp(getTypeMoC(), 1, 4);
+            spawnAtLocation(level, MoCThrownEggItem.createEgg(coat + 61));
             return; // legacy: the egg REPLACES the ordinary drop
         }
         boolean rare = this.random.nextInt(100) < RARE_ITEM_DROP_CHANCE;

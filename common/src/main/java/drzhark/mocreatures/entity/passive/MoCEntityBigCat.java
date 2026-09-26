@@ -284,7 +284,9 @@ public class MoCEntityBigCat extends MoCAnimal {
                 }
             }
             if (food != null) {
-                if (best < 2.25D) {
+                // Legacy's 2-block reach (MoCEntityBigCat.onLivingUpdate:367, getDistance < 2.0F). A 1.5 reach
+                // (2.25 squared) left a full-width cub stopped by the pathfinder just short of the meat, forever.
+                if (best < 4.0D) {
                     food.getItem().shrink(1);
                     if (food.getItem().isEmpty()) {
                         food.discard();
@@ -317,6 +319,25 @@ public class MoCEntityBigCat extends MoCAnimal {
         }
         Player p = level.getNearestPlayer(this, 24.0D);
         return (p != null && owner.equals(p.getName().getString())) ? p : null;
+    }
+
+    /**
+     * Legacy {@code MoCEntityBigCat.fall()} (12.0.5 :563-586): a big cat lands on its feet and takes about a quarter of
+     * a normal fall's damage, {@code ceil(distance - 3) / 2} halved again, and none at all unless that comes to more
+     * than 1. A rider takes the same. (Flyers took none; the pet manticore is its own class with its own override.)
+     */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float multiplier, DamageSource source) {
+        float damage = (float) (Math.ceil(fallDistance - 3.0D) / 2.0D) / 2.0F;
+        if (damage <= 1.0F) {
+            return false;
+        }
+        this.playBlockFallSound();
+        this.hurt(source, damage);
+        for (net.minecraft.world.entity.Entity passenger : this.getIndirectPassengers()) {
+            passenger.hurt(source, damage);
+        }
+        return true;
     }
 
     public static AttributeSupplier.Builder createAttributes() {

@@ -151,6 +151,19 @@ public class MoCModelKitty extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(16, 9).mirror().addBox(-0.5F, -8.0F, -1.0F, 1.0F, 8.0F, 1.0F),
                 PartPose.offset(0.0F, 14.5F, 7.5F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the whiskers are painted on the front face of
+        // each cheek box and the medallion on the front face of the collar, and 1.12 showed them from behind and
+        // the sides through the empty faces. Each twin is the named face of that part's box turned to face into the
+        // box, with the same corners and texels. (The collar's back face gets no twin: its one painted texel lies
+        // flush on the body's front face, where a twin would z-fight with it whenever the head faces forward.)
+        MoCBackFaces.add(root, "cheek_left", CubeListBuilder.create()
+                .texOffs(38, 1).mirror(false).addBox(1.0F, -1.5F, -5.0F, 3.0F, 3.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "cheek_right", CubeListBuilder.create()
+                .texOffs(38, 1).mirror(true).addBox(-4.0F, -1.5F, -5.0F, 3.0F, 3.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "collar", CubeListBuilder.create()
+                .texOffs(46, 1).mirror(true).addBox(-2.5F, 0.5F, -1.0F, 5.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(55, 0).mirror(true).addBox(2.5F, 0.5F, -1.0F, 0.0F, 4.0F, 1.0F, MoCBackFaces.EAST)); // back of the east face
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 
@@ -203,6 +216,24 @@ public class MoCModelKitty extends EntityModel<MoCEntityRenderState> {
 
             this.tail.xRot = -2.3F;       // curled up over the back
             this.tail.zRot = 0.0F;
+
+            // Legacy render() also LOWERED the sitting cat: glTranslatef(0, 0.25, 0) on the whole model (4 px;
+            // model +Y is down) and a further glTranslatef(0, 0.0625, 0.0625) before the four legs (1 px down,
+            // 1 px back), so the folded legs lie flat on the ground under the body (legacy
+            // MoCModelKitty.render:105-106, :124-125). The port had copied the fold but not the drop, so every
+            // sitting or sleeping kitty — one curled up in its bed included — hovered 5 px above what it sat on.
+            // The model is flat (every part hangs off the root) and resetPose() restores the pivots each frame,
+            // so shifting each pivot is exactly the legacy translate.
+            ModelPart[] everything = {this.head, this.earRight, this.earLeft, this.browRight, this.browLeft,
+                    this.cheekRight, this.cheekLeft, this.nose, this.collar, this.whiskers, this.body, this.tail,
+                    this.rightArm, this.leftArm, this.rightLeg, this.leftLeg};
+            for (ModelPart part : everything) {
+                part.y += 4.0F;
+            }
+            for (ModelPart limb : new ModelPart[] {this.rightArm, this.leftArm, this.rightLeg, this.leftLeg}) {
+                limb.y += 1.0F;
+                limb.z += 1.0F;
+            }
             return;
         }
 

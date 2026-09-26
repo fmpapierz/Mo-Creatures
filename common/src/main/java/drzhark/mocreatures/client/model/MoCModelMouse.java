@@ -84,6 +84,14 @@ public class MoCModelMouse extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(20, 0).addBox(-3.0F, -3.0F, -7.0F, 6.0F, 6.0F, 12.0F),
                 PartPose.offset(0.0F, 20.0F, -2.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the whiskers are painted on one face of each
+        // whisker box only, so from the other side they were seen through the empty faces. Each twin is the named
+        // face of that part's box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "whisker_left", CubeListBuilder.create()
+                .texOffs(22, 21).mirror(true).addBox(1.5F, -1.0F, -6.0F, 3.0F, 3.0F, 0.0F, MoCBackFaces.SOUTH)); // back of the north face
+        MoCBackFaces.add(root, "whisker_right", CubeListBuilder.create()
+                .texOffs(25, 21).mirror(true).addBox(-4.5F, -1.0F, -6.0F, 3.0F, 3.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 

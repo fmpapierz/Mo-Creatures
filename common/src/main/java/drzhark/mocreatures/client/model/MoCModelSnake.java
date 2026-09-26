@@ -67,7 +67,9 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
 
     // Zero-thickness planes (teeth, tongue segments) are split into two single-face boxes (painted face +
     // a re-aimed opposite face sampling the same painted tile) so the culled render type keeps them
-    // visible from both sides.
+    // visible from both sides. For the side-on (X) teeth the second face is the painted face again with
+    // mirror(), which turns an X face round without changing its texture layout, so every point carries
+    // the texel 1.12 (culling off) showed there from behind (see MoCBackFaces). DOWN/UP need no mirror.
     private static final Set<Direction> DOWN_ONLY = Set.of(Direction.DOWN);
     private static final Set<Direction> UP_ONLY = Set.of(Direction.UP);
     private static final Set<Direction> WEST_ONLY = Set.of(Direction.WEST);
@@ -177,11 +179,11 @@ public class MoCModelSnake extends EntityModel<MoCEntityRenderState> {
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("teeth_ur",
                 CubeListBuilder.create().texOffs(46, 0).addBox(-0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, EAST_ONLY)
-                        .texOffs(47, 0).addBox(-0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, WEST_ONLY),
+                        .texOffs(46, 0).mirror().addBox(-0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, EAST_ONLY),
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("teeth_ul",
                 CubeListBuilder.create().texOffs(44, 0).addBox(0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, WEST_ONLY)
-                        .texOffs(43, 0).addBox(0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, EAST_ONLY),
+                        .texOffs(44, 0).mirror().addBox(0.4F, 0.3F, -3.8F, 0.0F, 1.0F, 1.0F, WEST_ONLY),
                 PartPose.offset(0F, 23F, flength));
         root.addOrReplaceChild("tongue",
                 CubeListBuilder.create().texOffs(28, 0).addBox(-0.5F, 0.5F, -6F, 1.0F, 0.0F, 3.0F, DOWN_ONLY)

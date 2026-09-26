@@ -74,6 +74,17 @@ public class MoCModelFox extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 0).addBox(-2.0F, 0.0F, -2.0F, 3.0F, 8.0F, 3.0F),
                 PartPose.offset(1.0F, 16.0F, -4.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the head box has a gap in its underside, through
+        // which its inner walls showed. Each twin is the named face of that part's box turned to face into the box,
+        // with the same corners and texels.
+        MoCBackFaces.add(root, "head", CubeListBuilder.create()
+                .texOffs(-6, 20).mirror(false).addBox(-3.0F, -3.0F, -4.0F, 6.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(0, 20).mirror(true).addBox(-3.0F, -3.0F, -4.0F, 0.0F, 6.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(-2, 24).mirror(true).addBox(-3.0F, -3.0F, -4.0F, 6.0F, 6.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(6, 20).mirror(true).addBox(3.0F, -3.0F, -4.0F, 0.0F, 6.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                // back of the south face, top band only: below it the body's front face lies flush on it (z-fight)
+                .texOffs(14, 24).mirror(true).addBox(-3.0F, -3.0F, 0.0F, 6.0F, 2.0F, 0.0F, MoCBackFaces.NORTH));
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 

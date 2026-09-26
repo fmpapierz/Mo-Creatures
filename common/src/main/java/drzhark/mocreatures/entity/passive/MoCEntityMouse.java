@@ -27,6 +27,12 @@ public class MoCEntityMouse extends MoCAnimal {
         super(type, level);
     }
 
+    /** Legacy {@code fall()} was overridden empty (12.0.5 MoCEntityMouse): no fall damage. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float multiplier, DamageSource source) {
+        return false;
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
         return Animal.createAnimalAttributes()
                 .add(Attributes.MAX_HEALTH, 4.0D)

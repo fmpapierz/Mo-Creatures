@@ -355,7 +355,7 @@ public final class MoCItems {
             () -> new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.3F).build(),
                     Consumables.defaultFood().onConsume(new ApplyStatusEffectsConsumeEffect(new MobEffectInstance(MobEffects.HUNGER, 30, 0), 0.8F)).build()).setId(itemKey("ostrichraw"))));
     public static final RegistrySupplier<drzhark.mocreatures.item.MoCAmuletItem> PETAMULET = ITEMS.register("petamulet",
-            () -> new drzhark.mocreatures.item.MoCAmuletItem(new Item.Properties().setId(itemKey("petamulet"))));
+            () -> new drzhark.mocreatures.item.MoCAmuletItem(new Item.Properties().stacksTo(1).setId(itemKey("petamulet")))); // legacy maxStackSize 1: one pet per amulet
     public static final RegistrySupplier<Item> PETAMULETFULL = ITEMS.register("petamuletfull",
             () -> new Item(new Item.Properties().setId(itemKey("petamuletfull"))));
     public static final RegistrySupplier<Item> PETFOOD = ITEMS.register("petfood",

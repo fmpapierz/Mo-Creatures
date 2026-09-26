@@ -22,11 +22,14 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
 
     // Face selectors for the flat (zero-thickness) parts: only one side of each quad is painted on
     // cricket.png, so under the culled render type each box is split into a painted face plus an
-    // opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    // opposite face re-aimed (via a shifted texOffs) at the same painted tile. The re-aimed face is also
+    // mirror()ed so every point carries the same texel as the painted face: 1.12 drew the painted face
+    // from behind (culling off), i.e. the same art in the same place, and an unmirrored re-aimed face lays
+    // the tile out back to front. For the side-on (X) planes that is simply the painted face again with
+    // mirror(), which turns an X face round without changing its texture layout (see MoCBackFaces).
     private static final Set<Direction> NORTH_FACE = Set.of(Direction.NORTH);
     private static final Set<Direction> SOUTH_FACE = Set.of(Direction.SOUTH);
     private static final Set<Direction> WEST_FACE = Set.of(Direction.WEST);
-    private static final Set<Direction> EAST_FACE = Set.of(Direction.EAST);
     private static final Set<Direction> DOWN_FACE = Set.of(Direction.DOWN);
     private static final Set<Direction> UP_FACE = Set.of(Direction.UP);
 
@@ -73,12 +76,12 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("antenna",
                 CubeListBuilder.create()
                         .texOffs(0, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
-                        .texOffs(-2, 11).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(-2, 11).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 22.5F, -3.0F, -2.736346F, 0.0F, 0.0F));
         root.addOrReplaceChild("antenna_b",
                 CubeListBuilder.create()
                         .texOffs(0, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
-                        .texOffs(-2, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(-2, 9).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 20.7F, -3.8F, 2.88506F, 0.0F, 0.0F));
         root.addOrReplaceChild("thorax",
                 CubeListBuilder.create().texOffs(0, 0).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 2.0F, 2.0F),
@@ -89,22 +92,22 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("tail_a",
                 CubeListBuilder.create()
                         .texOffs(4, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, NORTH_FACE)
-                        .texOffs(2, 9).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(2, 9).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 22.0F, 2.8F, 1.308687F, 0.0F, 0.0F));
         root.addOrReplaceChild("tail_b",
                 CubeListBuilder.create()
                         .texOffs(4, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
-                        .texOffs(2, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(2, 7).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 23.0F, 2.8F, 1.665602F, 0.0F, 0.0F));
         root.addOrReplaceChild("front_legs",
                 CubeListBuilder.create()
                         .texOffs(0, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, NORTH_FACE)
-                        .texOffs(-2, 7).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(-2, 7).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 23.0F, -1.8F, -0.8328009F, 0.0F, 0.0F));
         root.addOrReplaceChild("mid_legs",
                 CubeListBuilder.create()
                         .texOffs(0, 13).addBox(-2.0F, 0.0F, 0.0F, 4.0F, 2.0F, 0.0F, NORTH_FACE)
-                        .texOffs(-4, 13).addBox(-2.0F, 0.0F, 0.0F, 4.0F, 2.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(-4, 13).mirror().addBox(-2.0F, 0.0F, 0.0F, 4.0F, 2.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 23.0F, -1.2F, 1.070744F, 0.0F, 0.0F));
         root.addOrReplaceChild("thigh_left",
                 CubeListBuilder.create().texOffs(8, 5).addBox(0.0F, -3.0F, 0.0F, 1.0F, 3.0F, 1.0F),
@@ -115,12 +118,12 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("leg_left",
                 CubeListBuilder.create()
                         .texOffs(0, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, WEST_FACE)
-                        .texOffs(-2, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, EAST_FACE),
+                        .texOffs(0, 15).mirror().addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, WEST_FACE),
                 PartPose.offset(2.0F, 21.0F, 2.5F));
         root.addOrReplaceChild("leg_right",
                 CubeListBuilder.create()
                         .texOffs(4, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, WEST_FACE)
-                        .texOffs(2, 15).addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, EAST_FACE),
+                        .texOffs(4, 15).mirror().addBox(0.0F, 0.0F, -1.0F, 0.0F, 3.0F, 2.0F, WEST_FACE),
                 PartPose.offset(-2.0F, 21.0F, 2.5F));
         root.addOrReplaceChild("folded_wings",
                 CubeListBuilder.create()
@@ -138,11 +141,11 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
         float limbSwing = state.walkAnimationPos;
         float limbAmount = state.walkAnimationSpeed;
 
+        // Airborne (legacy isFlying) the wings buzz open; grounded they lie still. Scaled by state.wingOpen (eased
+        // over a few ticks), the buzz dies down on landing instead of stopping dead.
+        this.foldedWings.zRot = Mth.cos(state.ageInTicks * 2.0F) * 0.7F * state.wingOpen;
         if (state.flying) {
-            // Airborne (legacy isFlying): the wings buzz open and the leg drive quickens with the front legs
-            // tucked up out of the way.
-            float flap = Mth.cos(state.ageInTicks * 2.0F) * 0.7F;
-            this.foldedWings.zRot = flap;
+            // The leg drive quickens with the front legs tucked up out of the way.
             float legMov = Mth.cos((limbSwing * 1.5F) + 3.141593F) * 2.0F * limbAmount * 1.5F;
             float legMovB = Mth.cos(limbSwing * 1.5F) * 2.0F * limbAmount * 1.5F;
             this.antennaB.xRot = 2.88506F - legMov;
@@ -150,7 +153,6 @@ public class MoCModelCricket extends EntityModel<MoCEntityRenderState> {
             this.midLegs.xRot = 1.070744F + legMovB;
         } else {
             // grounded gait (legacy non-flying branch)
-            this.foldedWings.zRot = 0.0F;
             float legMov = Mth.cos((limbSwing * 1.5F) + 3.141593F) * 2.0F * limbAmount;
             float legMovB = Mth.cos(limbSwing * 1.5F) * 2.0F * limbAmount;
 

@@ -39,6 +39,15 @@ public class MoCModelFishy extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(12, 0).addBox(0.0F, 0.0F, 0.0F, 1, 3, 3),
                 PartPose.offsetAndRotation(0.0F, 18.7F, 6.0F, PITCH, 0.0F, 0.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the tail fin box is painted with open faces (its
+        // underside and back are transparent and its sides carry the fin shape). Each twin is the named face of that
+        // part's box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "tail", CubeListBuilder.create()
+                .texOffs(11, 0).mirror(false).addBox(0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 3.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(12, 0).mirror(true).addBox(0.0F, 0.0F, 0.0F, 0.0F, 3.0F, 3.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(14, 3).mirror(true).addBox(0.0F, 0.0F, 0.0F, 1.0F, 3.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(13, 0).mirror(true).addBox(1.0F, 0.0F, 0.0F, 0.0F, 3.0F, 3.0F, MoCBackFaces.EAST)); // back of the east face
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 

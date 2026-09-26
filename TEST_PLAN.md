@@ -176,7 +176,8 @@ The pet form's *legacy* source is the manticore egg, newly wired here (ids 62–
 ```
 /give @s mocreatures:mocegg[minecraft:custom_data={EggType:62}]
 ```
-Throw it, wait for it to hatch. **Expect:** a manticore *cub* (small), tamed to you, that grows.
+Right-click the ground to set it down, step back, and wait ~30 s (no torch needed since 2026-09-25). **Expect:** an
+"Egg hatching soon!" chat line, the egg hopping, then a manticore *cub* (small), tamed to you, that grows.
 Verify: `/data get entity @e[type=mocreatures:manticore_pet,limit=1] AgeMoC` → starts at 30.
 Once grown, tame with a medallion (see §6) and saddle to ride it.
 
@@ -203,8 +204,9 @@ down again), and feed the goat any edible.
 
 **Test 3a — single-creature order.** Right-click the goat **with the whip**.
 * **Expect:** action-bar message `Goat stays put`, happy-villager particles, and the goat stops
-  following you. Walk 30+ blocks away — it must **not** teleport after you.
-* Right-click again → `Goat follows you`, cloud particles, it resumes following.
+  wandering. Walk 30+ blocks away — it must **not** move or teleport after you.
+* Right-click again → `Goat is free to roam`, cloud particles, it wanders on its own again.
+  (Since 2026-09-25 tamed pets never follow their owner on their own, as in legacy: use a rope or lead.)
 * Verify from chat: `/data get entity @e[type=mocreatures:goat,limit=1] Sitting` → `1b` / `0b`.
 
 **Test 3b — area crack.** Right-click a **block** (the top or side of one, with air above it) with the
@@ -333,7 +335,7 @@ Crabs should now vary in size (age 50–99 → 0.35×–0.69×) instead of all b
 | Goat / raccoon | any edible | `/give @s bread` |
 | Horse (ordinary) | apple | `/give @s apple` |
 | **Horse (magic/undead)** | **must NOT tame by apple** | `/summon mocreatures:horse ~3 ~ ~ {TypeMoC:36}` |
-| Zebra | 5 apples (temper 200) | `/summon mocreatures:horse ~3 ~ ~ {TypeMoC:60}` |
+| Zebra | from the saddle of a spotted/cow horse (or zebra/zorse): 1 apple | `/summon mocreatures:horse ~6 ~ ~ {TypeMoC:60}` |
 | Big cat | medallion, **cub that has eaten** | `/give @s mocreatures:medallion` |
 | **Kitty** | medallion, **after it eats a cooked fish** | see below |
 | Elephant | cake/sugar lump to a calf | §5 |
@@ -428,8 +430,9 @@ Unicorn (36) × white pegasus (39) → **white fairy (50)**, and **both parents 
 ```
 **Expect:** a ~5-second morph animation, then the red fairy (55).
 
-**Wild zebras and donkeys:** turn mob spawning back on in a plains biome and confirm both appear
-(~9% donkey, ~5% zebra with the default `zebraChance`).
+**Wild coats (12.0.5 rules, since 2026-09-25):** forests and most biomes give the tier-2 coats 6/7/8 plus
+`zebraChance`% zebras; plains/savanna about one zebra in three; desert/badlands always zebras; meadows the
+tier-1 coats 1-5 plus about one donkey in six.
 
 ---
 
@@ -453,8 +456,8 @@ Things most likely to have been disturbed by this pass:
 /give @s mocreatures:mocegg[minecraft:custom_data={EggType:62}]
 ```
 **Expect:** "Fire Manticore Egg", not "Spoiled Egg". Ids 63/64/65 are Dark / Snow / Manticore, and the
-four now carry distinct tints in the creative tab instead of four identical white eggs. Throw one, wait
-by a torch → a manticore cub of the matching coat (62→red, 63→dark, 64→blue, 65→green).
+four now carry distinct tints in the creative tab instead of four identical white eggs. Set one down, wait
+~30 s (no torch needed) → a manticore cub of the matching coat (62→red, 63→dark, 64→blue, 65→green).
 
 **Silver sword** — the rate is legacy-exact but genuinely rare: a 1-in-10 item pick multiplied by a
 0–2 copy count that is zero a third of the time, i.e. **~6.7% per kill**. Looting now applies again

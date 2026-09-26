@@ -19,7 +19,6 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
@@ -222,29 +221,47 @@ public class MoCEntityManticorePet extends MoCAnimal implements IMoCManticore {
 
     // ------------------------------------------------------------------------------------- AI tick
 
+    /**
+     * The jaw / wing-beat / sting clocks, server-side, every tick. They live here rather than in
+     * {@link #customServerAiStep} because a mount under a player runs NO server AI step at all: 26.2 only calls
+     * {@code serverAiStep} when {@code isEffectiveAi()}, which is {@code isLocalInstanceAuthoritative()}, false on
+     * the server whenever a player is the controlling passenger (mc262-ref LivingEntity.java:3062,
+     * Entity.java:3562-3581). In the AI step, a ridden manticore never started a wing beat while hovering, and a
+     * beat already running when the rider got on — or one started by the mount-jump key — never finished, so the
+     * wings beat non-stop until the rider got off.
+     */
     @Override
-    protected void customServerAiStep(ServerLevel level) {
-        super.customServerAiStep(level);
+    public void aiStep() {
+        super.aiStep();
+        if (this.level() instanceof ServerLevel level) {
+            tickAnimationClocks(level);
+        }
+    }
 
+    private void tickAnimationClocks(ServerLevel level) {
         // --- jaw / wing beat / sting cycle: identical timing to the wild form ---
         if (this.jawTicks > 0 && --this.jawTicks == 0 && getJawOpen()) {
             this.entityData.set(OPEN_JAW, false);
         }
+        // Airborne, the wings beat steadily for as long as it stays up: each 20-tick beat runs straight into the
+        // next, so FLAPPING never drops and the model's beat never pauses — the way the pegasus flaps. (Legacy
+        // MoCEntityBigCat.onLivingUpdate:336-345 started each beat on a random roll — 1-in-5 free, as rarely as
+        // 1-in-25 ridden and hovering — which left visible stalls between beats.) Grounded, it just stretches its
+        // wings now and again. "Airborne" is the ground probe, not onGround(), which a hovering ridden mount does
+        // not report reliably (see MoCAnimal.hasGroundBelow).
+        boolean airborne = isOffGround();
         if (this.wingFlapCounter > 0 && ++this.wingFlapCounter > 20) {
-            this.wingFlapCounter = 0;
-            this.entityData.set(FLAPPING, false);
+            this.wingFlapCounter = airborne ? 1 : 0; // next beat straight away while airborne
+            if (!airborne) {
+                this.entityData.set(FLAPPING, false);
+            }
         }
         if (this.wingFlapCounter == 5) {
             level.playSound(null, blockPosition(), MoCSounds.WINGFLAP.get(), SoundSource.NEUTRAL, 1.0F,
                     1.0F + ((this.random.nextFloat() - this.random.nextFloat()) * 0.2F));
         }
-        // Legacy MoCEntityBigCat.onLivingUpdate:336-345: a flyer off the ground beats its wings on a
-        // speed-derived interval — as often as 1-in-5 ticks, and never rarer than that while carrying a
-        // rider. Grounded, it just stretches them now and again.
-        if (!this.onGround() && this.random.nextInt(5) == 0) {
-            wingFlap();
-        } else if (this.onGround() && this.random.nextInt(500) == 0) {
-            wingFlap();
+        if (airborne || this.random.nextInt(500) == 0) {
+            wingFlap(); // starts a beat only when none is running
         }
         if (this.poisoning) {
             this.poisonTimer++;
@@ -261,10 +278,15 @@ public class MoCEntityManticorePet extends MoCAnimal implements IMoCManticore {
             }
         }
 
-        // Legacy MoCEntityBigCat.onLivingUpdate: a slow trickle of regeneration, 1 hp per ~300 ticks.
+        // Legacy MoCEntityBigCat.onLivingUpdate: a slow trickle of regeneration, 1 hp per ~300 ticks — ridden or not.
         if (this.random.nextInt(300) == 0 && getHealth() < getMaxHealth()) {
             heal(1.0F);
         }
+    }
+
+    @Override
+    protected void customServerAiStep(ServerLevel level) {
+        super.customServerAiStep(level);
 
         // Gliding descent for an unridden manticore (the ridden one is flown in travel()): a winged cat
         // parachutes rather than plummets. This is legacy MoCEntityManticore's `motionY *= 0.6D` slow-fall.
@@ -303,7 +325,11 @@ public class MoCEntityManticorePet extends MoCAnimal implements IMoCManticore {
         if (food == null) {
             return;
         }
-        if (best < 2.25D) {
+        // Legacy ate at a 2-block reach (MoCEntityBigCat.onLivingUpdate:367, getDistance(entityitem) < 2.0F). This
+        // was 1.5 (2.25 squared), which a manticore cub cannot reach: its hitbox is the full 1.4 blocks wide, so the
+        // pathfinder calls a path done up to 0.7 short of the item's block centre on each axis (mc262-ref
+        // PathNavigation.followThePath:247), and the cub stood beside the meat forever without eating it.
+        if (best < 4.0D) {
             food.getItem().shrink(1);
             if (food.getItem().isEmpty()) {
                 food.discard();
@@ -328,48 +354,29 @@ public class MoCEntityManticorePet extends MoCAnimal implements IMoCManticore {
     // -------------------------------------------------------------------------------- ridden flight
 
     /**
-     * Rider-steered flight, modelled on the port's winged horse ({@code MoCEntityHorse.travel}) rather than
-     * on the wyvern's move-control rewrite, because the pegasus solves exactly this problem: a big creature
-     * that walks normally with ordinary ground pathing and takes to the air only under a rider. Pitch sets
-     * altitude (look up to climb or take off, down to dive), W/S drive forward and brake, A/D strafe, and no
-     * input at all leaves the manticore hovering with a slow sink. Legacy reached the same result through
-     * {@code MoCEntityAnimal}'s flyer branch plus {@code getCustomSpeed() = 2.0}; here the speed comes off
-     * MOVEMENT_SPEED so the ground gait and the flight stay in proportion.
+     * Rider-steered flight with 12.0.5's flying-mount physics, like the winged horses
+     * ({@link MoCAnimal#travelRiddenFlightLegacy}): a big creature that walks normally with ordinary ground pathing
+     * and takes to the air only under a rider. Pitch sets altitude (look up to climb or take off, down to dive), W/S
+     * drive forward and brake, A/D strafe, and no input at all glides slowly down. 12.0.5 flew it with the default
+     * flyer friction (0.91) and {@code MoCEntityBigCat.getCustomSpeed() = 2.0}, whose push the input cap holds at
+     * 0.091 a tick: about 15 blocks a second at the top, reached in about a second, with a drift through turns and a
+     * short coast when the rider lets go. The wings beat from {@link #aiStep} (this runs on the rider's client,
+     * where a server-side beat could never start).
      */
     @Override
     public void travel(Vec3 input) {
-        if (this.isVehicle() && getControllingPassenger() instanceof Player rider
-                && (!this.onGround() || rider.getXRot() < -25.0F)) {
-            this.setYRot(rider.getYRot());
-            this.yRotO = this.getYRot();
-            this.setXRot(rider.getXRot() * 0.5F);
-            this.yBodyRot = this.getYRot();
-            this.yHeadRot = this.getYRot();
-            this.setNoGravity(true);
-            float fwd = rider.zza;
-            float str = rider.xxa;
-            float speed = (float) (this.getAttributeValue(Attributes.MOVEMENT_SPEED) * 2.2D);
-            if (fwd != 0.0F || str != 0.0F) {
-                Vec3 look = rider.getLookAngle();
-                double fwdScale = fwd > 0.0F ? speed : (fwd < 0.0F ? -speed * 0.4D : 0.0D);
-                Vec3 forward = look.scale(fwdScale);
-                Vec3 side = new Vec3(look.z, 0.0D, -look.x).normalize().scale(str * speed * 0.5D);
-                Vec3 desired = forward.add(side);
-                this.setDeltaMovement(this.getDeltaMovement().scale(0.5D).add(desired.scale(0.5D)));
-            } else {
-                Vec3 dm = this.getDeltaMovement();
-                this.setDeltaMovement(dm.x * 0.7D, Math.max(dm.y * 0.8D, -0.04D), dm.z * 0.7D);
-            }
-            this.move(MoverType.SELF, this.getDeltaMovement());
-            this.setDeltaMovement(this.getDeltaMovement().scale(0.9D));
-            // Beat the wings while actually flying, so the mount looks like it is holding itself up.
-            if (!this.level().isClientSide() && this.random.nextInt(8) == 0) {
-                wingFlap();
-            }
-        } else {
-            this.setNoGravity(false); // also clears the flight no-gravity on landing
-            super.travel(input);
+        if (this.isVehicle() && getControllingPassenger() instanceof Player rider && !isRiddenFlightLanded(rider)) {
+            travelRiddenFlightLegacy(rider, 2.0D);
+            return;
         }
+        this.setNoGravity(false); // also clears the flight no-gravity on landing
+        super.travel(input);
+    }
+
+    /** Airborne for the model's wing and leg pose: the ground probe, which a hovering ridden mount reports reliably. */
+    @Override
+    public boolean isAirborne() {
+        return isOffGround();
     }
 
     // -------------------------------------------------------------------------------------- combat

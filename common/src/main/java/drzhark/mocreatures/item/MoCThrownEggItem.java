@@ -2,6 +2,7 @@ package drzhark.mocreatures.item;
 
 import drzhark.mocreatures.entity.passive.MoCEntityEgg;
 import drzhark.mocreatures.registry.MoCEntities;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -9,16 +10,21 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.CustomModelData;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code mocegg} item — the port of the legacy {@code MoCItemEgg}.
@@ -39,6 +45,20 @@ public class MoCThrownEggItem extends Item {
 
     public MoCThrownEggItem(Properties properties) {
         super(properties);
+    }
+
+    /**
+     * An egg made any other way than {@link #createEgg} — a {@code /give} with only {@code EggType} in its custom
+     * data — has its type but not its icon tint, so it showed as a plain white egg and would not stack with the same
+     * egg picked up in the world. Once it sits in an inventory it gets the tint {@code createEgg} would have given it.
+     */
+    @Override
+    public void inventoryTick(ItemStack stack, ServerLevel level, Entity owner, @Nullable EquipmentSlot slot) {
+        int eggType = eggTypeOf(stack);
+        if (eggType > 0 && !stack.has(DataComponents.CUSTOM_MODEL_DATA)) {
+            stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(
+                    List.of(), List.of(), List.of(), List.of(eggColour(eggType))));
+        }
     }
 
     /** The legacy composite egg id stored on the stack, or 0 for a blank "Spoiled Egg". */
@@ -156,37 +176,78 @@ public class MoCThrownEggItem extends Item {
                 || (type >= 62 && type <= 65); // manticore pet coats
     }
 
+    /**
+     * Right-clicking a block sets the egg down ON that block — on the face you clicked, centred — the way a
+     * spawn egg places its mob. Legacy only had {@link #use} (the egg dropped at your feet), which is kept for
+     * a click at the air; placing it where you are looking is what "put the egg down" means to a player, and
+     * it keeps the egg out from under your own feet, where walking over it collects it again.
+     */
+    @Override
+    public InteractionResult useOn(UseOnContext context) {
+        Player player = context.getPlayer();
+        if (player == null) {
+            return InteractionResult.PASS;
+        }
+        if (context.getLevel() instanceof ServerLevel serverLevel) {
+            BlockPos pos = context.getClickedPos();
+            if (!serverLevel.getBlockState(pos).getCollisionShape(serverLevel, pos).isEmpty()) {
+                pos = pos.relative(context.getClickedFace()); // a solid block: rest on the face that was clicked
+            }
+            if (!placeEgg(serverLevel, context.getItemInHand(), pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D,
+                    false)) {
+                return InteractionResult.PASS;
+            }
+        }
+        if (!player.getAbilities().instabuild) {
+            context.getItemInHand().shrink(1);
+        }
+        return InteractionResult.SUCCESS;
+    }
+
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (level instanceof ServerLevel serverLevel) {
-            int type = eggTypeOf(stack);
-            if (type == 30) {
-                type = 31; // legacy: a placed ostrich egg becomes a stolen egg, so it hatches tamed
-            }
-            MoCEntityEgg egg = MoCEntities.EGG.get().create(serverLevel, EntitySpawnReason.MOB_SUMMONED);
-            if (egg == null) {
-                return InteractionResult.PASS;
-            }
-            if (type > 0) {
-                egg.setEggType(type);
-            } else {
-                // Legacy: a blank egg is a spoiled fishy egg. It only ever hatches in water, and picks a random
-                // fishy variant when it does; on land it is worthless.
-                egg.setTypeMoC(MoCEntityEgg.TYPE_FISHY);
-                egg.setVariant(0);
-            }
-            egg.setPos(player.getX(), player.getY(), player.getZ());
-            RandomSource r = serverLevel.getRandom();
-            egg.setDeltaMovement(egg.getDeltaMovement().add(new Vec3(
-                    (r.nextFloat() - r.nextFloat()) * 0.3F,
-                    r.nextFloat() * 0.05F,
-                    (r.nextFloat() - r.nextFloat()) * 0.3F)));
-            serverLevel.addFreshEntity(egg);
+        if (level instanceof ServerLevel serverLevel
+                && !placeEgg(serverLevel, stack, player.getX(), player.getY(), player.getZ(), true)) {
+            return InteractionResult.PASS;
         }
         if (!player.getAbilities().instabuild) {
             stack.shrink(1);
         }
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * Spawns the {@link MoCEntityEgg} a stack describes at the given position. {@code nudge} adds legacy
+     * {@code MoCItemEgg}'s small random toss, used when the egg is dropped at the player's feet.
+     */
+    private static boolean placeEgg(ServerLevel serverLevel, ItemStack stack, double x, double y, double z,
+            boolean nudge) {
+        int type = eggTypeOf(stack);
+        if (type == 30) {
+            type = 31; // legacy: a placed ostrich egg becomes a stolen egg, so it hatches tamed
+        }
+        MoCEntityEgg egg = MoCEntities.EGG.get().create(serverLevel, EntitySpawnReason.MOB_SUMMONED);
+        if (egg == null) {
+            return false;
+        }
+        if (type > 0) {
+            egg.setEggType(type);
+        } else {
+            // Legacy: a blank egg is a spoiled fishy egg. It only ever hatches in water, and picks a random
+            // fishy variant when it does; on land it is worthless.
+            egg.setTypeMoC(MoCEntityEgg.TYPE_FISHY);
+            egg.setVariant(0);
+        }
+        egg.setPos(x, y, z);
+        if (nudge) {
+            RandomSource r = serverLevel.getRandom();
+            egg.setDeltaMovement(egg.getDeltaMovement().add(new Vec3(
+                    (r.nextFloat() - r.nextFloat()) * 0.3F,
+                    r.nextFloat() * 0.05F,
+                    (r.nextFloat() - r.nextFloat()) * 0.3F)));
+        }
+        serverLevel.addFreshEntity(egg);
+        return true;
     }
 }

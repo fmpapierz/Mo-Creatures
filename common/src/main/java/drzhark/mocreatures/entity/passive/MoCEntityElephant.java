@@ -664,7 +664,7 @@ public class MoCEntityElephant extends MoCAnimal {
     }
 
     @Override
-    protected float getRiddenSpeed(Player controller) {
+    protected float getMountSpeed(Player controller) {
         return (float) (this.getAttributeValue(Attributes.MOVEMENT_SPEED) * getCustomSpeed());
     }
 

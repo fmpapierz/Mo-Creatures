@@ -24,7 +24,9 @@ public class MoCModelDragonfly extends EntityModel<MoCEntityRenderState> {
     // The dragonfly sheets paint only one tile of each zero-thickness box (wings/antennae: DOWN;
     // legs: NORTH). The model renders culled, so each such box is split into two single-face boxes
     // that both sample the painted tile (the second texOffs re-aims the opposite face onto the same
-    // rect — see MoCModelHorse's membranes).
+    // rect — see MoCModelHorse's membranes). The legs' re-aimed SOUTH face is also mirror()ed so every
+    // point carries the same texel as the painted NORTH face, as 1.12 (culling off) showed it from behind;
+    // unmirrored, NORTH and SOUTH lay a tile out in opposite x directions. (DOWN/UP need no mirror.)
     private static final Set<Direction> FACE_DOWN = Set.of(Direction.DOWN);
     private static final Set<Direction> FACE_UP = Set.of(Direction.UP);
     private static final Set<Direction> FACE_NORTH = Set.of(Direction.NORTH);
@@ -87,15 +89,15 @@ public class MoCModelDragonfly extends EntityModel<MoCEntityRenderState> {
                 PartPose.offsetAndRotation(0.0F, 20.5F, 0.0F, 1.427659F, 0.0F, 0.0F));
         root.addOrReplaceChild("front_legs",
                 CubeListBuilder.create().texOffs(0, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_NORTH)
-                        .texOffs(-2, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_SOUTH),
+                        .texOffs(-2, 8).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_SOUTH),
                 PartPose.offsetAndRotation(0.0F, 21.5F, -1.8F, 0.1487144F, 0.0F, 0.0F));
         root.addOrReplaceChild("mid_legs",
                 CubeListBuilder.create().texOffs(4, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_NORTH)
-                        .texOffs(2, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_SOUTH),
+                        .texOffs(2, 8).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_SOUTH),
                 PartPose.offsetAndRotation(0.0F, 22.0F, -1.2F, 0.5948578F, 0.0F, 0.0F));
         root.addOrReplaceChild("rear_legs",
                 CubeListBuilder.create().texOffs(8, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_NORTH)
-                        .texOffs(6, 8).addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_SOUTH),
+                        .texOffs(6, 8).mirror().addBox(-1.0F, 0.0F, 0.0F, 2.0F, 3.0F, 0.0F, FACE_SOUTH),
                 PartPose.offsetAndRotation(0.0F, 22.0F, -0.4F, 1.070744F, 0.0F, 0.0F));
         root.addOrReplaceChild("wing_front_right",
                 CubeListBuilder.create().texOffs(0, 28).addBox(-7.0F, 0.0F, -1.0F, 7.0F, 0.0F, 2.0F, FACE_DOWN)
@@ -114,6 +116,15 @@ public class MoCModelDragonfly extends EntityModel<MoCEntityRenderState> {
                         .texOffs(-7, 26).addBox(0.0F, 0.0F, -1.0F, 7.0F, 0.0F, 2.0F, FACE_UP),
                 PartPose.offsetAndRotation(1.0F, 20.0F, -1.0F, 0.0F, -0.3490659F, 0.0872665F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the abdomen's end caps are transparent, so its
+        // side walls were seen from inside along its length. Each twin is the named face of that part's box turned
+        // to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "abdomen", CubeListBuilder.create()
+                .texOffs(8, 0).mirror(true).addBox(-0.5F, 0.0F, -1.0F, 0.0F, 7.0F, 1.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(8, 1).mirror(true).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 7.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(9, 0).mirror(true).addBox(0.5F, 0.0F, -1.0F, 0.0F, 7.0F, 1.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(11, 1).mirror(true).addBox(-0.5F, 0.0F, 0.0F, 1.0F, 7.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 32, 32);
     }
 
@@ -125,8 +136,9 @@ public class MoCModelDragonfly extends EntityModel<MoCEntityRenderState> {
         float limbAmount = state.walkAnimationSpeed;
         float ageInTicks = state.ageInTicks;
 
-        // Wings beat only while airborne (legacy: flying -> cos flap, grounded -> wings still).
-        float wingRot = state.flying ? Mth.cos(ageInTicks * 2.0F) * 0.5F : 0.0F;
+        // Wings beat only while airborne (legacy: flying -> cos flap, grounded -> wings still). Scaled by
+        // state.wingOpen (eased over a few ticks), the beat settles on landing instead of stopping dead.
+        float wingRot = Mth.cos(ageInTicks * 2.0F) * 0.5F * state.wingOpen;
 
         this.wingFrontRight.zRot = wingRot;
         this.wingRearLeft.zRot = wingRot;

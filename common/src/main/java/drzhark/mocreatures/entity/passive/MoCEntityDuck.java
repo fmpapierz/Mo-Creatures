@@ -30,11 +30,17 @@ public class MoCEntityDuck extends MoCAnimal {
                 .add(Attributes.MOVEMENT_SPEED, 0.25D);
     }
 
+    /** Legacy {@code MoCEntityDuck.fall()} was overridden empty: a duck flutters down and never takes fall damage. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float multiplier, DamageSource source) {
+        return false;
+    }
+
     @Override
     public void tick() {
         super.tick();
         // Legacy onLivingUpdate glide: while airborne and descending, ducks flutter down at
-        // 60% descent speed (softer landings / reduced fall damage). Runs on both sides.
+        // 60% descent speed. Runs on both sides.
         if (!this.onGround() && this.getDeltaMovement().y < 0.0D) {
             this.setDeltaMovement(this.getDeltaMovement().multiply(1.0D, 0.6D, 1.0D));
         }

@@ -25,7 +25,10 @@ public class MoCModelRoach extends EntityModel<MoCEntityRenderState> {
     private static final float RADIAN_F = 57.29578F;
 
     // Zero-thickness planes are split into two single-face boxes (painted face + a re-aimed opposite face
-    // sampling the same painted tile) so the culled render type keeps them visible from both sides.
+    // sampling the same painted tile) so the culled render type keeps them visible from both sides. A
+    // re-aimed SOUTH face is also mirror()ed: NORTH and SOUTH lay a tile out in opposite x directions, and
+    // 1.12 (culling off) showed the painted face from behind, i.e. the same texel at every point. DOWN/UP
+    // pairs already run the same way and need no mirror (see MoCBackFaces).
     private static final Set<Direction> DOWN_ONLY = Set.of(Direction.DOWN);
     private static final Set<Direction> UP_ONLY = Set.of(Direction.UP);
     private static final Set<Direction> NORTH_ONLY = Set.of(Direction.NORTH);
@@ -100,17 +103,17 @@ public class MoCModelRoach extends EntityModel<MoCEntityRenderState> {
 
         root.addOrReplaceChild("front_legs",
                 CubeListBuilder.create().texOffs(0, 11).addBox(-2F, 0F, 0F, 4.0F, 2.0F, 0.0F, NORTH_ONLY)
-                        .texOffs(-4, 11).addBox(-2F, 0F, 0F, 4.0F, 2.0F, 0.0F, SOUTH_ONLY),
+                        .texOffs(-4, 11).mirror().addBox(-2F, 0F, 0F, 4.0F, 2.0F, 0.0F, SOUTH_ONLY),
                 PartPose.offsetAndRotation(0F, 23F, -1.8F, -1.115358F, 0F, 0F));
 
         root.addOrReplaceChild("mid_legs",
                 CubeListBuilder.create().texOffs(0, 13).addBox(-2.5F, 0F, 0F, 5.0F, 2.0F, 0.0F, NORTH_ONLY)
-                        .texOffs(-5, 13).addBox(-2.5F, 0F, 0F, 5.0F, 2.0F, 0.0F, SOUTH_ONLY),
+                        .texOffs(-5, 13).mirror().addBox(-2.5F, 0F, 0F, 5.0F, 2.0F, 0.0F, SOUTH_ONLY),
                 PartPose.offsetAndRotation(0F, 23F, -1.2F, 1.264073F, 0F, 0F));
 
         root.addOrReplaceChild("rear_legs",
                 CubeListBuilder.create().texOffs(0, 15).addBox(-2F, 0F, 0F, 4.0F, 4.0F, 0.0F, NORTH_ONLY)
-                        .texOffs(-4, 15).addBox(-2F, 0F, 0F, 4.0F, 4.0F, 0.0F, SOUTH_ONLY),
+                        .texOffs(-4, 15).mirror().addBox(-2F, 0F, 0F, 4.0F, 4.0F, 0.0F, SOUTH_ONLY),
                 PartPose.offsetAndRotation(0F, 23F, -0.4F, 1.368173F, 0F, 0F));
 
         root.addOrReplaceChild("abdomen",
@@ -119,12 +122,12 @@ public class MoCModelRoach extends EntityModel<MoCEntityRenderState> {
 
         root.addOrReplaceChild("tail_l",
                 CubeListBuilder.create().texOffs(2, 29).addBox(-0.5F, 0F, 0F, 1.0F, 2.0F, 0.0F, NORTH_ONLY)
-                        .texOffs(1, 29).addBox(-0.5F, 0F, 0F, 1.0F, 2.0F, 0.0F, SOUTH_ONLY),
+                        .texOffs(1, 29).mirror().addBox(-0.5F, 0F, 0F, 1.0F, 2.0F, 0.0F, SOUTH_ONLY),
                 PartPose.offsetAndRotation(0F, 23F, 3.6F, 1.554066F, 0.6457718F, 0F));
 
         root.addOrReplaceChild("tail_r",
                 CubeListBuilder.create().texOffs(0, 29).addBox(-0.5F, 0F, 0F, 1.0F, 2.0F, 0.0F, NORTH_ONLY)
-                        .texOffs(-1, 29).addBox(-0.5F, 0F, 0F, 1.0F, 2.0F, 0.0F, SOUTH_ONLY),
+                        .texOffs(-1, 29).mirror().addBox(-0.5F, 0F, 0F, 1.0F, 2.0F, 0.0F, SOUTH_ONLY),
                 PartPose.offsetAndRotation(0F, 23F, 3.6F, 1.554066F, -0.6457718F, 0F));
 
         root.addOrReplaceChild("l_shell_closed",
@@ -147,8 +150,10 @@ public class MoCModelRoach extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 23).addBox(-2F, 0F, 0F, 2.0F, 0.0F, 6.0F, DOWN_ONLY)
                         .texOffs(-2, 23).addBox(-2F, 0F, 0F, 2.0F, 0.0F, 6.0F, UP_ONLY),
                 PartPose.offsetAndRotation(0F, 21.5F, -1.5F, 1.117011F, 0.0872665F, -1.047198F));
+        // Not mirrored: legacy sets LeftWing.mirror = true only AFTER its addBox, and a 1.12 ModelBox reads the
+        // renderer's mirror flag when it is built, so the legacy wing box was never mirrored.
         root.addOrReplaceChild("left_wing",
-                CubeListBuilder.create().texOffs(11, 21).mirror().addBox(0F, 1F, -1F, 6.0F, 0.0F, 2.0F, UP_ONLY)
+                CubeListBuilder.create().texOffs(11, 21).addBox(0F, 1F, -1F, 6.0F, 0.0F, 2.0F, UP_ONLY)
                         .texOffs(17, 21).addBox(0F, 1F, -1F, 6.0F, 0.0F, 2.0F, DOWN_ONLY),
                 PartPose.offsetAndRotation(0F, 21.5F, -1.5F, 0F, -1.047198F, -0.4363323F));
         root.addOrReplaceChild("right_wing",
@@ -179,19 +184,27 @@ public class MoCModelRoach extends EntityModel<MoCEntityRenderState> {
         this.midLegs.xRot = 1.264073F + legMovB;
         this.rearLegs.xRot = 1.368173F + legMov;
 
-        // In flight the elytra open and the wings beat; grounded the shell is closed with no wings
-        // (legacy isFlying = getIsFlying() || isOnAir()).
-        boolean flying = state.flying;
-        this.lShellClosed.visible = !flying;
-        this.rShellClosed.visible = !flying;
-        this.lShellOpen.visible = flying;
-        this.rShellOpen.visible = flying;
-        this.leftWing.visible = flying;
-        this.rightWing.visible = flying;
-        if (flying) {
-            float flap = Mth.cos(state.ageInTicks * 2.0F) * 0.7F;
-            this.leftWing.zRot = -0.4363323F - flap;
-            this.rightWing.zRot = 0.4363323F + flap;
-        }
+        // In flight the elytra open and the wings beat; grounded the shell is closed with no wings (legacy
+        // isFlying = getIsFlying() || isOnAir()), which legacy swapped in one frame. The open and closed shells are
+        // the same box on the same pivot, only angled differently, so one shell pair swings between the two angles
+        // by state.wingOpen (eased over a few ticks), and the wings stop beating and swing back along the body
+        // before they go, so the shell closes over them.
+        float open = state.wingOpen;
+        this.lShellOpen.visible = false;
+        this.rShellOpen.visible = false;
+        this.lShellClosed.visible = true;
+        this.rShellClosed.visible = true;
+        this.lShellClosed.xRot = Mth.lerp(open, -0.1487144F, 1.117011F);
+        this.rShellClosed.xRot = Mth.lerp(open, -0.1487144F, 1.117011F);
+        this.lShellClosed.zRot = Mth.lerp(open, 0.1919862F, 1.047198F);
+        this.rShellClosed.zRot = Mth.lerp(open, -0.1919862F, -1.047198F);
+        boolean wingsOut = open > 0.15F; // tucked under the shell below this
+        this.leftWing.visible = wingsOut;
+        this.rightWing.visible = wingsOut;
+        float flap = Mth.cos(state.ageInTicks * 2.0F) * 0.7F;
+        this.leftWing.zRot = (-0.4363323F - flap) * open;
+        this.rightWing.zRot = (0.4363323F + flap) * open;
+        this.leftWing.yRot = Mth.lerp(open, -Mth.HALF_PI, -1.047198F);
+        this.rightWing.yRot = Mth.lerp(open, Mth.HALF_PI, 1.047198F);
     }
 }

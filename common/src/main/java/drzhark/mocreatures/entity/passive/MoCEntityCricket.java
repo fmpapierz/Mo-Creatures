@@ -17,6 +17,7 @@ import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.damagesource.DamageSource;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -40,6 +41,12 @@ public class MoCEntityCricket extends MoCAnimal {
 
     public MoCEntityCricket(EntityType<? extends MoCEntityCricket> type, Level level) {
         super(type, level);
+    }
+
+    /** Legacy {@code fall()} was overridden empty (12.0.5 MoCEntityInsect, which MoCEntityCricket extends): no fall damage. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float multiplier, DamageSource source) {
+        return false;
     }
 
     public static AttributeSupplier.Builder createAttributes() {

@@ -61,7 +61,6 @@ public final class MoCModelLayers {
     public static final ModelLayerLocation WRAITH = layer("wraith");
     public static final ModelLayerLocation HELL_RAT = layer("hell_rat");
     public static final ModelLayerLocation FLAME_WRAITH = layer("flame_wraith");
-    public static final ModelLayerLocation HORSE_MOB = layer("horse_mob");
     public static final ModelLayerLocation FISH_BOWL = layer("fish_bowl");
 
     public static final ModelLayerLocation ANT = layer("ant");

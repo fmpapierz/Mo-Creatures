@@ -23,8 +23,9 @@ import java.util.Set;
  * <ul>
  *   <li><b>Two katanas.</b> Each arm carries a hand plus three blade cubes ({@code SwordA} guard,
  *       {@code SwordB} hilt, {@code SwordC} blade). {@code SwordC} is a zero-thickness box — the legacy
- *       flat double-sided blade plane — split into a painted WEST face plus a re-aimed EAST face sampling the
- *       same tile so the culled render type shows it from both sides. Every one of those cubes is a SIBLING of the arm with the same
+ *       flat double-sided blade plane — split into its painted WEST face plus the same face again with
+ *       {@code mirror()}, turned to face +X with the same texel at every point (what 1.12 showed from behind),
+ *       so the culled render type shows it from both sides. Every one of those cubes is a SIBLING of the arm with the same
  *       pivot (legacy never parented them), so {@link #setupAnim} copies the arm's rotation onto all four
  *       parts by hand, exactly as {@code setRotationAngles:218-226} did.</li>
  *   <li><b>Per-arm swing.</b> The legacy model read {@code attackCounterLeft/Right} straight off the entity;
@@ -47,10 +48,11 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
     private static final float PI = 3.141593F;
 
-    // The flat blade planes are split into two single-face boxes (painted WEST face + a re-aimed EAST face
-    // sampling the same painted tile) so the culled render type keeps them visible from both sides.
+    // The flat blade planes are split into two single-face boxes (the painted WEST face + the same WEST face
+    // with mirror(), which turns an X face round to face +X without changing its texture layout) so the
+    // culled render type keeps them visible from both sides with the texel 1.12 showed at every point. A
+    // re-aimed EAST face would lay the blade tile out back to front (hilt end and tip swapped).
     private static final Set<Direction> WEST_ONLY = Set.of(Direction.WEST);
-    private static final Set<Direction> EAST_ONLY = Set.of(Direction.EAST);
 
     private final ModelPart head;
     private final ModelPart rightArm;
@@ -119,10 +121,10 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
         root.addOrReplaceChild("right_sword_b",
                 CubeListBuilder.create().texOffs(48, 50).addBox(-1.5F, 7.5F, -4.0F, 1.0F, 3.0F, 1.0F),
                 PartPose.offset(-5.0F, 1.0F, 0.0F));
-        // Zero-thickness blade plane (legacy addBox(..., 0, 3, 10)) — split into WEST + re-aimed EAST faces.
+        // Zero-thickness blade plane (legacy addBox(..., 0, 3, 10)) — split into WEST + mirrored WEST faces.
         root.addOrReplaceChild("right_sword_c",
                 CubeListBuilder.create().texOffs(28, 28).addBox(-1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, WEST_ONLY)
-                        .texOffs(18, 28).addBox(-1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, EAST_ONLY),
+                        .texOffs(28, 28).mirror().addBox(-1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, WEST_ONLY),
                 PartPose.offset(-5.0F, 1.0F, 0.0F));
 
         // ---- Left arm + katana ----
@@ -140,7 +142,7 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
                 PartPose.offset(5.0F, 1.0F, 0.0F));
         root.addOrReplaceChild("left_sword_c",
                 CubeListBuilder.create().texOffs(28, 31).addBox(1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, WEST_ONLY)
-                        .texOffs(18, 31).addBox(1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, EAST_ONLY),
+                        .texOffs(28, 31).mirror().addBox(1.0F, 7.5F, -14.0F, 0.0F, 3.0F, 10.0F, WEST_ONLY),
                 PartPose.offset(5.0F, 1.0F, 0.0F));
 
         // ---- Right leg: thigh -> shin -> foot, with a separate knee-plate cube on the thigh pivot ----
@@ -170,6 +172,39 @@ public class MoCModelSilverSkeleton extends EntityModel<MoCEntityRenderState> {
         leftLeg.addOrReplaceChild("left_foot",
                 CubeListBuilder.create().texOffs(16, 54).addBox(-2.0F, 0.0F, -2.0F, 4.0F, 6.0F, 4.0F),
                 PartPose.offset(0.0F, 2.0F, 0.0F));
+
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the ribcage (body) and the upper arms are
+        // painted with gaps, through which their inner walls showed. Each twin is the named face of that part's box
+        // turned to face into the box, with the same corners and texels.
+        // (The ribcage's top lies flush on the head's underside, and part of each arm's bottom on the katana guard,
+        // facing the same way; those get no twin, it would z-fight. The ribcage's sides and the arms' inner sides
+        // touch only in the bind pose: the idle sway in setupAnim rolls each arm 0 to 0.1 rad off the ribcage every
+        // frame, flush only at the instant of each sway peak, so they do get twins; without them the ribcage's side
+        // walls were missing in nearly every frame.)
+        MoCBackFaces.add(root, "body", CubeListBuilder.create()
+                .texOffs(40, 0).mirror(false).addBox(-4.0F, 12.0F, -2.0F, 8.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(32, 0).mirror(true).addBox(-4.0F, 0.0F, -2.0F, 0.0F, 12.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(28, 4).mirror(true).addBox(-4.0F, 0.0F, -2.0F, 8.0F, 12.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(40, 0).mirror(true).addBox(4.0F, 0.0F, -2.0F, 0.0F, 12.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(48, 4).mirror(true).addBox(-4.0F, 0.0F, 2.0F, 8.0F, 12.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "left_arm", CubeListBuilder.create()
+                .texOffs(44, 16).mirror(false).addBox(-1.0F, -2.5F, -2.5F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                // back of the up face, minus the middle where the katana guard's top lies flush on it
+                .texOffs(52, 16).mirror(false).addBox(-1.0F, 8.5F, -2.5F, 1.0F, 0.0F, 4.0F, MoCBackFaces.DOWN)
+                .texOffs(55, 16).mirror(false).addBox(2.0F, 8.5F, -2.5F, 1.0F, 0.0F, 4.0F, MoCBackFaces.DOWN)
+                .texOffs(48, 16).mirror(true).addBox(-1.0F, -2.5F, -2.5F, 0.0F, 11.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 20).mirror(true).addBox(-1.0F, -2.5F, -2.5F, 4.0F, 11.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(52, 16).mirror(true).addBox(3.0F, -2.5F, -2.5F, 0.0F, 11.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(60, 20).mirror(true).addBox(-1.0F, -2.5F, 1.5F, 4.0F, 11.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "right_arm", CubeListBuilder.create()
+                .texOffs(44, 31).mirror(false).addBox(-3.0F, -2.5F, -2.5F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                // back of the up face, minus the middle where the katana guard's top lies flush on it
+                .texOffs(52, 31).mirror(false).addBox(-3.0F, 8.5F, -2.5F, 1.0F, 0.0F, 4.0F, MoCBackFaces.DOWN)
+                .texOffs(55, 31).mirror(false).addBox(0.0F, 8.5F, -2.5F, 1.0F, 0.0F, 4.0F, MoCBackFaces.DOWN)
+                .texOffs(48, 31).mirror(true).addBox(-3.0F, -2.5F, -2.5F, 0.0F, 11.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 35).mirror(true).addBox(-3.0F, -2.5F, -2.5F, 4.0F, 11.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(52, 31).mirror(true).addBox(1.0F, -2.5F, -2.5F, 0.0F, 11.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(60, 35).mirror(true).addBox(-3.0F, -2.5F, 1.5F, 4.0F, 11.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
 
         return LayerDefinition.create(mesh, 64, 64);
     }

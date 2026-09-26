@@ -169,7 +169,7 @@ public final class MoCEntities {
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.projectile.MoCThrownDuckEgg>> THROWN_DUCK_EGG = ENTITIES.register("thrown_duck_egg",
             () -> EntityType.Builder.<drzhark.mocreatures.entity.projectile.MoCThrownDuckEgg>of(drzhark.mocreatures.entity.projectile.MoCThrownDuckEgg::new, MobCategory.MISC).sized(0.25F, 0.25F).clientTrackingRange(4).updateInterval(10).build(key("thrown_duck_egg")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityEgg>> EGG = ENTITIES.register("egg",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityEgg::new, MobCategory.MISC).sized(0.35F, 0.45F).clientTrackingRange(8).build(key("egg")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityEgg::new, MobCategory.MISC).sized(0.25F, 0.25F).clientTrackingRange(8).build(key("egg"))); // legacy setSize(0.25F, 0.25F)
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityKittyBed>> KITTY_BED = ENTITIES.register("kitty_bed",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityKittyBed::new, MobCategory.MISC).sized(0.98F, 0.35F).clientTrackingRange(8).build(key("kitty_bed")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityLitterBox>> LITTER_BOX = ENTITIES.register("litter_box",

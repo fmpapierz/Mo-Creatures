@@ -188,6 +188,37 @@ public class MoCModelWWolf extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(14, 93).addBox(-2.506667F, 9.5F, -3.0F, 3.0F, 2.0F, 3.0F),
                 PartPose.offset(-3.0F, 12.5F, 7.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the tail tufts, cheek fur (lSide/rSide) and the
+        // neck fringe (neck2) are fur shapes painted on the faces of open boxes, seen from inside through the empty
+        // faces. Each twin is the named face of that part's box turned to face into the box, with the same corners
+        // and texels.
+        MoCBackFaces.add(root, "lSide", CubeListBuilder.create()
+                .texOffs(26, 33).mirror(false).addBox(3.0F, -0.5F, -2.0F, 2.0F, 0.0F, 6.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(30, 33).mirror(false).addBox(3.0F, 5.5F, -2.0F, 2.0F, 0.0F, 6.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(30, 33).mirror(true).addBox(5.0F, -0.5F, -2.0F, 0.0F, 6.0F, 6.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "neck2", CubeListBuilder.create()
+                .texOffs(0, 14).mirror(true).addBox(-1.5F, -2.0F, -5.0F, 0.0F, 4.0F, 7.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(3, 14).mirror(true).addBox(1.5F, -2.0F, -5.0F, 0.0F, 4.0F, 7.0F, MoCBackFaces.EAST)); // back of the east face
+        MoCBackFaces.add(root, "rSide", CubeListBuilder.create()
+                .texOffs(26, 45).mirror(false).addBox(-5.0F, -0.5F, -2.0F, 2.0F, 0.0F, 6.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(28, 45).mirror(true).addBox(-5.0F, -0.5F, -2.0F, 0.0F, 6.0F, 6.0F, MoCBackFaces.WEST)); // back of the west face
+        MoCBackFaces.add(root, "tailB", CubeListBuilder.create()
+                .texOffs(44, 49).mirror(false).addBox(-2.0F, 3.0F, -1.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(48, 49).mirror(true).addBox(-2.0F, 3.0F, -1.0F, 0.0F, 6.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 53).mirror(true).addBox(-2.0F, 3.0F, -1.0F, 4.0F, 6.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(52, 49).mirror(true).addBox(2.0F, 3.0F, -1.0F, 0.0F, 6.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(60, 53).mirror(true).addBox(-2.0F, 3.0F, 3.0F, 4.0F, 6.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "tailC", CubeListBuilder.create()
+                .texOffs(48, 59).mirror(true).addBox(-2.0F, 7.8F, -4.1F, 0.0F, 6.0F, 4.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(48, 63).mirror(true).addBox(-2.0F, 7.8F, -4.1F, 4.0F, 6.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(52, 59).mirror(true).addBox(2.0F, 7.8F, -4.1F, 0.0F, 6.0F, 4.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(60, 63).mirror(true).addBox(-2.0F, 7.8F, -0.1F, 4.0F, 6.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "tailD", CubeListBuilder.create()
+                .texOffs(52, 69).mirror(true).addBox(-1.5F, 9.8F, -3.6F, 0.0F, 5.0F, 3.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(52, 72).mirror(true).addBox(-1.5F, 9.8F, -3.6F, 3.0F, 5.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(55, 69).mirror(true).addBox(1.5F, 9.8F, -3.6F, 0.0F, 5.0F, 3.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(61, 72).mirror(true).addBox(-1.5F, 9.8F, -0.6F, 3.0F, 5.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 64, 128);
     }
 

@@ -561,12 +561,13 @@ public final class MoCBehavior {
                 // expressed here and lives in MoCEntityTurtle.tick.
                 .spawnAge(60, 109).babyRoll(1).grow(300, 120, 120)
                 .drop(() -> MoCItems.TURTLERAW.get(), 0, 2, 1.0F);
-        // Legacy wyverns have no feed-to-tame interaction — rat/turkey are heal food only, on an already-tamed
-        // wyvern. Wild wyverns become tamed by being ridden/named (base tameWithName), not by feeding, so the
-        // generic FEED taming is disabled here (the raw rat/turkey heal foods are kept).
-        // Legacy wyverns have no feed-taming: you saddle and mount a WILD one and break it in (rideTames).
+        // Wyverns follow 12.0.5: a wyvern is only ever tamed by HATCHING it. A wild one cannot be fed, saddled or
+        // ridden — 12.0.5 MoCEntityWyvern.processInteract:426 requires getIsTamed() to saddle, and mounting needs the
+        // saddle — so there is no rideTames here (5.1.5 had no tamed gate and let you break a wild one in by riding
+        // it; 12.0.5 removed that). Eggs come from wild wyverns killed in the Wyvern Lair (MoCEntityWyvern
+        // .dropCustomDeathLoot) and from a tamed wyvern given an Essence of Light. Rat/turkey are heal food only.
         reg("wyvern").tame(Tame.NONE)
-                .ride(true).rideTames().heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get()).baby();
+                .ride(true).heal(() -> MoCItems.RATRAW.get(), () -> MoCItems.TURKEYRAW.get()).baby();
         // Legacy crabs spawn at edad 50-99 and render at 0.7 * edad * 0.01, i.e. anywhere from 0.35x to 0.69x.
         reg("crab").baby().spawnAge(50, 99).drop(() -> MoCItems.CRABRAW.get(), 1, 1, 1.0F);
         reg("maggot").vanilla().drop(v(Items.SLIME_BALL), 0, 2, 1.0F);

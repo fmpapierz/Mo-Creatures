@@ -528,7 +528,7 @@ public class MoCEntityOstrich extends MoCAnimal {
     }
 
     @Override
-    protected float getRiddenSpeed(Player controller) {
+    protected float getMountSpeed(Player controller) {
         // Fast runner: ~0.2 * customSpeed reads as a horse-plus gallop, quicker for the higher types.
         return (float) (0.2D * getCustomSpeed());
     }

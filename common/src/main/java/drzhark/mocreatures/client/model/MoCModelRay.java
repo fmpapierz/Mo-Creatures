@@ -140,6 +140,16 @@ public class MoCModelRay extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 3).addBox(2.0F, -2.0F, 1.0F, 1.0F, 1.0F, 2.0F),
                 PartPose.offset(0.0F, 21.0F, -4.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the tail root box is partly transparent (its
+        // front face empty, one side half painted). Each twin is the named face of that part's box turned to face
+        // into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "body_tail", CubeListBuilder.create()
+                .texOffs(-5, 20).mirror(false).addBox(-1.8F, -0.5F, -3.2F, 5.0F, 0.0F, 5.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(5, 20).mirror(false).addBox(-1.8F, 0.5F, -3.2F, 5.0F, 0.0F, 5.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 20).mirror(true).addBox(-1.8F, -0.5F, -3.2F, 0.0F, 1.0F, 5.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(5, 20).mirror(true).addBox(3.2F, -0.5F, -3.2F, 0.0F, 1.0F, 5.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(15, 25).mirror(true).addBox(-1.8F, -0.5F, 1.8F, 5.0F, 1.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 

@@ -4,14 +4,12 @@ import drzhark.mocreatures.entity.IMoCEntity;
 import drzhark.mocreatures.entity.MoCAnimal;
 import drzhark.mocreatures.registry.MoCEntities;
 import drzhark.mocreatures.registry.MoCItems;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
@@ -22,12 +20,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.minecraft.world.phys.AABB;
 
 /**
  * Port of the legacy {@code MoCEntityEgg}: a laid egg that sits on the ground and, after a while, hatches into a
@@ -50,8 +44,13 @@ public class MoCEntityEgg extends MoCAnimal {
     /** Manticore egg (legacy composite ids 62-65) — the only legacy source of a tameable pet manticore. */
     public static final int TYPE_MANTICORE = 9;
 
-    /** Ticks the egg has spent in a valid hatching environment (in water, or near a light source); it hatches once this passes the threshold. */
+    /**
+     * Legacy {@code tCounter}: incubation progress, raised on a 1-in-20 roll per tick while the egg is in its
+     * hatching environment (aquatic eggs in water, land eggs out of it). The egg hatches at {@link #HATCH_AT}.
+     */
     private int hatchTimer;
+    /** Legacy 12.0.5 hatched at {@code tCounter >= 30} ({@code MoCEntityEgg.onUpdate:134/215}): ~600 ticks, ~30 s. */
+    private static final int HATCH_AT = 30;
     /** Legacy {@code lCounter}: the unattended-lifetime counter that eventually removes a forgotten egg. */
     private int lifeCounter;
     /** The coat / sub-variant the hatchling should take (0 = random via {@code selectType}). */
@@ -77,15 +76,14 @@ public class MoCEntityEgg extends MoCAnimal {
         // No AI — the egg simply rests and hatches.
     }
 
-    /** Egg size varies by the creature inside (legacy per-egg scale): a wyvern egg is big, small critters small. */
+    /**
+     * Every egg renders at the same size, as it did in 12.0.5 and 5.1.5. Legacy {@code getSize()} asked for 1.7x on
+     * an ostrich egg (types 30/31) and {@code MoCRenderEgg} scaled by it, but the egg type was a plain field that
+     * never reached the client, so the client always read 100: nobody ever saw a bigger egg.
+     */
     @Override
     public float getSizeFactor() {
-        return switch (getTypeMoC()) {
-            case TYPE_WYVERN -> 1.4F;                          // big wyvern egg
-            case TYPE_OSTRICH, TYPE_KOMODO, TYPE_SHARK, TYPE_MANTICORE -> 1.1F; // large birds/reptiles/cats
-            case TYPE_SNAKE, TYPE_SCORPION, TYPE_FISHY -> 0.7F; // small critters
-            default -> 0.9F;                                    // turtle etc.
-        };
+        return 1.0F;
     }
 
     @Override
@@ -188,65 +186,66 @@ public class MoCEntityEgg extends MoCAnimal {
         if (!(this.level() instanceof ServerLevel level)) {
             return;
         }
-        // Legacy onUpdate gated incubation on the environment: aquatic eggs (fishy/shark, legacy eggType < 21) only
-        // progress while in water; land eggs only progress while near a light source (MoCTools.isNearTorch, 4 blocks:
-        // torch / glowstone / lit redstone lamp / jack-o'-lantern). An egg with no torch/water never hatches.
         // Legacy lCounter (MoCEntityEgg.onUpdate:132-146): a separate counter that ticks on a 1-in-20 roll
         // regardless of environment; once past 500, an egg with no player within 24 blocks is removed. Without
-        // it an egg that never meets its hatching condition — a land egg with no torch, or a spoiled egg
-        // dropped on land — would litter the world forever, which matters now that MoCAnimal no longer
+        // it an egg that never meets its hatching condition — a spoiled egg dropped on land, an aquatic egg
+        // left out of water — would litter the world forever, which matters now that MoCAnimal no longer
         // despawns. Not persisted, exactly as legacy left it: the timer restarts when the chunk reloads.
         if (this.random.nextInt(20) == 0 && ++this.lifeCounter > 500
                 && level.getNearestPlayer(this, 24.0D) == null) {
             discard();
             return;
         }
+        // Incubation environment, per 12.0.5 MoCEntityEgg.onUpdate:124/202: aquatic eggs (fishy/shark) progress
+        // only while in water, every land egg only while OUT of water — anywhere, no other condition. This used
+        // to follow 5.1.5, which also demanded a torch / glowstone / lit lamp / jack-o'-lantern within 4 blocks
+        // (MoCTools.isNearTorch) before a land egg would progress at all. Nothing in the game says so, so a
+        // placed egg — the manticore egg, which only exists in 12.0.5 — simply sat there until it was cleaned
+        // up. 12.0.5, the version the manticore comes from, dropped that requirement, and so does the port.
         boolean aquatic = getTypeMoC() == TYPE_FISHY || getTypeMoC() == TYPE_SHARK;
-        boolean ready = aquatic ? this.isInWater() : isNearTorch(4.0D);
-        // Legacy tCounter incremented only on a 1-in-20 roll while in a valid environment and hatched at
-        // tCounter>=50, i.e. a stochastic ~1000-tick (~50 s) average incubation.
-        if (ready && this.random.nextInt(20) == 0 && ++this.hatchTimer >= 50) {
-            hatch(level);
-        }
-    }
-
-    /**
-     * Ports legacy {@code MoCTools.isNearTorch}: scans a {@code dist}-block box (halved on Y, matching the legacy
-     * {@code boundingBox.expand(dist, dist/2, dist)}) around the egg for a man-made light source — torch, glowstone,
-     * a lit redstone lamp, or a jack-o'-lantern.
-     */
-    private boolean isNearTorch(double dist) {
-        AABB box = this.getBoundingBox().inflate(dist, dist / 2.0D, dist);
-        int minX = Mth.floor(box.minX), maxX = Mth.floor(box.maxX);
-        int minY = Mth.floor(box.minY), maxY = Mth.floor(box.maxY);
-        int minZ = Mth.floor(box.minZ), maxZ = Mth.floor(box.maxZ);
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    if (isLightSource(this.level().getBlockState(pos.set(x, y, z)))) {
-                        return true;
-                    }
-                }
+        boolean ready = aquatic == this.isInWater();
+        if (ready && this.random.nextInt(20) == 0) {
+            this.hatchTimer++;
+            // Legacy: every fifth step the egg rocks — a little hop you can see — and on the fifth it warns
+            // the nearest player that it is about to hatch (NotifyEggHatching).
+            if (this.hatchTimer % 5 == 0) {
+                this.setDeltaMovement(this.getDeltaMovement().add(0.0D, 0.2D, 0.0D));
+                // Ship the position on the next tracker pass (mc262-ref ServerEntity:123): a client only replays
+                // a mob's synced positions, so a velocity-only sync (hurtMarked) would never show the hop.
+                this.needsSync = true;
+            }
+            if (this.hatchTimer == 5) {
+                notifyHatching(level);
+            }
+            if (this.hatchTimer >= HATCH_AT) {
+                hatch(level);
             }
         }
-        return false;
-    }
-
-    private static boolean isLightSource(BlockState state) {
-        return state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH)
-                || state.is(Blocks.GLOWSTONE)
-                || state.is(Blocks.JACK_O_LANTERN)
-                || (state.is(Blocks.REDSTONE_LAMP) && state.getValue(BlockStateProperties.LIT));
     }
 
     /**
-     * Legacy {@code onCollideWithPlayer}: once the egg has rested briefly, a player walking into it collects it back
-     * into item form (a {@code mocegg} carrying this egg's composite EggType subtype), plays a pop and vanishes.
+     * Legacy {@code NotifyEggHatching} ({@code MoCEntityEgg:317-323}): tells the nearest player within 24 blocks
+     * that the egg is about to hatch and where. The hatchling is tamed to whoever is nearest at the moment it
+     * hatches, so this is the cue to stay close.
+     */
+    private void notifyHatching(ServerLevel level) {
+        Player player = level.getNearestPlayer(this, 24.0D);
+        if (player != null) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.mocreatures.egg_hatching", this.getBlockX(), this.getBlockY(), this.getBlockZ()));
+        }
+    }
+
+    /**
+     * Legacy {@code onCollideWithPlayer}: once the egg has rested for a while, a player walking into it collects it
+     * back into item form (a {@code mocegg} carrying this egg's composite EggType subtype), plays a pop and vanishes.
+     * The grace period is legacy's own {@code lCounter > 10} ({@code :91}) — about ten seconds on its 1-in-20 roll. This used to
+     * be {@code tickCount > 10}, half a second, and an egg placed with the item lands at the player's feet, so a
+     * player who placed an egg and stood still to watch it had it snatched straight back into their inventory.
      */
     @Override
     public void playerTouch(Player player) {
-        if (this.level().isClientSide() || this.tickCount <= 10) {
+        if (this.level().isClientSide() || this.lifeCounter <= 10) {
             return;
         }
         ItemStack stack = drzhark.mocreatures.item.MoCThrownEggItem.createEgg(getEggType());

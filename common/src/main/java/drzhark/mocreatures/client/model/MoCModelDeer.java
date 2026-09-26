@@ -87,6 +87,14 @@ public class MoCModelDeer extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(50, 20).addBox(-1.5F, -1.0F, 0.0F, 3.0F, 2.0F, 4.0F),
                 PartPose.offsetAndRotation(1.0F, 11.0F, 7.0F, 0.7854F, 0.0F, 0.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the stag antlers are painted on one face (west)
+        // of each antler box only, so each antler was seen from its other side through the empty east face. Each
+        // twin is the named face of that part's box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "left_antler", CubeListBuilder.create()
+                .texOffs(54, 0).mirror(true).addBox(0.0F, -14.0F, -7.0F, 0.0F, 8.0F, 4.0F, MoCBackFaces.WEST)); // back of the west face
+        MoCBackFaces.add(root, "right_antler", CubeListBuilder.create()
+                .texOffs(54, 0).mirror(true).addBox(0.0F, -14.0F, -7.0F, 0.0F, 8.0F, 4.0F, MoCBackFaces.WEST)); // back of the west face
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 

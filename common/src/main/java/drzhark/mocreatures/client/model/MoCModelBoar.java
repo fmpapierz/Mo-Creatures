@@ -119,6 +119,17 @@ public class MoCModelBoar extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(56, 30).addBox(-1.0F, 2.0F, 0.0F, 2.0F, 6.0F, 2.0F),
                 PartPose.offset(3.0F, 16.0F, 5.5F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): each ear is painted on two faces of its box
+        // (left: west+south, right: east+south), so from the front the ear was only ever seen through the empty
+        // faces. Each twin is the named face of that part's box turned to face into the box, with the same corners
+        // and texels.
+        MoCBackFaces.add(root, "left_ear", CubeListBuilder.create()
+                .texOffs(16, 11).mirror(true).addBox(1.0F, -4.0F, -2.0F, 0.0F, 4.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(22, 13).mirror(true).addBox(1.0F, -4.0F, 0.0F, 2.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "right_ear", CubeListBuilder.create()
+                .texOffs(18, 17).mirror(true).addBox(-1.0F, -4.0F, -2.0F, 0.0F, 4.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(22, 19).mirror(true).addBox(-3.0F, -4.0F, 0.0F, 2.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 64, 64);
     }
 

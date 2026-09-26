@@ -131,7 +131,10 @@ public final class MoCConfig {
     public int fireOgreChance;
     /** Minimum world difficulty (0-3) offset a shark needs to spawn. Legacy sharkSpawnDif: 0. */
     public int sharkStrength;
-    /** Percent chance a bred horse yields a zebra. Legacy ZebraChance: 2. */
+    /**
+     * Percent of wild horses (spawn egg / natural spawn, outside the zebra biomes) that come out as zebras.
+     * 12.0.5 MoCProxy ZebraChance: 10 (5.1.5: 2). Only the default changes: an existing config keeps its value.
+     */
     public int zebraChance;
     /** Percent chance a wyvern drops an egg on death. New tunable in the port. */
     public int wyvernEggDropChance;
@@ -232,7 +235,7 @@ public final class MoCConfig {
         this.caveOgreChance      = getInt(p, "caveOgreChance", 75);
         this.fireOgreChance      = getInt(p, "fireOgreChance", 25);
         this.sharkStrength       = getInt(p, "sharkStrength", 0);
-        this.zebraChance         = getInt(p, "zebraChance", 2);
+        this.zebraChance         = getInt(p, "zebraChance", 10);
         this.wyvernEggDropChance = getInt(p, "wyvernEggDropChance", 10);
         this.monsterEggDropChance= getInt(p, "monsterEggDropChance", 25);
 

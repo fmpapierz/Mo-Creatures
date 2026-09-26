@@ -174,7 +174,7 @@
   "item.mocreatures.kittybed_cyan": "Cyan Kitty Bed",
   "item.mocreatures.kittybed_gray": "Gray Kitty Bed",
   "item.mocreatures.kittybed_green": "Green Kitty Bed",
-  "item.mocreatures.kittybed_light_blue": "Kittybed Light Blue",
+  "item.mocreatures.kittybed_light_blue": "Light Blue Kitty Bed",
   "item.mocreatures.kittybed_lime": "Lime Kitty Bed",
   "item.mocreatures.kittybed_magenta": "Magenta Kitty Bed",
   "item.mocreatures.kittybed_orange": "Orange Kitty Bed",
@@ -327,5 +327,12 @@
   "entity.mocreatures.manticore_pet": "Pet Manticore",
   "item.mocreatures.manticore_pet_spawn_egg": "Pet Manticore Spawn Egg",
   "message.mocreatures.staying": "%s stays put",
-  "message.mocreatures.following": "%s follows you"
+  "message.mocreatures.roaming": "%s is free to roam",
+  "message.mocreatures.tame_hint_cub": "%s won't take the medallion yet - drop a raw porkchop or raw cod on the ground near it and let it eat first",
+  "message.mocreatures.tame_hint_adult": "%s is fully grown - only a cub that has eaten can be tamed with a medallion",
+  "message.mocreatures.tame_hint_zebra": "The zebra shies away from anyone on foot - ride up to it on a spotted or cow horse (or a zebra or zorse), then give it an apple",
+  "message.mocreatures.amulet_tamed_only": "Only a tamed pet fits in the Pet Amulet - tame it first",
+  "message.mocreatures.wild_wyvern_saddle": "A wild wyvern won't take a saddle - hatch a wyvern egg to raise your own",
+  "message.mocreatures.tame_hint_kitty": "%s won't take the medallion yet - drop a cooked cod or cooked salmon near it and let it eat first",
+  "message.mocreatures.egg_hatching": "Egg hatching soon! KEEP WATCH! The egg is at %s, %s, %s."
 }

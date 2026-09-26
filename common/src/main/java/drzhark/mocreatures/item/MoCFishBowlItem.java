@@ -119,11 +119,16 @@ public class MoCFishBowlItem extends Item {
      * otherwise so the caller can fall through to {@code PASS}.
      */
     private boolean placeBowlOnSolid(UseOnContext context, Level level, Player player, BlockPos pos, int type) {
-        if (!level.getBlockState(pos).isSolidRender()) {
+        // Legacy only placed against a solid block. A click on a plant standing on solid ground (a grass tuft, a
+        // flower) now puts the bowl in the plant's own spot instead of doing nothing — the way a spawn egg or the
+        // kitty bed places — and the bowl then clears the plant (MoCEntityFishBowl.tick -> breakPlantsInside).
+        boolean plantOnGround = drzhark.mocreatures.entity.MoCAnimal.isClearablePlant(level, pos)
+                && level.getBlockState(pos.below()).isSolidRender();
+        if (!plantOnGround && !level.getBlockState(pos).isSolidRender()) {
             return false;
         }
         if (!level.isClientSide()) {
-            BlockPos placePos = pos.relative(context.getClickedFace());
+            BlockPos placePos = plantOnGround ? pos : pos.relative(context.getClickedFace());
             MoCEntityFishBowl bowl = MoCEntities.FISH_BOWL.get()
                     .create(level, EntitySpawnReason.SPAWN_ITEM_USE);
             if (bowl != null) {

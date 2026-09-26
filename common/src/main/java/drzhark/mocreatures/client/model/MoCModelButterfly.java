@@ -142,18 +142,20 @@ public class MoCModelButterfly extends EntityModel<MoCEntityRenderState> {
         float legMov;
         float legMovB;
 
+        // Flying: a full, fast wing flap (legacy flying branch). Grounded: the wings rest folded up, giving only an
+        // occasional slow flap (legacy: wings still except when f2 % 100 falls in 40..60). The two blend by
+        // state.wingOpen (eased over a few ticks), so the wings settle on landing instead of stopping mid-beat.
+        int phase = ((int) f2) % 100;
+        float restFlap = (phase >= 40 && phase <= 60) ? Mth.cos(f2 * 0.4F) * 0.4F : 0.0F;
+        wingRot = Mth.lerp(state.wingOpen, restFlap, Mth.cos(f2 * 0.9F) * 0.9F);
         if (state.flying) {
-            // Flying: full, fast wing flap and the legs held out in the flight pose (legacy flying branch).
-            wingRot = Mth.cos(f2 * 0.9F) * 0.9F;
+            // The legs held out in the flight pose.
             legMov = f1 * 1.5F;
             legMovB = legMov;
         } else {
-            // Grounded: the legs run the walking cosine gait and the wings rest folded up, giving only an
-            // occasional slow flap (legacy: wings still except when f2 % 100 falls in 40..60).
+            // The legs run the walking cosine gait.
             legMov = Mth.cos((f * 1.5F) + 3.141593F) * 1.4F * f1;
             legMovB = Mth.cos(f * 1.5F) * 1.4F * f1;
-            int phase = ((int) f2) % 100;
-            wingRot = (phase >= 40 && phase <= 60) ? Mth.cos(f2 * 0.4F) * 0.4F : 0.0F;
         }
 
         this.wingLeft.zRot = -baseAngle + wingRot;

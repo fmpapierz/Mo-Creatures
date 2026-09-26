@@ -427,6 +427,37 @@ public class MoCModelOgre extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(120, 46).addBox(-1.0F, -17.0F, -6.0F, 2.0F, 6.0F, 2.0F),
                 PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.0872665F, HEAD2_BASE_YAW, 0.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the red ogre's hair tuft (Hair3), the hair rope
+        // and the ear-ring holes are painted on open boxes, whose inner walls showed through the empty faces. Each
+        // twin is the named face of that part's box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "Hair3", CubeListBuilder.create()
+                .texOffs(36, 107).mirror(false).addBox(-3.0F, -2.4F, 11.4F, 6.0F, 0.0F, 3.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(42, 107).mirror(true).addBox(-3.0F, -2.4F, 11.4F, 0.0F, 8.0F, 3.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(39, 110).mirror(true).addBox(-3.0F, -2.4F, 11.4F, 6.0F, 8.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(48, 107).mirror(true).addBox(3.0F, -2.4F, 11.4F, 0.0F, 8.0F, 3.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(54, 110).mirror(true).addBox(-3.0F, -2.4F, 14.4F, 6.0F, 8.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "HairRope", CubeListBuilder.create()
+                .texOffs(78, 83).mirror(false).addBox(-2.0F, -8.0F, 9.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(86, 83).mirror(false).addBox(-2.0F, -4.0F, 9.0F, 4.0F, 0.0F, 4.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(82, 87).mirror(true).addBox(-2.0F, -8.0F, 9.0F, 4.0F, 4.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(86, 83).mirror(true).addBox(2.0F, -8.0F, 9.0F, 0.0F, 4.0F, 4.0F, MoCBackFaces.EAST)); // back of the east face
+        // (the rope's south face lies flush on the hair tuft Hair1, facing the same way: no twin, it would z-fight)
+        MoCBackFaces.add(root, "Head3RingHole", CubeListBuilder.create()
+                .texOffs(25, 50).mirror(false).addBox(6.0F, -5.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(27, 50).mirror(false).addBox(6.0F, -3.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(27, 52).mirror(true).addBox(6.0F, -5.0F, -1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(31, 52).mirror(true).addBox(6.0F, -5.0F, 1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "LftRingHole", CubeListBuilder.create()
+                .texOffs(25, 50).mirror(false).addBox(7.0F, -5.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(27, 50).mirror(false).addBox(7.0F, -3.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(27, 52).mirror(true).addBox(7.0F, -5.0F, -1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(31, 52).mirror(true).addBox(7.0F, -5.0F, 1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "RgtRingHole", CubeListBuilder.create()
+                .texOffs(25, 50).mirror(false).addBox(-8.0F, -5.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(27, 50).mirror(false).addBox(-8.0F, -3.0F, -1.0F, 1.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(27, 52).mirror(true).addBox(-8.0F, -5.0F, -1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(31, 52).mirror(true).addBox(-8.0F, -5.0F, 1.0F, 1.0F, 2.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 128, 128);
     }
 

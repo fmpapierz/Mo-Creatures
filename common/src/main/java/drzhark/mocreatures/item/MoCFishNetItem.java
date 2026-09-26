@@ -93,11 +93,11 @@ public class MoCFishNetItem extends Item {
         fullNet.set(MoCDataComponents.CAPTURED_CREATURE.get(),
                 new CapturedCreature(id.toString(), aquatic.getTypeMoC(), true, aquatic.getOwnerName(),
                         target.getHealth(), aquatic.getMoCAge(), customName, 0, false, aquatic.getIsAdult()));
-        // Legacy MoCEntityFXVanish puff at the creature's position on capture, as MoCAmuletItem.
+        // A grey puff where the creature was, as MoCAmuletItem (the vanilla mob-vanish POOF).
         if (player.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(MoCParticles.FX_VANISH.get(),
+            serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF,
                     target.getX(), target.getY() + target.getBbHeight() * 0.5D, target.getZ(),
-                    20, 0.3D, 0.4D, 0.3D, 0.02D);
+                    20, target.getBbWidth() * 0.5D, target.getBbHeight() * 0.5D, target.getBbWidth() * 0.5D, 0.02D);
         }
         target.discard();
         if (player.getAbilities().instabuild) {

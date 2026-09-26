@@ -11,6 +11,16 @@
       },
       "trigger": "minecraft:inventory_changed"
     },
+    "has_string": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:string"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
     "has_the_recipe": {
       "conditions": {
         "recipe": "mocreatures:fishnet"
@@ -21,7 +31,8 @@
   "requirements": [
     [
       "has_the_recipe",
-      "has_sharkteeth"
+      "has_sharkteeth",
+      "has_string"
     ]
   ],
   "rewards": {

@@ -24,6 +24,9 @@ public class MoCModelTurkey extends EntityModel<MoCEntityRenderState> {
 
     // The tail fan and foot planes are split into two single-face boxes (painted face + a re-aimed opposite
     // face sampling the same painted tile) so the culled render type keeps them visible from both sides.
+    // The tail fan's re-aimed SOUTH face is also mirror()ed: NORTH and SOUTH lay a tile out in opposite x
+    // directions, and 1.12 (culling off) showed the painted face from behind, i.e. the same feather at
+    // every point. The DOWN/UP foot pairs already run the same way (see MoCBackFaces).
     private static final Set<Direction> NORTH_ONLY = Set.of(Direction.NORTH);
     private static final Set<Direction> SOUTH_ONLY = Set.of(Direction.SOUTH);
     private static final Set<Direction> DOWN_ONLY = Set.of(Direction.DOWN);
@@ -90,7 +93,7 @@ public class MoCModelTurkey extends EntityModel<MoCEntityRenderState> {
                 PartPose.offset(0.0F, 16.0F, -4.0F));
         root.addOrReplaceChild("tail",
                 CubeListBuilder.create().texOffs(32, 17).addBox(-8.0F, -9.0F, 0.0F, 16.0F, 12.0F, 0.0F, NORTH_ONLY)
-                        .texOffs(16, 17).addBox(-8.0F, -9.0F, 0.0F, 16.0F, 12.0F, 0.0F, SOUTH_ONLY),
+                        .texOffs(16, 17).mirror().addBox(-8.0F, -9.0F, 0.0F, 16.0F, 12.0F, 0.0F, SOUTH_ONLY),
                 PartPose.offsetAndRotation(0.0F, 14.0F, 6.0F, -0.2974289F, 0.0F, 0.0F));
         root.addOrReplaceChild("r_leg",
                 CubeListBuilder.create().texOffs(27, 17).addBox(-0.5F, 0.0F, -0.5F, 1.0F, 5.0F, 1.0F),
@@ -106,6 +109,17 @@ public class MoCModelTurkey extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(20, 26).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F, DOWN_ONLY)
                         .texOffs(17, 26).addBox(-1.5F, 5.0F, -2.5F, 3.0F, 0.0F, 3.0F, UP_ONLY),
                 PartPose.offset(2.0F, 19.0F, 0.5F));
+
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): the neck box's top end and patches of its sides
+        // are transparent, so its inner walls show when the head turns. Each twin is the named face of that part's
+        // box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "neck", CubeListBuilder.create()
+                .texOffs(-2, 32).mirror(false).addBox(-1.0F, -6.0F, -1.0F, 2.0F, 0.0F, 2.0F, MoCBackFaces.UP) // back of the down face
+                .texOffs(2, 32).mirror(false).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 0.0F, 2.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(0, 32).mirror(true).addBox(-1.0F, -6.0F, -1.0F, 0.0F, 6.0F, 2.0F, MoCBackFaces.WEST) // back of the west face
+                .texOffs(0, 34).mirror(true).addBox(-1.0F, -6.0F, -1.0F, 2.0F, 6.0F, 0.0F, MoCBackFaces.SOUTH) // back of the north face
+                .texOffs(2, 32).mirror(true).addBox(1.0F, -6.0F, -1.0F, 0.0F, 6.0F, 2.0F, MoCBackFaces.EAST) // back of the east face
+                .texOffs(6, 34).mirror(true).addBox(-1.0F, -6.0F, 1.0F, 2.0F, 6.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
 
         return LayerDefinition.create(mesh, 64, 64);
     }

@@ -11,6 +11,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.damagesource.DamageSource;
 
 /**
  * Port of the legacy {@code MoCEntityCrab}. A small ambient crab with two colour variants.
@@ -23,6 +24,12 @@ public class MoCEntityCrab extends MoCAnimal {
 
     public MoCEntityCrab(EntityType<? extends MoCEntityCrab> type, Level level) {
         super(type, level);
+    }
+
+    /** Legacy {@code fall()} was overridden empty (12.0.5 MoCEntityCrab): no fall damage. */
+    @Override
+    public boolean causeFallDamage(double fallDistance, float multiplier, DamageSource source) {
+        return false;
     }
 
     public static AttributeSupplier.Builder createAttributes() {

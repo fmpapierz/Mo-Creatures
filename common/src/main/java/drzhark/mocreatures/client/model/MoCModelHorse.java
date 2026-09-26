@@ -17,9 +17,18 @@ import net.minecraft.util.Mth;
 /**
  * Horse model, converted faithfully from the legacy {@code MoCModelNewHorse} ({@code ModelBase}).
  * Every cube, texture offset and rotation point is preserved. The legacy model carried a great deal
- * of state-driven animation (flying, standing, eating, saddles, butterfly/pegasus wings); the
- * modern render state only exposes basic walk and look data, so {@link #setupAnim} reproduces the
- * leg gait and head tracking and leaves the special-case poses at their static rest values.
+ * of state-driven animation (flying, standing, eating, saddles, butterfly/pegasus wings); the port's
+ * render state carries walk, look, flying, grazing and rearing, and {@link #setupAnim} drives the
+ * articulated three-segment legs from those exactly as legacy did (see {@link #animateLegs}), plus the
+ * head tracking and both wing sets. Poses legacy keyed off state the port does not sync (the zebra's
+ * jukebox shuffle, the open mouth) stay at rest.
+ *
+ * <p><b>Also the hostile horse's model.</b> Legacy's {@code MoCModelNewHorseMob} is a subclass of
+ * {@code MoCModelNewHorse} that reuses its geometry and {@code setRotationAngles} wholesale, so this model is
+ * the right one for the undead / skeleton / bat / nightmare horse mobs (types 23 / 26 / 32 / 38) as well —
+ * register {@code horse_mob}'s renderer with it. Nothing in {@link #setupAnim} reads state that a
+ * {@code MoCEntityHorseMob} leaves unset except as "off" (no saddle, chest, graze, rear or flight), and the
+ * coats mask the parts they do not wear.
  *
  * <p><b>Equipment.</b> In MoCreatures the horse's protective armour is a full-texture swap (the
  * armoured look lives entirely in the {@code horsearmor*} texture variants), not extra geometry &mdash;
@@ -86,6 +95,23 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
      * {@link #animateButterflyWings} for why legacy's raw range let the two wings meet at the mid-line.
      */
     private static final float BUTTERFLY_MAX_FOLD = 85.0F * DEG_TO_RAD;
+
+    /**
+     * Length of a leg's upper segment, hip pivot to knee, in model units: every {@code legNa} box ends 7
+     * below its pivot (leg1a/leg2a {@code addBox(.., -2, .., 9 tall)}, leg3a/leg4a {@code (.., -1, .., 8 tall)}),
+     * and the rest pose puts the lower segments' pivots exactly there (y 9 + 7 = 16). Legacy hard-codes the
+     * same figure — "the distance is 7Y" (12.0.5 MoCModelNewHorse.java:911).
+     */
+    private static final float KNEE_DROP = 7.0F;
+
+    /**
+     * The whole-model nose-up pitch the renderer applies while {@code state.horseRearing}
+     * ({@code MoCMobRenderer.setupRotations}: {@code Axis.XP.rotationDegrees(30.0F)}). Legacy pitched only the
+     * body box ({@code Body.rotateAngleX = -45°}) and left the legs unpitched, so its standing leg angles are
+     * world angles; a limb in this pitched frame reads {@code 30°} further forward in the world than its
+     * {@code xRot} says, so {@link #animateLegs} adds this back. Keep it in step with the renderer.
+     */
+    private static final float REAR_PITCH = 30.0F * DEG_TO_RAD;
 
     private final ModelPart head;
     private final ModelPart uMouth;
@@ -414,6 +440,8 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
         float limbAmount = state.walkAnimationSpeed;
         float headYaw = state.yRot;
         float headPitch = state.xRot;
+        int type = state.typeMoC;
+        boolean ghost = type == 21 || type == 22;
 
         if (headYaw > 20.0F) {
             headYaw = 20.0F;
@@ -422,33 +450,7 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
             headYaw = -20.0F;
         }
 
-        // legs: alternating cosine gait (faithful to legacy RLegXRot / LLegXRot)
-        float rLegXRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI) * 0.8F * limbAmount;
-        float lLegXRot = Mth.cos(limbSwing * 0.6662F) * 0.8F * limbAmount;
-
-        this.leg1A.xRot = lLegXRot;
-        this.leg1B.xRot = lLegXRot;
-        this.leg1C.xRot = lLegXRot;
-        this.leg2A.xRot = rLegXRot;
-        this.leg2B.xRot = rLegXRot;
-        this.leg2C.xRot = rLegXRot;
-        this.leg3A.xRot = rLegXRot;
-        this.leg3B.xRot = rLegXRot;
-        this.leg3C.xRot = rLegXRot;
-        this.leg4A.xRot = lLegXRot;
-        this.leg4B.xRot = lLegXRot;
-        this.leg4C.xRot = lLegXRot;
-
-        // Rearing: the front legs (leg3/leg4, at the front of the body) tuck up and forward as the horse
-        // stands on its hind legs; the whole body is pitched back by the renderer (see MoCMobRenderer).
-        if (state.horseRearing) {
-            this.leg3A.xRot = -1.2F;
-            this.leg3B.xRot = -1.4F;
-            this.leg3C.xRot = -1.4F;
-            this.leg4A.xRot = -1.2F;
-            this.leg4B.xRot = -1.4F;
-            this.leg4C.xRot = -1.4F;
-        }
+        animateLegs(state, limbSwing, limbAmount, ghost);
 
         // head + attached parts track look direction (legacy base rotation = 30 degrees pitch); a grazing
         // horse drives its nose to the ground, a rearing horse throws its head up (legacy eating/standing).
@@ -491,6 +493,12 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
         this.uMouth2.yRot = headYRot;
         this.lMouth2.xRot = headXRot + 0.261799F;
         this.lMouth2.yRot = headYRot;
+        // Legacy draws EITHER the closed jaws (UMouth/LMouth) or, while its mouthCounter runs, the open pair
+        // (UMouth2/LMouth2) — never both (12.0.5 MoCModelNewHorse.render :409-415). The port syncs no mouth
+        // counter, so the open pair stays hidden; left visible, both pairs rendered at once (they share
+        // texture tiles, so no coat masks either) and every muzzle read as a doubled, half-open jaw.
+        this.uMouth2.visible = false;
+        this.lMouth2.visible = false;
 
         // The saddle group (pad, girth straps, stirrups, bit, head-stall and reins) only renders when
         // the horse is wearing a saddle. Armour, by contrast, is a full-texture swap with no geometry,
@@ -516,7 +524,6 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
 
         // The unicorn horn shows only on the horned coats (unicorn / fairy / undead-unicorn /
         // unicorn-skeleton), computed from the synched type — legacy {@code isUnicorned()}.
-        int type = state.typeMoC;
         boolean unicorned = type == 36 || (type >= 45 && type < 60) || type == 27 || type == 24;
         this.unicorn.visible = unicorned;
 
@@ -543,7 +550,19 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
         // sampled the feathered wing's own texels — a ghost copy of the wing art hanging off the flanks.
         // A fairy horse got the converse: the feathered cubes drawn on top of its butterfly membranes,
         // sampling the fairy sheet's butterfly art.
-        boolean ghost = type == 21 || type == 22;
+        //
+        // The bat horse (32) belongs to the FEATHERED set even though its wings are leathery: DrZhark
+        // painted the bat membranes onto the feathered tiles of horsebat.png (the DOWN tile — the face seen
+        // from above — is 60-85% opaque on all six segments), and left its butterfly tiles blank
+        // (butterfly_l's two faces are 0/3120 opaque texels, butterfly_r's 441/3120 are stray edges of the
+        // feather tiles it overlaps). Give the bat horse the membrane rig and its wings vanish under the
+        // cutout pipeline's alpha test — which is exactly what the separate MoCModelHorseMob did to the
+        // hostile bat horse (horse_mob type 32). Legacy never made that split: MoCModelNewHorseMob EXTENDS
+        // MoCModelNewHorse and draws this same feathered set for its flyers (12.0.5
+        // MoCModelNewHorseMob.java:62-70, 5.1.5 likewise), so the horse mob can be drawn by this model as-is.
+        // The per-coat parts this model cannot gate by type — the donkey ears vs the horse ears, the horn —
+        // are masked by the sheets themselves (e.g. the mule-ear tile is fully transparent on every
+        // non-donkey coat and the horn tile on every non-horned coat, including all four horse-mob skins).
         boolean featheredWings = type == 39 || type == 40 || type == 32 || type == 25 || type == 28;
         boolean butterflyWings = (type >= 45 && type < 60) || ghost;
         this.midWing.visible = featheredWings;
@@ -560,6 +579,119 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
         } else if (butterflyWings) {
             animateButterflyWings(state, ghost);
         }
+    }
+
+    /**
+     * The three-segment legs, converted from legacy {@code setRotationAngles} (12.0.5
+     * MoCModelNewHorse.java:874-1085; the 5.1.5 rig is the same).
+     *
+     * <p><b>Why the legs came apart.</b> A leg is three SIBLING parts, not a parent/child chain: the upper
+     * segment {@code legNa} hinges at the hip (y 9) and ends {@link #KNEE_DROP} below it, while the lower
+     * segment {@code legNb} and the hoof {@code legNc} both hinge at y 16 — where the knee sits at rest. The
+     * first port pass gave all three the same {@code xRot} about their own pivots, so the moment the gait
+     * swung a leg its knee travelled along the upper segment's 7-unit arc while the lower segment kept
+     * turning about the knee's OLD position. The joint opened by {@code 14 * |sin(xRot / 2)|}: 5.45 units — a
+     * third of a block — at the gait's full 0.8 rad swing, and 7.9 units in the old rearing pose (the lower
+     * legs hung in mid-air beside the upper ones).
+     *
+     * <p>Legacy never let that happen: every frame it re-seats the lower segment's pivot on the tip of the
+     * rotated upper segment (12.0.5 MoCModelNewHorse.java:974-987, :1077-1084)
+     * <pre>
+     *   Leg1B.rotationPointY = Leg1A.rotationPointY + sin(90° + LLegXRot) * 7F;   // = y + 7 cos(xRot)
+     *   Leg1B.rotationPointZ = Leg1A.rotationPointZ + cos(270° + LLegXRot) * 7F;  // = z + 7 sin(xRot)
+     *   Leg1C.rotationPointY = Leg1B.rotationPointY;  (and Z)
+     * </pre>
+     * which is exactly where {@code ModelPart.translateAndRotate} (translate, then rotate Z-Y-X — the same
+     * order as 1.12's {@code ModelRenderer}) carries the upper box's local point (0, 7, 0). {@link #poseLeg}
+     * does that for every leg in every pose, so the knee stays shut however the two halves bend, and the
+     * hoof — sharing the lower segment's pivot and angle — keeps the 0.1-unit seam baked into the mesh.
+     *
+     * <p>With the joint articulated, the rest of legacy's leg rig comes back with it:
+     * <ul>
+     * <li><b>Walking</b> (legacy :947-972): above {@code limbAmount 0.2} the knee flexes. Legacy samples the
+     * gait a hair ahead ({@code limbSwing + 0.1}) to learn which way each leg is swinging; a foreleg folds its
+     * lower half 55° back while it swings forward, a hind leg bends its hock 15° while it pushes back. Front
+     * legs 3/4 take the "B" angles and hind legs 1/2 the "C" angles, as legacy assigns them.</li>
+     * <li><b>Airborne / ghost</b> (legacy {@code floating} = {@code getIsGhost() || (isFlyer() && isOnAir())},
+     * :884-891): every leg tucks — upper segments 15° back, lower segments 45° back. The port's
+     * {@code state.flying} is the flyer-in-the-air half; the ghost coats (21/22) always float.</li>
+     * <li><b>Rearing</b> (legacy {@code standing}, :893-936): the hind legs brace (upper -15°, lower +15°)
+     * and the forelegs paw the air — upper segments at -60° plus {@code cos(ageInTicks * 0.4)} radians (a
+     * +/-57° paw, the two legs in opposite phase), lower halves at 45°. Legacy
+     * pitched only the BODY box -45° and moved the front hips up to it by hand
+     * ({@code Leg3A.rotationPoint = (-2, -2)}); the port pitches the whole model at the renderer, which carries
+     * every hip along, so the hips stay put here and each legacy (world-frame) angle gets {@link #REAR_PITCH}
+     * added back.</li>
+     * </ul>
+     * Not reproduced: the zebra's jukebox "shuffle" dance (legacy :1007-1075) — the port has no shuffle
+     * state to key it off. If one is ever added, pose it through {@link #poseLeg} too.
+     */
+    private void animateLegs(MoCEntityRenderState state, float limbSwing, float limbAmount, boolean ghost) {
+        if (state.horseRearing) {
+            float paw = state.ageInTicks * 0.4F;
+            float hindHip = -15.0F * DEG_TO_RAD + REAR_PITCH;
+            float hindKnee = 15.0F * DEG_TO_RAD + REAR_PITCH;
+            float frontKnee = 45.0F * DEG_TO_RAD + REAR_PITCH;
+            poseLeg(this.leg1A, this.leg1B, this.leg1C, hindHip, hindKnee);
+            poseLeg(this.leg2A, this.leg2B, this.leg2C, hindHip, hindKnee);
+            poseLeg(this.leg3A, this.leg3B, this.leg3C,
+                    -60.0F * DEG_TO_RAD + Mth.cos(paw + (float) Math.PI) + REAR_PITCH, frontKnee);
+            poseLeg(this.leg4A, this.leg4B, this.leg4C,
+                    -60.0F * DEG_TO_RAD + Mth.cos(paw) + REAR_PITCH, frontKnee);
+            return;
+        }
+
+        // Legacy RLegXRot / LLegXRot: the alternating cosine gait.
+        float rLegXRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI) * 0.8F * limbAmount;
+        float lLegXRot = Mth.cos(limbSwing * 0.6662F) * 0.8F * limbAmount;
+        float rLegXRotB = rLegXRot;
+        float lLegXRotB = lLegXRot;
+        float rLegXRotC = rLegXRot;
+        float lLegXRotC = lLegXRot;
+
+        if (ghost || state.flying) {
+            rLegXRot = 15.0F * DEG_TO_RAD;
+            lLegXRot = rLegXRot;
+            rLegXRotB = 45.0F * DEG_TO_RAD;
+            lLegXRotB = rLegXRotB;
+            rLegXRotC = rLegXRotB;
+            lLegXRotC = rLegXRotB;
+        } else if (limbAmount > 0.2F) {
+            float rLegXRotAhead = Mth.cos((limbSwing + 0.1F) * 0.6662F + (float) Math.PI) * 0.8F * limbAmount;
+            float lLegXRotAhead = Mth.cos((limbSwing + 0.1F) * 0.6662F) * 0.8F * limbAmount;
+            if (rLegXRot > rLegXRotAhead) {
+                rLegXRotB = rLegXRot + 55.0F * DEG_TO_RAD;
+            }
+            if (rLegXRot < rLegXRotAhead) {
+                rLegXRotC = rLegXRot + 15.0F * DEG_TO_RAD;
+            }
+            if (lLegXRot > lLegXRotAhead) {
+                lLegXRotB = lLegXRot + 55.0F * DEG_TO_RAD;
+            }
+            if (lLegXRot < lLegXRotAhead) {
+                lLegXRotC = lLegXRot + 15.0F * DEG_TO_RAD;
+            }
+        }
+
+        poseLeg(this.leg1A, this.leg1B, this.leg1C, lLegXRot, lLegXRotC); // rear left
+        poseLeg(this.leg2A, this.leg2B, this.leg2C, rLegXRot, rLegXRotC); // rear right
+        poseLeg(this.leg3A, this.leg3B, this.leg3C, rLegXRot, rLegXRotB); // front left
+        poseLeg(this.leg4A, this.leg4B, this.leg4C, lLegXRot, lLegXRotB); // front right
+    }
+
+    /**
+     * Swings one leg's upper segment to {@code upperXRot} and hangs its lower segment and hoof, bent to
+     * {@code lowerXRot}, from the upper segment's knee — the legacy knee chain described on
+     * {@link #animateLegs}. The upper pivot is read after {@code resetPose()}, i.e. the baked hip.
+     */
+    private static void poseLeg(ModelPart upper, ModelPart lower, ModelPart hoof, float upperXRot, float lowerXRot) {
+        upper.xRot = upperXRot;
+        lower.y = upper.y + Mth.cos(upperXRot) * KNEE_DROP;
+        lower.z = upper.z + Mth.sin(upperXRot) * KNEE_DROP;
+        lower.xRot = lowerXRot;
+        hoof.y = lower.y;
+        hoof.z = lower.z;
+        hoof.xRot = lowerXRot;
     }
 
     /**
@@ -600,19 +732,15 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
      * ({@code MoCMobRenderer.setupRotations}), so the wings already inherit the rear and need neither.
      */
     private void animatePegasusWings(MoCEntityRenderState state) {
-        float wingRot;
-        if (state.flying) {
-            // Legacy: WingRot = cos((f2 * 0.3F) + PI) * 1.2F, with the outer segment's fan angle
-            // opening and closing at half the beat amplitude around its baked -0.3228859 sweep.
-            wingRot = Mth.cos(state.ageInTicks * 0.3F + (float) Math.PI) * 1.2F;
-            this.outerWing.yRot = -0.3228859F + (wingRot / 2.0F);
-            this.outerWingR.yRot = 0.3228859F - (wingRot / 2.0F);
-        } else {
-            // Legacy folded pose: 60 degrees of droop, outer primaries swept 90 degrees back.
-            wingRot = 60.0F * DEG_TO_RAD;
-            this.outerWing.yRot = -90.0F * DEG_TO_RAD;
-            this.outerWingR.yRot = 90.0F * DEG_TO_RAD;
-        }
+        // Airborne, legacy: WingRot = cos((f2 * 0.3F) + PI) * 1.2F, with the outer segment's fan angle opening and
+        // closing at half the beat amplitude around its baked -0.3228859 sweep. Grounded, legacy's folded pose: 60
+        // degrees of droop, outer primaries swept 90 degrees back. Legacy switched in one frame; the pose blends by
+        // state.wingOpen, which eases over a few ticks, so the wings fold down on landing instead of snapping.
+        float beat = Mth.cos(state.ageInTicks * 0.3F + (float) Math.PI) * 1.2F;
+        float open = state.wingOpen;
+        float wingRot = Mth.lerp(open, 60.0F * DEG_TO_RAD, beat);
+        this.outerWing.yRot = Mth.lerp(open, -90.0F * DEG_TO_RAD, -0.3228859F + (beat / 2.0F));
+        this.outerWingR.yRot = Mth.lerp(open, 90.0F * DEG_TO_RAD, 0.3228859F - (beat / 2.0F));
 
         // Keep the elbow on the shoulder's arc (the 12-unit inner->outer pivot separation).
         float armX = Mth.cos(wingRot) * 12.0F;
@@ -681,12 +809,12 @@ public class MoCModelHorse extends EntityModel<MoCEntityRenderState> {
             baseAngle = 0.0F;
         } else {
             baseAngle = 0.52359F;
-            if (state.flying) {
-                wingRot = Mth.cos(state.ageInTicks * 0.6662F) * 0.5F;
-            } else {
-                float phase = state.ageInTicks % 100.0F;
-                wingRot = (phase > 40.0F && phase < 60.0F) ? Mth.cos(state.ageInTicks * 0.15F) * 1.20F : 0.0F;
-            }
+            // The airborne cruise flutter and the grounded idle blend by state.wingOpen (eased over a few ticks),
+            // so the membranes settle on landing instead of jumping to the resting spread.
+            float cruise = Mth.cos(state.ageInTicks * 0.6662F) * 0.5F;
+            float phase = state.ageInTicks % 100.0F;
+            float idle = (phase > 40.0F && phase < 60.0F) ? Mth.cos(state.ageInTicks * 0.15F) * 1.20F : 0.0F;
+            wingRot = Mth.lerp(state.wingOpen, idle, cruise);
         }
         // Legacy drives ButterflyL by -baseAngle + WingRot and ButterflyR by +baseAngle - WingRot
         // (MoCModelNewHorse.java:870-871), i.e. one angle mirrored; clamp that single angle so neither

@@ -45,7 +45,9 @@ public class MoCModelMediumFish extends EntityModel<MoCEntityRenderState> {
 
     // Face selectors for the flat (zero-depth) fin quads: only one side of each fin is painted on
     // the sheet, so under the culled render type each fin box is split into a painted face plus an
-    // opposite face re-aimed (via a shifted texOffs) at the same painted tile.
+    // opposite face re-aimed (via a shifted texOffs) at the same painted tile. The re-aimed face is
+    // mirror()ed: NORTH and SOUTH lay a tile out in opposite x directions, and 1.12 (culling off) showed
+    // the painted face from behind, i.e. the same texel at every point of the fin (see MoCBackFaces).
     private static final Set<Direction> NORTH_FACE = Set.of(Direction.NORTH);
     private static final Set<Direction> SOUTH_FACE = Set.of(Direction.SOUTH);
 
@@ -107,37 +109,37 @@ public class MoCModelMediumFish extends EntityModel<MoCEntityRenderState> {
         fish.addOrReplaceChild("tail_fin",
                 CubeListBuilder.create()
                         .texOffs(48, 5).addBox(3.0F, -5.3F, 0.0F, 5.0F, 11.0F, 0.0F, NORTH_FACE)
-                        .texOffs(43, 5).addBox(3.0F, -5.3F, 0.0F, 5.0F, 11.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(43, 5).mirror().addBox(3.0F, -5.3F, 0.0F, 5.0F, 11.0F, 0.0F, SOUTH_FACE),
                 PartPose.offset(8.0F, 9.0F, 0.0F));
         fish.addOrReplaceChild("right_pectoral_fin",
                 CubeListBuilder.create()
                         .texOffs(28, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, NORTH_FACE)
-                        .texOffs(23, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(23, 12).mirror().addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(-6.5F, 10.0F, 2.0F, 0.0F, -PECTORAL_REST, 0.185895F));
         fish.addOrReplaceChild("left_pectoral_fin",
                 CubeListBuilder.create()
                         .texOffs(38, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, SOUTH_FACE)
-                        .texOffs(43, 12).addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, NORTH_FACE),
+                        .texOffs(43, 12).mirror().addBox(0.0F, -2.0F, 0.0F, 5.0F, 4.0F, 0.0F, NORTH_FACE),
                 PartPose.offsetAndRotation(-6.5F, 10.0F, -2.0F, 0.0F, PECTORAL_REST, 0.1858931F));
         fish.addOrReplaceChild("upper_fin",
                 CubeListBuilder.create()
                         .texOffs(0, 22).addBox(0.0F, -4.0F, 0.0F, 15.0F, 4.0F, 0.0F, NORTH_FACE)
-                        .texOffs(-15, 22).addBox(0.0F, -4.0F, 0.0F, 15.0F, 4.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(-15, 22).mirror().addBox(0.0F, -4.0F, 0.0F, 15.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(-7.0F, 6.0F, 0.0F, 0.0F, 0.0F, 0.1047198F));
         fish.addOrReplaceChild("lower_fin",
                 CubeListBuilder.create()
                         .texOffs(46, 20).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, NORTH_FACE)
-                        .texOffs(37, 20).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(37, 20).mirror().addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(0.0F, 12.0F, 0.0F, 0.0F, 0.0F, -0.1858931F));
         fish.addOrReplaceChild("right_lower_fin",
                 CubeListBuilder.create()
                         .texOffs(28, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, NORTH_FACE)
-                        .texOffs(19, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE),
+                        .texOffs(19, 16).mirror().addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE),
                 PartPose.offsetAndRotation(-7.0F, 12.0F, 1.0F, 0.5235988F, 0.0F, 0.0F));
         fish.addOrReplaceChild("left_lower_fin",
                 CubeListBuilder.create()
                         .texOffs(46, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, SOUTH_FACE)
-                        .texOffs(55, 16).addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, NORTH_FACE),
+                        .texOffs(55, 16).mirror().addBox(0.0F, 0.0F, 0.0F, 9.0F, 4.0F, 0.0F, NORTH_FACE),
                 PartPose.offsetAndRotation(-7.0F, 12.0F, -1.0F, -0.5235988F, 0.0F, 0.0F));
 
         return LayerDefinition.create(mesh, 64, 32);

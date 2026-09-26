@@ -69,6 +69,35 @@ public class MoCEntityBird extends MoCAnimal {
         return this.entityData.get(PRE_TAMED);
     }
 
+    // Wing beat, legacy MoCEntityBird.onLivingUpdate:329-344 (vanilla's chicken flap): the wings beat only while
+    // it is off the ground, and flapSpeed, the beat's size, climbs 1.2 a tick in the air and sinks 0.3 a tick on
+    // the ground, so a landing bird folds its wings over three or four ticks. Cosmetic; ticks on every side.
+    private float flap;       // legacy wingb
+    private float oFlap;      // legacy winge
+    private float flapSpeed;  // legacy wingc
+    private float oFlapSpeed; // legacy wingd
+    private float flapping = 1.0F; // legacy wingh
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        this.oFlap = this.flap;
+        this.oFlapSpeed = this.flapSpeed;
+        this.flapSpeed = net.minecraft.util.Mth.clamp(this.flapSpeed + (this.onGround() ? -1.0F : 4.0F) * 0.3F, 0.0F, 1.0F);
+        if (!this.onGround() && this.flapping < 1.0F) {
+            this.flapping = 1.0F;
+        }
+        this.flapping *= 0.9F;
+        this.flap += this.flapping * 2.0F;
+    }
+
+    /** Legacy {@code MoCRenderBird.handleRotationFloat}: the wing lift in radians, {@code (sin(flap) + 1) * flapSpeed}. */
+    public float getWingFlap(float partialTick) {
+        float phase = net.minecraft.util.Mth.lerp(partialTick, this.oFlap, this.flap);
+        float size = net.minecraft.util.Mth.lerp(partialTick, this.oFlapSpeed, this.flapSpeed);
+        return (net.minecraft.util.Mth.sin(phase) + 1.0F) * size;
+    }
+
     public void setPreTamed(boolean pre) {
         this.entityData.set(PRE_TAMED, pre);
     }

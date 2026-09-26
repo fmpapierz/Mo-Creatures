@@ -71,6 +71,16 @@ public class MoCModelBird extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(0, 23).addBox(-6.0F, 5.0F, 2.0F, 4.0F, 1.0F, 4.0F),
                 PartPose.offsetAndRotation(4.0F, 13.0F, 0.0F, 0.261799F, 0.0F, 0.0F));
 
+        // Back faces 1.12 drew with culling off (see MoCBackFaces): each leg is a stick painted on its box's back
+        // (south) face plus the toes on its bottom (up) face, seen through the empty front and top. Each twin is the
+        // named face of that part's box turned to face into the box, with the same corners and texels.
+        MoCBackFaces.add(root, "leftleg", CubeListBuilder.create()
+                .texOffs(29, 0).mirror(false).addBox(-1.0F, 4.0F, -4.0F, 3.0F, 0.0F, 3.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(35, 3).mirror(true).addBox(-1.0F, 0.0F, -1.0F, 3.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+        MoCBackFaces.add(root, "rightleg", CubeListBuilder.create()
+                .texOffs(29, 0).mirror(false).addBox(-1.0F, 4.0F, -4.0F, 3.0F, 0.0F, 3.0F, MoCBackFaces.DOWN) // back of the up face
+                .texOffs(35, 3).mirror(true).addBox(-1.0F, 0.0F, -1.0F, 3.0F, 4.0F, 0.0F, MoCBackFaces.NORTH)); // back of the south face
+
         return LayerDefinition.create(mesh, 64, 32);
     }
 
@@ -81,18 +91,23 @@ public class MoCModelBird extends EntityModel<MoCEntityRenderState> {
         float limbAmount = state.walkAnimationSpeed;
         float headYaw = state.yRot * DEG_TO_RAD;
         float headPitch = state.xRot * DEG_TO_RAD;
-        float ageInTicks = state.ageInTicks;
 
         this.head.xRot = -(headPitch / 2.0F);
         this.head.yRot = headYaw;
         this.beak.yRot = this.head.yRot;
         this.beak.xRot = this.head.xRot;
-        this.leftleg.xRot = Mth.cos(limbSwing * 0.6662F) * limbAmount;
-        this.rightleg.xRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI) * limbAmount;
-        // Wing flap: a bounded cosine oscillation (the raw ageInTicks used before span unbounded, spinning
-        // the wings instead of flapping). Approximates the legacy wing-field roll.
-        float flap = Mth.cos(ageInTicks * 0.6F) * 0.6F;
-        this.rwing.zRot = flap;
-        this.lwing.zRot = -flap;
+        // Legacy setRotationAngles:76-84: in the air (isOnAir, not perched) both legs tuck back; on the ground they walk.
+        if (state.flying) {
+            this.leftleg.xRot = 1.4F;
+            this.rightleg.xRot = 1.4F;
+        } else {
+            this.leftleg.xRot = Mth.cos(limbSwing * 0.6662F) * limbAmount;
+            this.rightleg.xRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI) * limbAmount;
+        }
+        // Legacy wing lift (MoCRenderBird.handleRotationFloat, computed on the entity): the wings beat only while
+        // it flies and settle folded within a few ticks of landing. (The port used to beat them nonstop, even
+        // on the ground.)
+        this.rwing.zRot = state.birdWingFlap;
+        this.lwing.zRot = -state.birdWingFlap;
     }
 }

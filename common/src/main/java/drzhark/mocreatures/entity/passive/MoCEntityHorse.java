@@ -105,13 +105,9 @@ public class MoCEntityHorse extends MoCAnimal {
      * once both have eaten their essence, and the flag resets on both parents after breeding.
      */
     private boolean eatenPumpkin;
-    /**
-     * Legacy {@code temper} (only meaningful for wild zebras, legacy {@code getMaxTemper()==200}): a zebra
-     * resists taming until it has been won over repeatedly. Each accepted feed raises this; the zebra only
-     * tames once it reaches {@link #ZEBRA_MAX_TEMPER}. Ordinary horses ignore temper (they tame in one feed).
-     */
-    // Temper itself now lives on MoCAnimal (shared with the ride-until-tamed loop); the zebra just raises
-    // getMaxTemper() so it needs far more of it than an ordinary horse.
+    // Legacy temper lives on MoCAnimal (it drives the shared ride-until-tamed roll). Wheat, sugar lumps and bread
+    // raise it on a wild horse (see mobInteract), and the zebra's getMaxTemper() of 200 makes breaking one in by
+    // riding twice as slow as an ordinary horse. Temper plays no part in apple taming, for zebras or anyone else.
 
     public MoCEntityHorse(EntityType<? extends MoCEntityHorse> type, Level level) {
         super(type, level);
@@ -147,39 +143,19 @@ public class MoCEntityHorse extends MoCAnimal {
         this.entityData.set(TRANSFORM_TYPE, type);
     }
 
-    @Override
-    protected void registerGoals() {
-        super.registerGoals();
-        // Wild zebras (type 60) flee from any player who is NOT approaching on a spotted (16), cow (17),
-        // zebra (60) or zorse (61) horse — the legacy way to tame a zebra was to ride one of those up to it
-        // (legacy isZebraRunning / runLikeHell). Installed unconditionally; canUse() gates it to type 60.
-        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.AvoidEntityGoal<Player>(
-                this, Player.class, 8.0F, 1.6D, 1.8D,
-                living -> {
-                    if (living.getVehicle() instanceof MoCEntityHorse mount) {
-                        int mt = mount.getTypeMoC();
-                        return mt != 16 && mt != 17 && mt != 60 && mt != 61;
-                    }
-                    return true;
-                }) {
-            @Override
-            public boolean canUse() {
-                return MoCEntityHorse.this.getTypeMoC() == 60 && !MoCEntityHorse.this.getIsTamed()
-                        && super.canUse();
-            }
-
-            @Override
-            public boolean canContinueToUse() {
-                return MoCEntityHorse.this.getTypeMoC() == 60 && !MoCEntityHorse.this.getIsTamed()
-                        && super.canContinueToUse();
-            }
-        });
-    }
+    // No flee-on-sight goal for the zebra. 5.1.5 ran "zebras on the run" from onLivingUpdate every tick
+    // (legacy-source MoCEntityHorse.java:2283-2289), and the port used to reproduce that with a permanent
+    // AvoidEntityGoal; 12.0.5 — the release this port follows — commented that block out
+    // (MoCEntityHorse.java:2208-2214), so a wild zebra grazes calmly until someone actually tries to handle it,
+    // and only then bolts (see zebraThreat / boltFrom in mobInteract). The goal also misbehaved for testers:
+    // its TargetingConditions.forCombat() skips invulnerable (creative) players, so in creative the zebra never
+    // fled yet still refused every interaction, which read as "the zebra can't be tamed".
 
     /**
-     * The nearby player a wild zebra should flee from — the closest player within 8 blocks, unless that
-     * player is riding a spotted (16), cow (17), zebra (60) or zorse (61) horse (which does not spook it).
-     * Returns {@code null} when there is no such threat. Mirrors legacy {@code isZebraRunning}.
+     * The player a wild zebra refuses to be handled by — legacy {@code isZebraRunning} (12.0.5
+     * MoCEntityHorse.java:1987-2004): the closest player within 8 blocks, unless that player is riding a
+     * spotted (16), cow (17), zebra (60) or zorse (61) horse, which does not spook it. Returns {@code null} when
+     * the zebra is approachable. Legacy only consulted this from {@code processInteract}; the caller bolts.
      */
     private net.minecraft.world.entity.player.@Nullable Player zebraThreat() {
         Player nearest = this.level().getNearestPlayer(this, 8.0D);
@@ -193,6 +169,21 @@ public class MoCEntityHorse extends MoCAnimal {
             }
         }
         return nearest;
+    }
+
+    /**
+     * Legacy {@code MoCTools.runLikeHell} (12.0.5 MoCTools.java:1544-1571), which {@code isZebraRunning} fired
+     * whenever it refused someone: take the bearing directly away from the threat, jitter it, and path to a
+     * standable spot about eight blocks out. {@code DefaultRandomPos.getPosAway} is the 26.2 form of that search
+     * (a random walkable position within 8 horizontal / 3 vertical blocks, inside the half-plane facing away
+     * from {@code threat}). Speed 1.6 is the port's runLikeHell pace (MoCEntityMouse / MoCEntityRoach). Server-side.
+     */
+    private void boltFrom(net.minecraft.world.entity.Entity threat) {
+        net.minecraft.world.phys.Vec3 away = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPosAway(
+                this, 8, 3, threat.position());
+        if (away != null) {
+            this.getNavigation().moveTo(away.x, away.y, away.z, 1.6D);
+        }
     }
 
     /** Grazing state (legacy {@code getEating()}); the client lowers the head to the ground. */
@@ -376,38 +367,49 @@ public class MoCEntityHorse extends MoCAnimal {
     @Override
     public void travel(net.minecraft.world.phys.Vec3 input) {
         // A ridden winged horse gallops normally on the ground, but takes to the air and flies — steered by
-        // the rider's look (up to climb, down to dive; forward/back to move; no input hovers) — once it is
-        // airborne or when the rider looks up to take off. Non-flyers and unridden horses ride normally.
+        // the rider's look (up to climb, down to dive; forward/back to move; no input glides slowly down) —
+        // once it is off the ground or when the rider looks up to take off. It flies with 12.0.5's physics
+        // (MoCAnimal.travelRiddenFlightLegacy): default flyer friction 0.91 and the coat's getCustomSpeed, whose
+        // push the input cap holds at 0.091 a tick for any coat of 1.02 or more — about 15 blocks a second at the
+        // top, reached in about a second. Non-flyers and unridden horses ride normally.
         if (isFlyer() && this.isVehicle() && getControllingPassenger() instanceof Player rider
-                && (!this.onGround() || rider.getXRot() < -25.0F)) {
-            this.setYRot(rider.getYRot());
-            this.yRotO = this.getYRot();
-            this.setXRot(rider.getXRot() * 0.5F);
-            this.yBodyRot = this.getYRot();
-            this.yHeadRot = this.getYRot();
-            this.setNoGravity(true);
-            float fwd = rider.zza;
-            float str = rider.xxa;
-            float speed = (float) (this.getAttributeValue(Attributes.MOVEMENT_SPEED) * 2.2D);
-            if (fwd != 0.0F || str != 0.0F) {
-                net.minecraft.world.phys.Vec3 look = rider.getLookAngle();
-                double fwdScale = fwd > 0.0F ? speed : (fwd < 0.0F ? -speed * 0.4D : 0.0D);
-                net.minecraft.world.phys.Vec3 forward = look.scale(fwdScale);
-                net.minecraft.world.phys.Vec3 side =
-                        new net.minecraft.world.phys.Vec3(look.z, 0.0D, -look.x).normalize().scale(str * speed * 0.5D);
-                net.minecraft.world.phys.Vec3 desired = forward.add(side);
-                this.setDeltaMovement(this.getDeltaMovement().scale(0.5D).add(desired.scale(0.5D)));
-            } else {
-                net.minecraft.world.phys.Vec3 dm = this.getDeltaMovement();
-                this.setDeltaMovement(dm.x * 0.7D, Math.max(dm.y * 0.8D, -0.04D), dm.z * 0.7D);
-            }
-            this.move(net.minecraft.world.entity.MoverType.SELF, this.getDeltaMovement());
-            this.setDeltaMovement(this.getDeltaMovement().scale(0.9D));
-        } else {
-            // Ground movement always has gravity (this clears the flight no-gravity on landing too).
-            this.setNoGravity(false);
-            super.travel(input);
+                && !isRiddenFlightLanded(rider)) {
+            travelRiddenFlightLegacy(rider, getCustomSpeed());
+            return;
         }
+        // Ground movement always has gravity (this clears the flight no-gravity on landing too).
+        this.setNoGravity(false);
+        // Legacy slow falling (12.0.5 MoCEntityHorse.onLivingUpdate:2119-2125): a flyer or floater (the unicorns and
+        // the ghost horse) off the ground loses 0.4 of its fall speed every tick, so it drifts down at about 2 blocks
+        // a second instead of dropping.
+        if ((isFlyer() || isFloater()) && !this.onGround() && this.getDeltaMovement().y < 0.0D) {
+            net.minecraft.world.phys.Vec3 dm = this.getDeltaMovement();
+            this.setDeltaMovement(dm.x, dm.y * 0.6D, dm.z);
+        }
+        super.travel(input);
+    }
+
+    /** Legacy slow falling carries into flight: a gliding winged horse sinks at about 1 block a second. */
+    @Override
+    protected double flyerFallDamping() {
+        return 0.6D;
+    }
+
+    /**
+     * The saddle, not the hitbox top. With no seat of its own a horse used the default passenger attachment —
+     * dead centre, at the top of its 1.6-high box — which sat the rider high and a quarter-block too far
+     * forward, over the withers. Legacy {@code MoCEntityHorse.updatePassenger} (12.0.5 :2748-2753) moved the
+     * rider {@code getSizeFactor() * 0.25} blocks BEHIND the centre, onto the saddle (MoCModelHorse's saddle is
+     * centred 3 px back, its top at 1.375 blocks). A rider's hips ride 0.15 above the seat point (the player's
+     * 0.6 vehicle attachment, mc262-ref Avatar.java:17, under a 0.75 hip height), so a 1.4 seat rests the thighs
+     * on the saddle top. Both scale with the coat's render size, so a donkey's rider sits on a donkey.
+     */
+    @Override
+    protected net.minecraft.world.phys.Vec3 getPassengerAttachmentPoint(net.minecraft.world.entity.Entity passenger,
+            net.minecraft.world.entity.EntityDimensions dimensions, float scale) {
+        float size = getSizeFactor() * scale;
+        return new net.minecraft.world.phys.Vec3(0.0D, 1.4D * size, -0.25D * size)
+                .yRot(-this.getYRot() * net.minecraft.util.Mth.DEG_TO_RAD);
     }
 
     /** Nightmare (38), dark pegasus (40), bat horse (32) and the undead/skeleton horses (23-28) are fiery. */
@@ -674,10 +676,26 @@ public class MoCEntityHorse extends MoCAnimal {
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        // Wild zebras (type 60) bolt from a nearby player and refuse to be handled while fleeing. The legacy
-        // taming trick is to approach one while riding a spotted/cow/zebra/zorse horse (see zebraThreat).
-        if (getTypeMoC() == 60 && !getIsTamed() && zebraThreat() != null) {
-            return InteractionResult.PASS;
+        // A wild zebra (type 60) will not be handled by anyone on foot: legacy processInteract refused the whole
+        // interaction and sent it bolting whenever isZebraRunning() found the nearest player within 8 blocks not
+        // riding a spotted (16) / cow (17) / zebra (60) / zorse (61) horse (12.0.5 MoCEntityHorse.java:1408-1410,
+        // 1987-2004). That is the legacy taming trick, not an obstacle to remove: ride one of those four up to it,
+        // and from the saddle it takes an apple (one — see below) or a saddle like any wild horse. Nothing in the
+        // game says so, and the port's own test plan told testers to walk up with apples, so a refused click also
+        // says what is missing. The click is consumed rather than PASSed (legacy returned false): a PASS makes the
+        // client fall through to using the held item, i.e. start eating the apple it just offered.
+        if (getTypeMoC() == 60 && !getIsTamed()) {
+            Player threat = zebraThreat();
+            if (threat != null) {
+                if (!this.level().isClientSide()) {
+                    boltFrom(threat);
+                    // No name argument: an unnamed zebra's display name is the entity type's, "Horse".
+                    player.sendOverlayMessage(net.minecraft.network.chat.Component.translatableWithFallback(
+                            "message.mocreatures.tame_hint_zebra",
+                            "The zebra shies away from anyone on foot - ride up to it on a spotted or cow horse (or a zebra or zorse)"));
+                }
+                return InteractionResult.SUCCESS;
+            }
         }
         // Legacy MoCEntityHorse.interact:1655/1681/1707 — wheat, a sugar lump or bread each heal the horse a
         // fixed amount, grow a foal, and (while it is still wild) raise its temper so breaking it in succeeds
@@ -711,29 +729,13 @@ public class MoCEntityHorse extends MoCAnimal {
         if (!getIsTamed() && (isMagicHorse() || isUndead()) && isFood(stack)) {
             return InteractionResult.PASS;
         }
-        // Legacy zebra temper (getMaxTemper()==200): a wild zebra does NOT tame from a single feed the way an
-        // ordinary horse does. Each accepted feed of its normal food raises temper; the zebra only submits and
-        // tames once temper reaches ZEBRA_MAX_TEMPER. This intercepts the base FEED taming so ONLY zebras resist
-        // (ordinary horses fall through to super and tame in one feed as before).
-        if (getTypeMoC() == 60 && !getIsTamed() && isFood(stack)) {
-            if (!this.level().isClientSide()) {
-                if (exceedsTameCap(player)) {
-                    return InteractionResult.SUCCESS;
-                }
-                if (!player.getAbilities().instabuild) {
-                    stack.shrink(1);
-                }
-                setTemper(getTemper() + 40);
-                heal(getMaxHealth());
-                if (getTemper() >= getMaxTemper()) {
-                    setTamed(true);
-                    setOwnerName(player.getName().getString());
-                    // Legacy tameWithName prompted for a name the instant a creature was tamed.
-                    drzhark.mocreatures.network.MoCNetwork.promptName(this, player);
-                }
-            }
-            return InteractionResult.SUCCESS;
-        }
+        // No zebra-only feeding rule. An approachable wild zebra takes its apple exactly like any ordinary wild
+        // horse: legacy's apple / golden-apple branch (12.0.5 MoCEntityHorse.java:1765-1783) calls
+        // MoCTools.tameWithName for every coat that is neither magic nor undead — the zebra included — so ONE
+        // apple tames it, via MoCAnimal's FEED branch below. The zebra's getMaxTemper() of 200 only ever
+        // governed breaking it in by riding (legacy MoCEntityAnimal.moveEntityWithRiderUntamed:784-791) and the
+        // wheat/sugar/bread clamps above. (The port used to demand five apples here, +40 temper each to 200 —
+        // a rule legacy never had.)
         // A sneaking empty-handed owner opens the saddlebags (in addition to the key trigger below), so
         // storage is reachable without the key. Gated on sneaking so a plain empty-hand interaction
         // still mounts a rideable bagger horse via MoCAnimal's mount path.
@@ -1451,11 +1453,11 @@ public class MoCEntityHorse extends MoCAnimal {
         else if (t < 26) s = 0.8D;                 // ghost / undead
         else if (t < 30) s = 1.0D;                 // skeleton
         else if (t > 30 && t < 40) s = 1.2D;       // magic (unicorn / pegasus / bat) — bug horse (30) falls through
-        else if (t > 40 && t < 60) s = 1.3D;       // fairies — black pegasus (40) falls through to 0.8
+        else if (t >= 40 && t < 60) s = 1.3D;      // black pegasus + fairies (12.0.5 ">= 40"; 5.1.5 left 40 at 0.8)
         else if (t == 60 || t == 61) s = 1.1D;     // zebra / zorse
         else if (t == 65) s = 0.7D;                // donkey
         else if (t > 65) s = 0.9D;                 // mule / zonky
-        else s = 0.8D;                             // black pegasus / bug horse
+        else s = 0.8D;                             // bug horse
         // Whip-sprint (legacy getCustomSpeed): a 1.5x burst (phase 1) then a 0.5x exhausted phase (phase 2).
         int phase = this.entityData.get(SPRINT_PHASE);
         if (phase == 1) {
@@ -1483,7 +1485,7 @@ public class MoCEntityHorse extends MoCAnimal {
 
     /** Ridden ground speed scales with the coat tier (legacy getCustomSpeed); flight uses travel()'s own model. */
     @Override
-    protected float getRiddenSpeed(net.minecraft.world.entity.player.Player rider) {
+    protected float getMountSpeed(net.minecraft.world.entity.player.Player rider) {
         return (float) (this.getAttributeValue(Attributes.MOVEMENT_SPEED) * getCustomSpeed());
     }
 
@@ -1509,40 +1511,89 @@ public class MoCEntityHorse extends MoCAnimal {
             net.minecraft.world.level.ServerLevelAccessor level,
             net.minecraft.world.DifficultyInstance difficulty, EntitySpawnReason spawnReason,
             net.minecraft.world.entity.@Nullable SpawnGroupData groupData) {
-        // Legacy checkSpawningBiome: zebras (type 60) spawn preferentially in Plains (~1/3), overriding the
-        // flat zebraChance distribution used in every other biome. Set BEFORE super's selectType() runs, which
-        // is a no-op once a coat is already chosen.
-        if (getTypeMoC() == 0
-                && level.getBiome(blockPosition()).is(net.minecraft.world.level.biome.Biomes.PLAINS)
-                && this.random.nextInt(3) == 0) {
-            setTypeMoC(60);
+        // Legacy 12.0.5 selectType() opened with checkSpawningBiome() (MoCEntityHorse.java:2514-2533), and
+        // selectType ran from onInitialSpawn for every spawn path that finalizes — natural and chunk-generation
+        // spawns, the spawn egg (EntityType.create -> finalizeSpawn(SPAWN_ITEM_USE)) and a bare /summon. It runs
+        // here rather than inside selectType() so the biome is read from the spawn-time level this method is
+        // handed (a WorldGenRegion during chunk generation), BEFORE super's MoCAnimal.finalizeSpawn calls
+        // selectType(), which then rolls the ordinary wild coats only if the biome left the coat unassigned.
+        // Legacy re-ran the biome check over a coat that was already set; here it only fills an unassigned one,
+        // so an egg or command that supplies TypeMoC keeps it (a spawn egg's entity data is applied after
+        // finalizeSpawn anyway, EntityType.create; /summon WITH nbt never calls finalizeSpawn at all).
+        if (getTypeMoC() == 0) {
+            checkSpawningBiome(level.getBiome(blockPosition()));
         }
         return super.finalizeSpawn(level, difficulty, spawnReason, groupData);
     }
 
+    /**
+     * Legacy {@code checkSpawningBiome} (12.0.5 MoCEntityHorse.java:204-227), with Forge's 1.12
+     * {@code BiomeDictionary} types mapped onto the vanilla biomes they tagged in 1.12:
+     * <ul>
+     * <li>{@code Type.PLAINS} — 1.12's plains, sunflower plains and all four savanna biomes — gets a zebra one
+     * time in three: {@code PLAINS}, {@code SUNFLOWER_PLAINS} and {@code #is_savanna} (savanna, savanna
+     * plateau, windswept savanna). Snowy plains was not PLAINS in 1.12 (COLD/SNOWY/WASTELAND) and is not here.</li>
+     * <li>{@code Type.SANDY} — 1.12's deserts and mesas — is always a zebra: {@code DESERT} and
+     * {@code #is_badlands}. (1.12 did not tag beaches SANDY; neither does this.)</li>
+     * <li>Legacy's third test was the biome's NAME containing "prairie" — a modded biome such as Biomes O'
+     * Plenty's prairie; vanilla has none — which overrode everything with an ordinary tier-1 coat 1-5 ("prairies
+     * spawn only regular horses, no zebras there"). The name test is kept verbatim against the biome id.</li>
+     * </ul>
+     *
+     * <p><b>Port addition — the meadow stands in for the prairie.</b> 12.0.5's wild roll ({@link #selectType})
+     * only produces the tier-2 coats 6/7/8 and zebras; in an unmodded 1.12 world the tier-1 coats 1-5 came from
+     * cross-breeding with VANILLA horses ({@code TranslateVanillaHorseType}, :2335-2359), which this port does
+     * not have. Without another source, white (1) and black (5) would be unobtainable, and with them every
+     * tier-3/4 cross that needs them — including the spotted (16) and cow (17) horses a player must ride to tame
+     * a zebra. So the one vanilla grassland 12.0.5's rules leave unclaimed, the meadow (which vanilla already
+     * groups with the plains: {@code #has_structure/village_plains}), rolls the prairie's coats 1-5, plus the
+     * donkey (65): legacy likewise meant vanilla donkeys to supply MoC donkeys (the same method's
+     * {@code EntityDonkey -> 65} branch), but its caller only accepted {@code EntityHorse} mates, so in 12.0.5 a
+     * MoC donkey — and every mule and zonky bred from one — could not be obtained in survival at all.
+     */
+    private void checkSpawningBiome(net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome> biome) {
+        if (biome.is(net.minecraft.world.level.biome.Biomes.PLAINS)
+                || biome.is(net.minecraft.world.level.biome.Biomes.SUNFLOWER_PLAINS)
+                || biome.is(net.minecraft.tags.BiomeTags.IS_SAVANNA)) {
+            if (this.random.nextInt(3) == 0) {
+                setTypeMoC(60); // zebra
+            }
+        }
+        if (biome.is(net.minecraft.world.level.biome.Biomes.DESERT) || biome.is(net.minecraft.tags.BiomeTags.IS_BADLANDS)) {
+            setTypeMoC(60); // zebra
+        }
+        boolean prairie = biome.unwrapKey()
+                .map(key -> key.identifier().getPath().contains("prairie"))
+                .orElse(false);
+        if (prairie) {
+            setTypeMoC(this.random.nextInt(5) + 1); // ordinary tier-1 coat, never a zebra
+        } else if (biome.is(net.minecraft.world.level.biome.Biomes.MEADOW)) {
+            int roll = this.random.nextInt(6);
+            setTypeMoC(roll < 5 ? roll + 1 : 65); // the prairie's tier-1 coats, or a donkey
+        }
+    }
+
+    /**
+     * Legacy 12.0.5 {@code selectType} (MoCEntityHorse.java:2514-2533) for a horse the biome check left
+     * unassigned: one in five is a foal, and the coat is one of the three TIER-2 coats — bright creamy (6),
+     * speckled (7) or pale brown (8), a third each — or, on the top {@code zebraChance} percent of the roll, a
+     * zebra (60). The port previously used 5.1.5's table here (the tier-1 coats 1-5 plus ~9% donkeys), which is
+     * why horses from a spawn egg came out in the wrong, tier-1 colours.
+     */
     @Override
     public void selectType() {
         if (getTypeMoC() == 0) {
-            // ~20% of wild horses spawn as foals (legacy MoCEntityHorse.selectType).
             if (this.random.nextInt(5) == 0) {
                 setAdult(false);
             }
-            // Faithful legacy distribution: ordinary coats 1-5, then donkey (65) and — scaled by the
-            // zebraChance config — zebra (60). With the default zebraChance=5 that is ~9% donkey / ~5% zebra.
             int j = this.random.nextInt(100);
             int i = drzhark.mocreatures.config.MoCConfig.get().zebraChance;
-            if (j <= 18 - i) {
-                setTypeMoC(1);
-            } else if (j <= 36 - i) {
-                setTypeMoC(2);
-            } else if (j <= 54 - i) {
-                setTypeMoC(3);
-            } else if (j <= 72 - i) {
-                setTypeMoC(4);
-            } else if (j <= 90 - i) {
-                setTypeMoC(5);
+            if (j <= 33 - i) {
+                setTypeMoC(6); // bright creamy
+            } else if (j <= 66 - i) {
+                setTypeMoC(7); // speckled
             } else if (j <= 99 - i) {
-                setTypeMoC(65); // donkey
+                setTypeMoC(8); // pale brown
             } else {
                 setTypeMoC(60); // zebra
             }
@@ -1650,8 +1701,10 @@ public class MoCEntityHorse extends MoCAnimal {
     }
 
     /**
-     * Legacy {@code getMaxTemper()}: a zebra (type 60) is far harder to win over than an ordinary horse, so it
-     * needs 200 temper rather than the base 100 — both for the graduated feed taming and for breaking it in.
+     * Legacy {@code getMaxTemper()} (12.0.5 MoCEntityHorse.java:770-777, "zebras are harder to tame"): 200 for a
+     * zebra (type 60), the base 100 for every other coat. It sets the odds of the ride-until-tamed roll
+     * ({@code rand.nextInt((maxTemper - temper) * 8) == 0} per tick, MoCAnimal.tickBreakingIn) and the clamp on
+     * the wheat / sugar-lump / bread temper feeds — nothing else. It does not gate apple taming.
      */
     @Override
     public int getMaxTemper() {

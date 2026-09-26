@@ -117,16 +117,21 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
             state.horseEating = false;
             state.horseRearing = false;
         }
-        // Flyers flap/tuck while airborne instead of the walk gait. Wyvern uses a stable synched flag;
-        // a winged horse flies via normal physics so !onGround() is stable enough (it gallops on the ground).
+        // Flyers flap/tuck while airborne instead of the walk gait. Wyvern: legacy onAir (its synched cruise flag
+        // or no ground under it, see MoCEntityWyvern.isWyvernFlying);
+        // a winged horse uses the same ground probe (MoCAnimal.isOffGround), since a rider-flown horse does not report
+        // onGround reliably while hovering.
         // Insects, crickets and ducks flap their wings and switch to the in-flight leg pose whenever airborne
         // (legacy isOnAir()/getIsFlying()).
         state.flying = (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityWyvern wyvern && wyvern.isWyvernFlying())
-                || (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityHorse horse && horse.isFlyer() && !entity.onGround())
+                || (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityHorse horse && horse.isFlyer() && horse.isOffGround())
                 || (entity instanceof drzhark.mocreatures.entity.MoCFlyingInsect && !entity.onGround())
                 || (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityCricket && !entity.onGround())
                 || (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityDuck && !entity.onGround())
-                || (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityRoach && !entity.onGround());
+                || (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityRoach && !entity.onGround())
+                // Bird: legacy MoCModelBird's isOnAir (air under it, and not perched on anyone) tucks its legs.
+                || (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityBird bird && !bird.hasGroundBelow(1.2D)
+                        && !bird.isPassenger() && !bird.isBeingCarried());
         if (entity instanceof drzhark.mocreatures.entity.monster.MoCEntityGolem golem) {
             state.golemCubeMask = golem.getCubeMask();
             state.golemState = golem.getGolemState();
@@ -157,6 +162,10 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
         state.riding = entity.isPassenger()
                 || (entity instanceof drzhark.mocreatures.entity.MoCAnimal carried && carried.isBeingCarried());
         state.sprinting = entity.isSprinting();
+        // Bunny bound progress (0..1, 0 = not hopping) for MoCModelBunny's leap pose: the vanilla
+        // RabbitRenderer.extractRenderState jumpCompletion pattern (see MoCEntityBunny.getHopCompletion).
+        state.bunnyHop = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityBunny bunny
+                ? bunny.getHopCompletion(partialTick) : 0.0F;
         if (entity instanceof drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton skeleton) {
             state.silverSkeletonLeftSwing = skeleton.getLeftSwingTick();
             state.silverSkeletonRightSwing = skeleton.getRightSwingTick();
@@ -217,10 +226,14 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
             state.wyvernArmor = wyv.getArmorType();
             state.wyvernChested = wyv.getIsChested();
             state.wyvernSitting = wyv.isSitting();
+            state.wyvernFlapping = wyv.isWingFlapping();
+            state.wyvernRidden = wyv.isVehicle();
         } else {
             state.wyvernArmor = 0;
             state.wyvernChested = false;
             state.wyvernSitting = false;
+            state.wyvernFlapping = false;
+            state.wyvernRidden = false;
         }
         state.scorpionHasBabies = entity instanceof drzhark.mocreatures.entity.monster.MoCEntityScorpion scb && scb.getHasBabies();
         state.crocRolling = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityCrocodile cr
@@ -239,7 +252,7 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
         // beat, airborne wing/leg pose, the scorpion sting strike, and the big cat jaw drop it reuses.
         if (entity instanceof drzhark.mocreatures.entity.IMoCManticore manticore) {
             state.manticoreFlapping = manticore.isWingFlapping();
-            state.manticoreAirborne = !entity.onGround();
+            state.manticoreAirborne = manticore.isAirborne();
             state.manticoreStinging = manticore.isStingStriking();
             state.bigcatJawOpen = manticore.getJawOpen();
         } else {
@@ -247,6 +260,36 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
             state.manticoreAirborne = false;
             state.manticoreStinging = false;
         }
+        state.wingOpen = easeWingOpen(entity, state.flying || state.manticoreAirborne, partialTick);
+        state.birdWingFlap = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityBird flapper
+                ? flapper.getWingFlap(partialTick) : 0.0F;
+    }
+
+    /** Ticks for spread wings to fold down once a flyer lands (0.6 s), and to spread again on take-off. */
+    private static final float WING_FOLD_TICKS = 12.0F;
+    private static final float WING_OPEN_TICKS = 4.0F;
+    /** Each creature's wing spread and the entity-clock time it was last eased to, per renderer (weak keys). */
+    private final java.util.Map<net.minecraft.world.entity.Entity, float[]> wingSpread = new java.util.WeakHashMap<>();
+
+    /**
+     * Eases a winged creature's wings toward spread (airborne) or folded (grounded) at a fixed rate, on the entity's
+     * own clock ({@code tickCount + partialTick}) so the speed is the same at any frame rate and the wings freeze while
+     * the game is paused. The model blends its grounded and flight wing poses by the smoothstepped result, so a landing
+     * flyer folds its wings over {@link #WING_FOLD_TICKS} instead of snapping them shut in one frame.
+     */
+    private float easeWingOpen(T entity, boolean airborne, float partialTick) {
+        float now = entity.tickCount + partialTick;
+        float target = airborne ? 1.0F : 0.0F;
+        float[] spread = this.wingSpread.computeIfAbsent(entity, e -> new float[] {target, now});
+        float elapsed = net.minecraft.util.Mth.clamp(now - spread[1], 0.0F, 5.0F);
+        spread[1] = now;
+        if (spread[0] < target) {
+            spread[0] = Math.min(target, spread[0] + elapsed / WING_OPEN_TICKS);
+        } else if (spread[0] > target) {
+            spread[0] = Math.max(target, spread[0] - elapsed / WING_FOLD_TICKS);
+        }
+        float p = spread[0];
+        return p * p * (3.0F - 2.0F * p);
     }
 
     @Override
@@ -254,9 +297,13 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
             float bodyRot, float scale) {
         super.setupRotations(state, poseStack, bodyRot, scale);
         // A rearing horse pitches its whole body back onto its hind legs (the front-leg lift + head-up pose
-        // is applied in the model; this is the global body tilt).
+        // is applied in the model; this is the global body tilt). The tilt hinges at the hind hooves (model
+        // z = +11 px, the rear legs' pivot line) rather than at the feet's centre, which sank the hind hooves
+        // almost half a block into the ground as the front came up. MoCModelHorse.REAR_PITCH must stay 30.
         if (state.horseRearing) {
+            poseStack.translate(0.0F, 0.0F, 0.6875F);
             poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(30.0F));
+            poseStack.translate(0.0F, 0.0F, -0.6875F);
         }
         // Crocodile death-roll: the croc barrel-rolls about its long (forward) axis while drowning its prey
         // underwater (legacy spinInt spin). Continuous roll driven by the animation timer.
