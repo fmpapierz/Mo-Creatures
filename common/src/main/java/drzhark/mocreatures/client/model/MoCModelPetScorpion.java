@@ -259,10 +259,9 @@ public class MoCModelPetScorpion extends EntityModel<MoCEntityRenderState> {
 
         float f = state.walkAnimationPos;
         float f1 = state.walkAnimationSpeed;
-        float headYaw = state.yRot / DEG;
 
-        // head + mouths track the look direction
-        this.head.yRot = headYaw;
+        // No look tracking (legacy 12.0.5 never used the look yaw): "head" is the whole carapace, and turning
+        // it split the upper body down the middle whenever the scorpion turned. Mouths keep their fixed splay.
         this.mouthR.yRot = (22F / DEG);
         this.mouthL.yRot = (-22F / DEG);
 

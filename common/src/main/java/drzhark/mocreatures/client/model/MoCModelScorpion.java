@@ -292,10 +292,9 @@ public class MoCModelScorpion extends EntityModel<MoCEntityRenderState> {
     public void setupAnim(MoCEntityRenderState state) {
         super.setupAnim(state);
 
-        float headYaw = state.yRot * DEG_TO_RAD;
-        float headPitch = state.xRot * DEG_TO_RAD;
-        this.head.yRot = headYaw;
-        this.head.xRot = headPitch;
+        // No look tracking: "head" is the whole 10x5x13 carapace, pivoted on its front edge, so turning it by
+        // the look yaw split the upper body down the middle whenever the scorpion turned. Legacy 12.0.5
+        // setRotationAngles never reads the look yaw/pitch at all; resetPose keeps the carapace at rest.
 
         // mouth pincers fixed splay (legacy 22 degrees out)
         this.mouthR.yRot = 22F * DEG_TO_RAD;

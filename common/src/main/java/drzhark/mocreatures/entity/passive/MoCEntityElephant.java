@@ -87,7 +87,10 @@ public class MoCEntityElephant extends MoCAnimal {
                 // mammoth's health is never clamped down before its type is known.
                 .add(Attributes.MAX_HEALTH, 60.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.25D)
-                .add(Attributes.ATTACK_DAMAGE, 4.0D); // defensive melee: retaliates for 4 (legacy attackEntity)
+                .add(Attributes.ATTACK_DAMAGE, 4.0D) // defensive melee: retaliates for 4 (legacy attackEntity)
+                // Legacy 12.0.5 stepHeight 1.0 (MoCEntityElephant:75): walks up a full block like a vanilla horse,
+                // including when it is led on a lead or rope. Never ported, so a led animal stuck at every step.
+                .add(Attributes.STEP_HEIGHT, 1.0D);
     }
 
     @Override

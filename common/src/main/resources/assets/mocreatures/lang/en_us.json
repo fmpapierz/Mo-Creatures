@@ -334,5 +334,8 @@
   "message.mocreatures.amulet_tamed_only": "Only a tamed pet fits in the Pet Amulet - tame it first",
   "message.mocreatures.wild_wyvern_saddle": "A wild wyvern won't take a saddle - hatch a wyvern egg to raise your own",
   "message.mocreatures.tame_hint_kitty": "%s won't take the medallion yet - drop a cooked cod or cooked salmon near it and let it eat first",
+  "message.mocreatures.tame_hint_horse": "%s won't let you on bareback - give it an apple to tame it, or saddle it and ride it until it stops bucking",
+  "message.mocreatures.tame_hint_horse_foal": "%s is too young to ride - give it an apple to tame it",
+  "message.mocreatures.tame_hint_horse_magic": "%s won't take food - once it is grown, saddle it and ride it until it stops bucking",
   "message.mocreatures.egg_hatching": "Egg hatching soon! KEEP WATCH! The egg is at %s, %s, %s."
 }

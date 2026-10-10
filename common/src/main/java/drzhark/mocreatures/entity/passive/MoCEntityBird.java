@@ -51,7 +51,9 @@ public class MoCEntityBird extends MoCAnimal {
         return Animal.createAnimalAttributes()
                 .add(Attributes.MAX_HEALTH, 8.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.25D)
-                .add(Attributes.FLYING_SPEED, 0.6D);
+                .add(Attributes.FLYING_SPEED, 0.6D)
+                // Legacy 12.0.5 stepHeight 1.0 (MoCEntityBird:62).
+                .add(Attributes.STEP_HEIGHT, 1.0D);
     }
 
     // Two-stage seed taming (legacy): a wild bird first pecks seeds scattered on the ground (becoming

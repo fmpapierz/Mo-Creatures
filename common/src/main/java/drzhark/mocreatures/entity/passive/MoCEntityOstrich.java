@@ -58,7 +58,10 @@ public class MoCEntityOstrich extends MoCAnimal {
         return Animal.createAnimalAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.25D)
-                .add(Attributes.ATTACK_DAMAGE, 3.0D); // adult males/demons kick for 3 (legacy attackEntity)
+                .add(Attributes.ATTACK_DAMAGE, 3.0D) // adult males/demons kick for 3 (legacy attackEntity)
+                // Legacy 12.0.5 stepHeight 1.0 (MoCEntityOstrich:73): walks up a full block like a vanilla horse,
+                // including when it is led on a lead or rope. Never ported, so a led animal stuck at every step.
+                .add(Attributes.STEP_HEIGHT, 1.0D);
     }
 
     @Override

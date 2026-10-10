@@ -350,7 +350,10 @@ public class MoCEntityWyvern extends MoCAnimal {
                 .add(Attributes.MAX_HEALTH, 40.0D) // lesser wyvern base; type>=5 raised to 80 by applyTypeHealth
                 .add(Attributes.MOVEMENT_SPEED, 0.30D)
                 .add(Attributes.FLYING_SPEED, 0.70D) // legacy getFlyingSpeed()
-                .add(Attributes.ATTACK_DAMAGE, 5.0D); // lesser wyvern bite; type>=5 raised to 10 by applyTypeHealth
+                .add(Attributes.ATTACK_DAMAGE, 5.0D) // lesser wyvern bite; type>=5 raised to 10 by applyTypeHealth
+                // Legacy 12.0.5 stepHeight 1.0 (MoCEntityWyvern:73): walks up a full block like a vanilla horse,
+                // including when it is led on a lead or rope. Never ported, so a led animal stuck at every step.
+                .add(Attributes.STEP_HEIGHT, 1.0D);
     }
 
     @Override

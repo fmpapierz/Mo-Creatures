@@ -32,7 +32,19 @@ public class MoCEntityDeer extends MoCAnimal {
         super.registerGoals();
         // Skittish prey: deer bolt from players (hunters) and monsters well before being caught, faster than a
         // normal panic (legacy getBoogey proactive flee).
-        this.goalSelector.addGoal(1, new AvoidEntityGoal<>(this, Player.class, 10.0F, 1.4D, 1.9D));
+        // Not while on a lead: the holder is always a nearby player, so the deer fled from whoever led it and kept
+        // cancelling the lead's own pathing toward them.
+        this.goalSelector.addGoal(1, new AvoidEntityGoal<>(this, Player.class, 10.0F, 1.4D, 1.9D) {
+            @Override
+            public boolean canUse() {
+                return !MoCEntityDeer.this.isLeashed() && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return !MoCEntityDeer.this.isLeashed() && super.canContinueToUse();
+            }
+        });
         this.goalSelector.addGoal(1, new AvoidEntityGoal<>(this, Monster.class, 10.0F, 1.4D, 1.9D));
     }
 

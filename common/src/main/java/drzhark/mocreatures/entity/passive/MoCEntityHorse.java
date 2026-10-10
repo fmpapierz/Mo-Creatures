@@ -919,6 +919,18 @@ public class MoCEntityHorse extends MoCAnimal {
             }
             return InteractionResult.SUCCESS;
         }
+        // An empty hand on a wild, unsaddled horse. Players expect the vanilla horse's mount-until-tame, which a
+        // MoC horse never had (legacy: one apple, or saddle it and ride it until it stops bucking), so the click
+        // did nothing and read as "taming is broken". Say what works instead, as the medallion and zebra hints do.
+        if (!getIsTamed() && stack.isEmpty() && !isSaddled() && !this.isVehicle()) {
+            if (player instanceof ServerPlayer serverPlayer) {
+                String hint = (isMagicHorse() || isUndead()) ? "tame_hint_horse_magic"
+                        : getIsAdult() ? "tame_hint_horse" : "tame_hint_horse_foal";
+                serverPlayer.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.mocreatures." + hint, getDisplayName()));
+            }
+            return InteractionResult.SUCCESS;
+        }
         return super.mobInteract(player, hand);
     }
 
@@ -1237,7 +1249,14 @@ public class MoCEntityHorse extends MoCAnimal {
         MoCEntityHorse foal = MoCEntities.HORSE.get().create(level, EntitySpawnReason.BREEDING);
         if (foal != null) {
             MoCEntityHorse other = (partner instanceof MoCEntityHorse mate) ? mate : null;
-            int coat = (other != null) ? horseGenetics(this, other) : this.getTypeMoC();
+            int coat;
+            if (other != null) {
+                coat = horseGenetics(this, other.getTypeMoC(), other);
+            } else if (partner instanceof net.minecraft.world.entity.animal.equine.Horse vanilla) {
+                coat = horseGenetics(this, vanillaHorseCoat(vanilla), null);
+            } else {
+                coat = this.getTypeMoC();
+            }
             foal.setTypeMoC(coat);
             foal.setAdult(false);
             // Newborn MoC age (legacy setEdad(1), the same value spawnGhostFoal uses): without it the foal
@@ -1285,7 +1304,9 @@ public class MoCEntityHorse extends MoCAnimal {
         }
         boolean readyPartnerNearby = !level.getEntitiesOfClass(MoCEntityHorse.class,
                 getBoundingBox().inflate(8.0D),
-                other -> other != this && other.eatenPumpkin && readyForParenting(other)).isEmpty();
+                other -> other != this && other.eatenPumpkin && readyForParenting(other)).isEmpty()
+                || !level.getEntitiesOfClass(net.minecraft.world.entity.animal.equine.Horse.class,
+                        getBoundingBox().inflate(8.0D), MoCEntityHorse::isVanillaMate).isEmpty();
         if (readyPartnerNearby) {
             setInLoveTime(600);
         }
@@ -1298,6 +1319,9 @@ public class MoCEntityHorse extends MoCAnimal {
      */
     @Override
     public boolean canMate(Animal other) {
+        if (other instanceof net.minecraft.world.entity.animal.equine.Horse vanilla) {
+            return readyForParenting(this) && isInLove() && isVanillaMate(vanilla);
+        }
         if (!(other instanceof MoCEntityHorse mate)) {
             return false;
         }
@@ -1312,11 +1336,45 @@ public class MoCEntityHorse extends MoCAnimal {
                 && h.coatCanBreed();
     }
 
-    /** Legacy {@code HorseGenetics}: the foal's coat type from the two parents' coats. */
-    private int horseGenetics(MoCEntityHorse a, MoCEntityHorse b) {
+    /**
+     * A vanilla horse this horse can foal with (12.0.5 onLivingUpdate:2262-2302 accepted any {@code EntityHorse}
+     * as a mate). Legacy had no love state, so it paired a pumpkin-fed MoC horse with whatever vanilla horse stood
+     * nearby; here, as with two MoC horses, both must be in love — the vanilla one through its own golden
+     * carrot or golden apple, which vanilla only accepts from a tamed horse. Vanilla's own breeding never picks a
+     * MoC horse, so the MoC horse's {@link #registerGoals second BreedGoal} does the courting. Donkeys stay
+     * out, as in 12.0.5: its {@code TranslateVanillaHorseType} maps one, but the caller only took horses.
+     */
+    private static boolean isVanillaMate(net.minecraft.world.entity.animal.equine.Horse h) {
+        return h.isAlive() && !h.isBaby() && h.getAge() == 0 && h.isInLove() && !h.isVehicle() && !h.isPassenger();
+    }
+
+    /** Legacy {@code TranslateVanillaHorseType} (12.0.5 MoCEntityHorse.java:2335-2359): the MoC coat a vanilla horse breeds as. */
+    private static int vanillaHorseCoat(net.minecraft.world.entity.animal.equine.Horse h) {
+        return switch (h.getVariant()) {
+            case WHITE -> 1;
+            case CREAMY -> 2;
+            case BLACK -> 5;
+            case GRAY -> 9;
+            case DARK_BROWN -> 4;
+            default -> 3; // brown, and legacy's default for chestnut
+        };
+    }
+
+    /** Adds a second courtship goal for vanilla mates; the inherited one only ever looks for MoC horses. */
+    @Override
+    protected void registerGoals() {
+        super.registerGoals();
+        this.goalSelector.addGoal(3, new net.minecraft.world.entity.ai.goal.BreedGoal(this, 1.0D,
+                net.minecraft.world.entity.animal.equine.Horse.class));
+    }
+
+    /**
+     * Legacy {@code HorseGenetics}: the foal's coat type from the two parents' coats. {@code b} is null when the
+     * mate is a vanilla horse, whose coat {@code typeB} is then always an ordinary one (1-5 or 9).
+     */
+    private int horseGenetics(MoCEntityHorse a, int typeB, @Nullable MoCEntityHorse b) {
         boolean easy = drzhark.mocreatures.config.MoCConfig.get().easyBreeding;
         int typeA = a.getTypeMoC();
-        int typeB = b.getTypeMoC();
         if (typeA == typeB) {
             return typeA; // identical coats breed true
         }
@@ -1332,7 +1390,7 @@ public class MoCEntityHorse extends MoCAnimal {
         if ((typeA > 20 && typeB < 21) || (typeB > 20 && typeA < 21)) {
             return Math.min(typeA, typeB); // rare + ordinary -> the ordinary coat
         }
-        if ((typeA == 36 && typeB == 39) || (typeB == 36 && typeA == 39)) {
+        if (b != null && ((typeA == 36 && typeB == 39) || (typeB == 36 && typeA == 39))) {
             a.discard(); // unicorn + white pegasus: both vanish, leaving a white fairy
             b.discard();
             return 50;
@@ -1426,7 +1484,10 @@ public class MoCEntityHorse extends MoCAnimal {
     public static AttributeSupplier.Builder createAttributes() {
         return Animal.createAnimalAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.25D);
+                .add(Attributes.MOVEMENT_SPEED, 0.25D)
+                // Legacy 12.0.5 stepHeight 1.0 (MoCEntityHorse:100): walks up a full block like a vanilla horse,
+                // including when it is led on a lead or rope. Never ported, so a led animal stuck at every step.
+                .add(Attributes.STEP_HEIGHT, 1.0D);
     }
 
     /** Legacy {@code getMaxHealth()} per coat tier (15/20/25 ordinary, 30 magic, 40 black-pegasus, etc.). */

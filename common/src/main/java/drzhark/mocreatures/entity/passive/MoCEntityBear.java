@@ -36,7 +36,10 @@ public class MoCEntityBear extends MoCAnimal {
         return Animal.createAnimalAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.25D)
-                .add(Attributes.ATTACK_DAMAGE, 6.0D);
+                .add(Attributes.ATTACK_DAMAGE, 6.0D)
+                // Legacy 12.0.5 stepHeight 1.0 (MoCEntityBear:62): walks up a full block like a vanilla horse,
+                // including when it is led on a lead or rope. Never ported, so a led animal stuck at every step.
+                .add(Attributes.STEP_HEIGHT, 1.0D);
     }
 
     @Override
@@ -156,15 +159,21 @@ public class MoCEntityBear extends MoCAnimal {
         }
         // Keep the per-type max health applied (covers spawn + the type chosen in selectType).
         applyTypeStats();
+        // A bear on a lead never strikes a pose: a posed bear is rooted (below), and with its holder always a
+        // nearby player it reared up and stood frozen against the pull until the lead snapped.
+        if (isLeashed() && getBearState() != STATE_FOURS) {
+            setBearState(STATE_FOURS);
+            this.standingCounter = 0;
+        }
         // Pandas and young cubs plop down to sit; a sitting bear eventually gets back up.
-        if ((getTypeMoC() == 3 || (!getIsAdult() && getMoCAge() < 60)) && this.random.nextInt(300) == 0) {
+        if (!isLeashed() && (getTypeMoC() == 3 || (!getIsAdult() && getMoCAge() < 60)) && this.random.nextInt(300) == 0) {
             setBearState(STATE_SITTING);
         }
         if (getBearState() == STATE_SITTING && this.random.nextInt(800) == 0) {
             setBearState(STATE_FOURS);
         }
         // Adult non-panda bears rear up on their hind legs near a player, then drop back after a moment.
-        if (this.standingCounter == 0 && getBearState() != STATE_SITTING && getIsAdult() && getTypeMoC() != 3
+        if (this.standingCounter == 0 && !isLeashed() && getBearState() != STATE_SITTING && getIsAdult() && getTypeMoC() != 3
                 && this.random.nextInt(500) == 0 && level.getNearestPlayer(this, 8.0D) != null) {
             setBearState(STATE_STANDING);
             this.standingCounter = 1;

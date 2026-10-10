@@ -55,6 +55,8 @@ public class MoCEntityKitty extends MoCAnimal {
     public static final int STATE_PLAYING = 2;
     /** Napping at night. */
     public static final int STATE_SLEEPING = 3;
+    /** Hungry and nestled in a stocked bed, eating until the bowl is empty (legacy kittyState 4). */
+    public static final int STATE_EATING = 4;
     /**
      * Dangling upside down at the carrier's side, picked up by a lead click (legacy kittyState 14,
      * {@code MoCEntityKitty}:575-579). Keeps the legacy number; no collision with the mood states 0-3.
@@ -216,8 +218,8 @@ public class MoCEntityKitty extends MoCAnimal {
 
         // ---- decide this tick's mood: HUNGRY > litter box > SLEEPING > PLAYING > CALM ----
         int newState;
-        if (hungry) {
-            newState = STATE_HUNGRY;
+        if (hungry || getKittyState() == STATE_EATING) {
+            newState = eatFromBed(level);
         } else if (needsLitter && useLitterBox(level)) {
             // Heading to / using a litter box; render as calm.
             newState = STATE_CALM;
@@ -234,8 +236,10 @@ public class MoCEntityKitty extends MoCAnimal {
             newState = STATE_CALM;
         }
 
-        // Leaving the sleeping state: stand back up, climb out of the bed, and forget it.
-        if (getKittyState() == STATE_SLEEPING && newState != STATE_SLEEPING && isSitting()) {
+        // Leaving the sleeping state: stand back up, climb out of the bed, and forget it. A kitty that wakes up
+        // hungry in a stocked bed stays in it and eats instead.
+        if (getKittyState() == STATE_SLEEPING && newState != STATE_SLEEPING && newState != STATE_EATING
+                && isSitting()) {
             setSitting(false);
             if (this.getVehicle() instanceof MoCEntityKittyBed) {
                 this.stopRiding();
@@ -319,6 +323,67 @@ public class MoCEntityKitty extends MoCAnimal {
     }
 
     /**
+     * Legacy kittyState 3 -> 4 (12.0.5 MoCEntityKitty:683-730): a hungry tamed kitty walks to the nearest
+     * unoccupied bed stocked with milk or pet food, climbs in and eats until the bed has drained (the bed's
+     * own tick heals it meanwhile), and only then is it fed. Before this, nothing but hand-feeding ever cleared
+     * a tamed kitty's hunger, so it ignored a stocked bed and begged forever.
+     *
+     * @return {@link #STATE_EATING} while in the bed, {@link #STATE_CALM} once fed, else {@link #STATE_HUNGRY}
+     */
+    private int eatFromBed(ServerLevel level) {
+        if (this.getVehicle() instanceof MoCEntityKittyBed bed) {
+            getNavigation().stop();
+            if (bed.getHasMilk() || bed.getHasFood()) {
+                if (!isSitting()) {
+                    setSitting(true);
+                }
+                return STATE_EATING;
+            }
+            // Bowl licked clean (legacy :716-720): fed and healed, out of the bed.
+            hungerCounter = 0;
+            heal(getMaxHealth());
+            this.stopRiding();
+            setSitting(false);
+            targetBed = null;
+            return STATE_CALM;
+        }
+        if (getKittyState() == STATE_EATING) {
+            // Left the bed before it was empty (legacy :722-724 moved on as fed, too).
+            hungerCounter = 0;
+            setSitting(false);
+            targetBed = null;
+            return STATE_CALM;
+        }
+        if (targetBed != null && (!targetBed.isAlive() || !targetBed.getPassengers().isEmpty()
+                || !(targetBed.getHasMilk() || targetBed.getHasFood()))) {
+            targetBed = null;
+        }
+        if (targetBed == null && getRandom().nextInt(20) == 0) {
+            targetBed = nearest(level, MoCEntityKittyBed.class,
+                    b -> (b.getHasMilk() || b.getHasFood()) && b.getPassengers().isEmpty());
+        }
+        if (targetBed == null) {
+            return STATE_HUNGRY;
+        }
+        if (isSitting()) {
+            setSitting(false);
+        }
+        // Legacy climbed in within 2 blocks (its getDistance is not squared).
+        if (distanceToSqr(targetBed) >= 4.0D) {
+            getNavigation().moveTo(targetBed, 1.0D);
+            return STATE_HUNGRY;
+        }
+        if (this.startRiding(targetBed)) {
+            getNavigation().stop();
+            setSitting(true);
+            this.playSound((targetBed.getHasMilk() ? MoCSounds.KITTYEATINGM : MoCSounds.KITTYEATINGF).get(),
+                    1.0F, 1.0F + (getRandom().nextFloat() - getRandom().nextFloat()) * 0.2F);
+            return STATE_EATING;
+        }
+        return STATE_HUNGRY;
+    }
+
+    /**
      * Walk to the nearest kitty bed and curl up in it; if none is nearby, just nap on the spot.
      *
      * @return {@code true} once the kitty is actually settled (sitting), {@code false} while it is
@@ -331,7 +396,8 @@ public class MoCEntityKitty extends MoCAnimal {
         if (targetBed == null && getRandom().nextInt(20) == 0) {
             targetBed = nearest(level, MoCEntityKittyBed.class, b -> true);
         }
-        if (targetBed != null && distanceToSqr(targetBed) >= 1.5D) {
+        // Within 2 blocks, as legacy (1.5 squared left a kitty pathed to the next block standing beside the bed).
+        if (targetBed != null && distanceToSqr(targetBed) >= 4.0D) {
             // Still heading to the bed — stay on our feet and keep pathing.
             if (isSitting()) {
                 setSitting(false);
@@ -345,11 +411,13 @@ public class MoCEntityKitty extends MoCAnimal {
             // supply drain. An empty or occupied bed is just curled up on top of instead.
             if (this.getVehicle() != targetBed && targetBed.getPassengers().isEmpty()
                     && (targetBed.getHasMilk() || targetBed.getHasFood())) {
-                this.startRiding(targetBed);
                 // Legacy state 4 played a contextual feeding sound while nestled: 'kittyeatingm' drinking
-                // from a milk-stocked bed, 'kittyeatingf' eating from a food-stocked bed.
-                this.playSound((targetBed.getHasMilk() ? MoCSounds.KITTYEATINGM : MoCSounds.KITTYEATINGF).get(),
-                        1.0F, 1.0F + (getRandom().nextFloat() - getRandom().nextFloat()) * 0.2F);
+                // from a milk-stocked bed, 'kittyeatingf' eating from a food-stocked bed. Only on actually
+                // climbing in: startRiding fails during the 60-tick boarding cooldown after leaving a bed.
+                if (this.startRiding(targetBed)) {
+                    this.playSound((targetBed.getHasMilk() ? MoCSounds.KITTYEATINGM : MoCSounds.KITTYEATINGF).get(),
+                            1.0F, 1.0F + (getRandom().nextFloat() - getRandom().nextFloat()) * 0.2F);
+                }
             } else if (!this.isPassenger()) {
                 this.setPos(targetBed.getX(), targetBed.getY(), targetBed.getZ());
             }
@@ -675,7 +743,8 @@ public class MoCEntityKitty extends MoCAnimal {
         String tex = switch (getKittyState()) {
             case STATE_HUNGRY -> "emoticon3.png";   // begging for food
             case STATE_PLAYING -> "emoticon11.png"; // wants to play
-            case STATE_SLEEPING -> "emoticon5.png"; // sleepy
+            case STATE_EATING -> "emoticon4.png";   // content, eating in its bed (legacy state 4)
+            case STATE_SLEEPING -> "emoticon12.png"; // asleep, "Zz" (legacy state 12; emoticon5 is the litter box)
             default -> "emoticon1.png";             // calm / neutral
         };
         return Identifier.fromNamespaceAndPath(drzhark.mocreatures.MoCreatures.MOD_ID, "textures/misc/" + tex);
