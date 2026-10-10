@@ -26,6 +26,16 @@ loom {
             property 'mixin.debug', 'true'
             property "fabric.log.level", "debug"
         }
+
+        // Unattended dev server for tools/servertest/servertest.py (`gradlew :fabric:runTestServer`). Its own
+        // folder, so the test's server.properties and world never touch run/, the dev client's folder.
+        testServer {
+            server()
+            ideConfigGenerated false
+            name = "Fabric Test Server"
+            source sourceSets.main
+            runDir = "run-testserver"
+        }
     }
 }
 

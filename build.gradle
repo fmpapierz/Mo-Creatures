@@ -86,3 +86,37 @@ allprojects {
         }
     }
 }
+
+// ============================================================================================
+// Each loader's RELEASE jar (the shadow jar mocreatures-<loader>-<version>.jar, no classifier) is mirrored
+// into the root build/libs after every assemble. The pre-shadow -raw jar and the -sources jar stay in the
+// module folders. The root project has no sources of its own, so its empty jars are switched off: they
+// would land in the same folder the Sync owns.
+// ============================================================================================
+def loaderModules = ['fabric', 'neoforge'].collect { project(":$it") }
+
+tasks.named('jar') { enabled = false }
+tasks.named('sourcesJar') { enabled = false }
+
+def collectJars = tasks.register('collectJars', Sync) {
+    group = 'build'
+    description = "Mirrors every loader module's release jar into the root build/libs"
+    loaderModules.each { sp ->
+        from(sp.layout.buildDirectory.dir('libs')) {
+            include '*.jar'
+            exclude '*-sources.jar', '*-javadoc.jar', '*-dev.jar', '*-dev-shadow.jar', '*-thin.jar', '*-slim.jar', '*-api.jar', '*-raw.jar'
+        }
+        // Ordering only (never a dependency): :fabric:assemble must not drag :neoforge along.
+        mustRunAfter sp.tasks.withType(Jar)
+        mustRunAfter sp.tasks.matching { it.name == 'assemble' }
+    }
+    into layout.buildDirectory.dir('libs')
+    doLast {
+        logger.lifecycle("[collectJars] root build/libs now holds:")
+        destinationDir.listFiles()?.sort()?.each { logger.lifecycle("[collectJars]   " + it.name) }
+    }
+}
+
+loaderModules.each { sp ->
+    sp.tasks.matching { it.name == 'assemble' }.configureEach { finalizedBy collectJars }
+}
