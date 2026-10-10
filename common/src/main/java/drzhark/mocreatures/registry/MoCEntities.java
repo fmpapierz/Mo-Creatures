@@ -70,12 +70,14 @@ public final class MoCEntities {
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityTurtle::new, MobCategory.CREATURE).sized(0.6F, 0.4F).clientTrackingRange(10).build(key("turtle")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityWyvern>> WYVERN = ENTITIES.register("wyvern",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityWyvern::new, MobCategory.CREATURE).sized(1.9F, 1.7F).clientTrackingRange(10).build(key("wyvern")));
+    // The eleven insects and small critters are AMBIENT, as 12.0.5 counted them (MoCEntityAmbient.isCreatureType):
+    // they spawn around players under the ambient cap with the bats, not once at chunk generation like animals.
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityCrab>> CRAB = ENTITIES.register("crab",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityCrab::new, MobCategory.CREATURE).sized(0.3F, 0.3F).clientTrackingRange(10).build(key("crab")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityCrab::new, MobCategory.AMBIENT).sized(0.3F, 0.3F).clientTrackingRange(10).build(key("crab")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityMaggot>> MAGGOT = ENTITIES.register("maggot",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMaggot::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("maggot")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMaggot::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("maggot")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntitySnail>> SNAIL = ENTITIES.register("snail",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntitySnail::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("snail")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntitySnail::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("snail")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityDolphin>> DOLPHIN = ENTITIES.register("dolphin",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityDolphin::new, MobCategory.WATER_CREATURE).sized(1.5F, 0.8F).clientTrackingRange(10).build(key("dolphin")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityFishy>> FISHY = ENTITIES.register("fishy",
@@ -87,19 +89,19 @@ public final class MoCEntities {
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityShark>> SHARK = ENTITIES.register("shark",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityShark::new, MobCategory.WATER_CREATURE).sized(1.5F, 0.8F).clientTrackingRange(10).build(key("shark")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityBee>> BEE = ENTITIES.register("bee",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityBee::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("bee")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityBee::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("bee")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityButterfly>> BUTTERFLY = ENTITIES.register("butterfly",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityButterfly::new, MobCategory.CREATURE).sized(0.6F, 0.5F).clientTrackingRange(10).build(key("butterfly")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityButterfly::new, MobCategory.AMBIENT).sized(0.6F, 0.5F).clientTrackingRange(10).build(key("butterfly")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityDragonfly>> DRAGONFLY = ENTITIES.register("dragonfly",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityDragonfly::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("dragonfly")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityDragonfly::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("dragonfly")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityFirefly>> FIREFLY = ENTITIES.register("firefly",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityFirefly::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("firefly")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityFirefly::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("firefly")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityFly>> FLY = ENTITIES.register("fly",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityFly::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("fly")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityFly::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("fly")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityCricket>> CRICKET = ENTITIES.register("cricket",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityCricket::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("cricket")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityCricket::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("cricket")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityRoach>> ROACH = ENTITIES.register("roach",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRoach::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("roach")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRoach::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("roach")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityGolem>> GOLEM = ENTITIES.register("golem",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntityGolem::new, MobCategory.MONSTER).sized(1.5F, 4.0F).clientTrackingRange(10).notInPeaceful().build(key("golem")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityOgre>> OGRE = ENTITIES.register("ogre",
@@ -130,7 +132,7 @@ public final class MoCEntities {
 
     // ------------------------------------------------------------ ported from Mo'Creatures 12.0.5
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityAnt>> ANT = ENTITIES.register("ant",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityAnt::new, MobCategory.CREATURE).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("ant")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityAnt::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("ant")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityRaccoon>> RACCOON = ENTITIES.register("raccoon",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRaccoon::new, MobCategory.CREATURE).sized(0.5F, 0.6F).clientTrackingRange(10).build(key("raccoon")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityChimpanzee>> CHIMPANZEE = ENTITIES.register("chimpanzee",

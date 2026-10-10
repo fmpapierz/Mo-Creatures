@@ -63,13 +63,6 @@ public class MoCEntityDuck extends MoCAnimal {
     }
 
     @Override
-    public boolean removeWhenFarAway(double distanceSquared) {
-        // Legacy MoCEntityDuck.canDespawn() returns true unconditionally: ducks are untamable
-        // and always despawn when far from players.
-        return true;
-    }
-
-    @Override
     public Identifier getTexture() {
         return modelTexture("duck.png");
     }

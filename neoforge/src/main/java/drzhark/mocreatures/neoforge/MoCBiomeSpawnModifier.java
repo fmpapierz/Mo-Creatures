@@ -57,6 +57,11 @@ public final class MoCBiomeSpawnModifier implements BiomeModifier {
         }
 
         @Override
+        public net.minecraft.resources.Identifier biomeId() {
+            return this.biome.unwrapKey().map(net.minecraft.resources.ResourceKey::identifier).orElse(null);
+        }
+
+        @Override
         public void addSpawn(MobCategory category, EntityType<?> type, int weight, int min, int max) {
             this.spawns.addSpawn(category, weight, new MobSpawnSettings.SpawnerData(type, min, max));
         }

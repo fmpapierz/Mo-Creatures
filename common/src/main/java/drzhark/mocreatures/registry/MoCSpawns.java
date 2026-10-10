@@ -182,174 +182,114 @@ public final class MoCSpawns {
         /** Whether the biome being modified carries {@code tag}. */
         boolean hasTag(TagKey<Biome> tag);
 
+        /** The biome's registry id, if known (it picks the biome's Forge 1.12 types, see {@code MoCBiomeTypes}). */
+        net.minecraft.resources.@Nullable Identifier biomeId();
+
         /** Appends one spawn entry to this biome. */
         void addSpawn(MobCategory category, EntityType<?> type, int weight, int min, int max);
     }
 
+    /** One naturally spawning Mo'Creatures entity and the spawn pool 12.0.5 put it in. */
+    private record NaturalSpawn(MobCategory category, java.util.function.Supplier<? extends EntityType<?>> type) {}
+
     /**
-     * Adds every Mo'Creatures spawn entry appropriate to the biome behind {@code view}. Called once per biome,
-     * per loader. Safe to call on any biome — non-Overworld, non-Nether biomes (including the Wyvern Lair, whose
-     * spawns are baked into {@code data/mocreatures/worldgen/biome/wyvern_lair.json}) are left untouched.
+     * Every Mo'Creatures entity that spawns naturally, in 12.0.5's own pools: CREATURE animals; AMBIENT insects and
+     * critters, which spawn around players all the time with the bats under the ambient cap (12.0.5's
+     * {@code MoCEntityAmbient.isCreatureType} counted them as AMBIENT); WATER_CREATURE aquatics; MONSTERs. Where
+     * each spawns and how often comes from its 12.0.5 biome-type list and weights in {@link MoCConfig}.
+     *
+     * <p>Not here: the pet scorpion (12.0.5 only got one from a mother scorpion), the wyvern and the Ogre Prince
+     * (residents of the Wyvern and Ogre Lairs, listed in those biomes' json), and the pet manticore (hatched from
+     * the egg a wild manticore drops). The golem's placement rule adds legacy's can-see-sky + Y>50 gate, and the
+     * manticore's coat follows the biome it spawns in (frozen: blue; Nether: red, with the Fire Egg).</p>
+     */
+    private static final java.util.List<NaturalSpawn> NATURAL_SPAWNS = java.util.List.of(
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.BEAR),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.BIG_CAT),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.BIRD),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.BOAR),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.BUNNY),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.CHIMPANZEE),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.CROCODILE),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.DEER),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.DUCK),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.ELEPHANT),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.ENT),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.FOX),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.GOAT),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.HORSE),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.KITTY),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.KOMODO),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.MOLE),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.MOUSE),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.OSTRICH),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.RACCOON),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.SNAKE),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.TURKEY),
+            new NaturalSpawn(MobCategory.CREATURE, MoCEntities.TURTLE),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.ANT),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.BEE),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.BUTTERFLY),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.CRAB),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.CRICKET),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.DRAGONFLY),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.FIREFLY),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.FLY),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.MAGGOT),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.ROACH),
+            new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.SNAIL),
+            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.DOLPHIN),
+            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.FISHY),
+            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.JELLYFISH),
+            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.RAY),
+            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.SHARK),
+            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.SMALL_FISH),
+            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.MEDIUM_FISH),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.GOLEM),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.OGRE),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.RAT),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.SCORPION),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.WILD_WOLF),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.WEREWOLF),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.WRAITH),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.HELL_RAT),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.FLAME_WRAITH),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.HORSE_MOB),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.SILVER_SKELETON),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.MINI_GOLEM),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.MANTICORE),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.MEDUSA),
+            new NaturalSpawn(MobCategory.MONSTER, MoCEntities.MINOTAUR));
+
+    /**
+     * Adds every Mo'Creatures spawn entry appropriate to the biome behind {@code view}. Called once per biome, per
+     * loader. Only overworld and Nether biomes take entries; the Wyvern and Ogre Lairs (tagged as neither) list
+     * their own residents in {@code data/mocreatures/worldgen/biome/}.
      */
     public static void addBiomeSpawns(BiomeSpawnView view) {
-        if (view.hasTag(BiomeTags.IS_NETHER)) {
-            addNetherSpawns(view);
+        if (!view.hasTag(BiomeTags.IS_OVERWORLD) && !view.hasTag(BiomeTags.IS_NETHER)) {
             return;
         }
-        if (!view.hasTag(BiomeTags.IS_OVERWORLD)) {
-            return;
-        }
-
-        // Which legacy biome groups this biome belongs to (best-effort from vanilla biome tags). An entity with a
-        // biomegroup restriction (config / /moc biomegroup) only spawns where its groups intersect this.
-        Set<String> bgroups = new java.util.HashSet<>();
-        if (view.hasTag(BiomeTags.IS_FOREST)) bgroups.add("forest");
-        if (view.hasTag(BiomeTags.IS_JUNGLE)) bgroups.add("jungle");
-        if (view.hasTag(BiomeTags.IS_MOUNTAIN) || view.hasTag(BiomeTags.IS_HILL)) bgroups.add("mountain");
-        if (view.hasTag(BiomeTags.IS_TAIGA) || view.hasTag(BiomeTags.SPAWNS_COLD_VARIANT_FROGS)) bgroups.add("arctic");
-        // The vanilla desert carries no terrain tag of its own, so it is picked out by the structure tag that
-        // contains exactly [minecraft:desert]; badlands/savanna round out the legacy 'desert' group.
-        if (view.hasTag(BiomeTags.HAS_DESERT_PYRAMID) || view.hasTag(BiomeTags.IS_BADLANDS)
-                || view.hasTag(BiomeTags.IS_SAVANNA)) bgroups.add("desert");
-        // has_swamp_hut is [minecraft:swamp] only; has_ruined_portal_swamp is [swamp, mangrove_swamp], so both are
-        // needed for the mangrove swamp to count as swamp at all.
-        boolean swamp = view.hasTag(BiomeTags.HAS_SWAMP_HUT) || view.hasTag(BiomeTags.HAS_RUINED_PORTAL_SWAMP);
-        if (swamp) bgroups.add("swamp");
-        // 'normal' is the plains-like baseline. Swamp is a wetness flavour layered on ordinary temperate land
-        // rather than a terrain type of its own, so it must not suppress the fallback: otherwise a swamp would
-        // host only the four species that name "swamp" explicitly and none of the other two dozen.
-        if (bgroups.isEmpty() || (swamp && bgroups.size() == 1)) bgroups.add("normal");
-
-        // ------------------------------------------------ ported from Mo'Creatures 12.0.5
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ANT.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.RACCOON.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.CHIMPANZEE.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.MOLE.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ENT.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.SILVER_SKELETON.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MINI_GOLEM.get());
-        // The manticore had a placement rule but was never added to a single biome's spawn list, so it could
-        // not spawn naturally at all. 12.0.5 listed it for SANDY/FOREST/SNOWY/JUNGLE/HILLS/MOUNTAIN/PLAINS/
-        // SWAMP/WASTELAND/DEAD/SPOOKY — every overworld terrain the port models — so it takes no biome group.
-        // Its coat still follows the biome it spawns in (MoCEntityManticore.selectType: frozen -> blue).
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MANTICORE.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BEAR.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BEE.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BIG_CAT.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BIRD.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BOAR.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BUNNY.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.BUTTERFLY.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.CRAB.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.CRICKET.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.CROCODILE.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.DEER.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.DRAGONFLY.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.DUCK.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ELEPHANT.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.FIREFLY.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.FLY.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.FOX.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.GOAT.get());
-        // GOLEM: legacy spawned it as a rare night surface monster (MoCEntityGolem.getCanSpawnHere:
-        // frequency>0 + can-see-sky + Y>50 + monster darkness, capped at 1/chunk). The placement predicate
-        // in register() now explicitly ANDs the legacy can-see-sky + Y>50 gate onto checkMonsterSpawnRules'
-        // night gate. Player self-assembly from blocks is an additional legacy path, not a replacement.
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.GOLEM.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.HORSE.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.HORSE_MOB.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.KITTY.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.KOMODO.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.MAGGOT.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.MOUSE.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MEDUSA.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.MINOTAUR.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.OGRE.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.OSTRICH.get());
-        // PET_SCORPION is intentionally NOT naturally spawned: legacy pet scorpions were only
-        // bred from a mother scorpion (baby-on-back), never placed by the spawner.
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.RAT.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.ROACH.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.SCORPION.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.SNAIL.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.SNAKE.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.TURKEY.get());
-        addSpawn(bgroups, view, MobCategory.CREATURE, MoCEntities.TURTLE.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.WEREWOLF.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.WILD_WOLF.get());
-        addSpawn(bgroups, view, MobCategory.MONSTER, MoCEntities.WRAITH.get());
-        // WYVERN is deliberately absent: it is the Wyvern Lair's mob and the Lair biome
-        // (data/mocreatures/worldgen/biome/wyvern_lair.json) already lists it at weight 20. Adding it to every
-        // overworld biome put wild wyverns in plains and forests and short-circuited the Lair/staff progression.
-
-        // Aquatics only belong in water bodies. Without this gate all five were added to every overworld biome —
-        // wasted spawn attempts in deserts and plains, and sharks/rays in village ponds.
-        boolean ocean = view.hasTag(BiomeTags.IS_OCEAN);
-        boolean river = view.hasTag(BiomeTags.IS_RIVER);
-        if (ocean) {
-            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.DOLPHIN.get());
-            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.JELLYFISH.get());
-            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.RAY.get());
-            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.SHARK.get());
-        }
-        if (ocean || river) {
-            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.FISHY.get());
-            // Ported from 12.0.5: the small-fish and medium-fish schools are the ordinary background fish of
-            // both oceans and rivers, exactly like fishy.
-            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.SMALL_FISH.get());
-            addSpawn(null, view, MobCategory.WATER_CREATURE, MoCEntities.MEDIUM_FISH.get());
+        Set<String> types = drzhark.mocreatures.spawn.MoCBiomeTypes.of(view.biomeId(), view::hasTag);
+        for (NaturalSpawn spawn : NATURAL_SPAWNS) {
+            addSpawn(types, view, spawn.category(), spawn.type().get());
         }
     }
 
     /**
-     * The Nether roster. Hell rats and flame wraiths are both {@code fireImmune} Nether natives that were
-     * previously only ever added to Overworld biomes; the scorpion is listed here as well because
-     * {@code MoCEntityScorpion.selectType} only produces the nether coat when {@code dimension() == NETHER}.
-     * The manticore is the same case: 12.0.5 listed it under {@code Type.NETHER}, and only a Nether-born
-     * manticore takes the red (fire) coat and drops the Fire Manticore Egg.
+     * Adds one config-driven spawn entry: the weight and pack size {@link MoCConfig} gives this entity in a biome
+     * of these Forge 1.12 types ({@code spawn.<id>.frequency / .min / .max} overrides, else 12.0.5's own), or
+     * nothing where it does not spawn (weight 0).
      */
-    private static void addNetherSpawns(BiomeSpawnView view) {
-        addSpawn(null, view, MobCategory.MONSTER, MoCEntities.HELL_RAT.get());
-        addSpawn(null, view, MobCategory.MONSTER, MoCEntities.FLAME_WRAITH.get());
-        addSpawn(null, view, MobCategory.MONSTER, MoCEntities.SCORPION.get());
-        addSpawn(null, view, MobCategory.MONSTER, MoCEntities.MANTICORE.get());
-    }
-
-    /**
-     * Adds one config-driven spawn entry. The entity's weight and min/max group size are read from
-     * {@link MoCConfig} keyed by the entity's lowercase registry id
-     * ({@code spawn.<id>.frequency / .min / .max}). When no override is set, the weight falls back to
-     * a per-category default and min/max to 1..4.
-     *
-     * <p>{@code biomeGroups} is the set of legacy biome groups the current biome belongs to; the entry is
-     * skipped when the entity is restricted to groups that do not intersect it. Pass {@code null} for entries
-     * placed by an explicit dimension/terrain gate rather than by biome group (the Nether roster, aquatics),
-     * where the legacy overworld-terrain groups have no meaning.</p>
-     *
-     * <p>Note: the legacy 1.12.2 CustomSpawner assigned a distinct per-entity frequency to every
-     * creature (e.g. horses, bears and elephants did not share one weight). The port collapses that
-     * to the uniform per-category fallback above, which is an accepted simplification: any server
-     * wanting the old varied weights can restore them per entity via {@code spawn.<id>.frequency}
-     * in {@code mocreatures.properties}.</p>
-     */
-    private static void addSpawn(@Nullable Set<String> biomeGroups,
-            BiomeSpawnView view, MobCategory category, EntityType<?> type) {
+    private static void addSpawn(Set<String> biomeTypes, BiomeSpawnView view, MobCategory category, EntityType<?> type) {
         String id = EntityType.getKey(type).getPath();
         MoCConfig cfg = MoCConfig.get();
-        // Biome-group restriction (legacy CustomSpawner): if this entity is assigned any groups, it only
-        // spawns in biomes belonging to one of them. No assignment (the default) = spawn everywhere.
-        if (biomeGroups != null) {
-            java.util.List<String> assigned = cfg.biomeGroups(id);
-            if (!assigned.isEmpty() && java.util.Collections.disjoint(assigned, biomeGroups)) {
-                return;
-            }
-        }
-        int weight = cfg.spawnFrequency(id);
+        int weight = cfg.spawnFrequency(id, biomeTypes);
         if (weight <= 0) {
             return;
         }
-        int min = cfg.spawnMin(id);
-        int max = cfg.spawnMax(id);
+        int min = cfg.spawnMin(id, biomeTypes);
+        int max = cfg.spawnMax(id, biomeTypes);
         if (max < min) {
             max = min;
         }

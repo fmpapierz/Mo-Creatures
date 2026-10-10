@@ -107,6 +107,13 @@ public final class MoCCommand {
                 .then(Commands.literal("list")
                     .then(Commands.literal("biomegroups")
                         .executes(MoCCommand::listBiomeGroups)))
+                // /moc spawnlist [biome] -- the Mo'Creatures entries in a biome's live spawn lists (the biome
+                // at the source's position if omitted), with each entry's share of its pool
+                .then(Commands.literal("spawnlist")
+                    .executes(ctx -> spawnList(ctx, null))
+                    .then(Commands.argument("biome", net.minecraft.commands.arguments.IdentifierArgument.id())
+                        .executes(ctx -> spawnList(ctx,
+                                net.minecraft.commands.arguments.IdentifierArgument.getId(ctx, "biome")))))
         );
     }
 
@@ -230,6 +237,64 @@ public final class MoCCommand {
         return com.mojang.brigadier.Command.SINGLE_SUCCESS;
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // /moc spawnlist [biome]
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Prints a biome's Forge 1.12 types (which decide where 12.0.5's species spawn) and every Mo'Creatures entry in
+     * its live spawn lists: category, weight, pack size and the entry's share of that category's whole pool,
+     * vanilla mobs included. Reads the biome registry the server is running with, so it shows what the loader's
+     * biome modification actually applied.
+     */
+    private static int spawnList(CommandContext<CommandSourceStack> ctx, @org.jspecify.annotations.Nullable Identifier biomeId) {
+        ServerLevel level = ctx.getSource().getLevel();
+        net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome> biome;
+        if (biomeId == null) {
+            biome = level.getBiome(net.minecraft.core.BlockPos.containing(ctx.getSource().getPosition()));
+        } else {
+            var found = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BIOME)
+                    .get(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.BIOME, biomeId));
+            if (found.isEmpty()) {
+                ctx.getSource().sendFailure(Component.literal("Unknown biome '" + biomeId + "'."));
+                return 0;
+            }
+            biome = found.get();
+        }
+        Identifier id = biome.unwrapKey().map(net.minecraft.resources.ResourceKey::identifier).orElse(null);
+        java.util.Set<String> types = new java.util.TreeSet<>(
+                drzhark.mocreatures.spawn.MoCBiomeTypes.of(id, biome::is));
+        StringBuilder sb = new StringBuilder();
+        sb.append("Biome ").append(id).append(" (1.12 types: ").append(String.join(", ", types)).append(")");
+        int entries = 0;
+        var settings = biome.value().getMobSettings();
+        for (net.minecraft.world.entity.MobCategory category : net.minecraft.world.entity.MobCategory.values()) {
+            var mobs = settings.getMobs(category).unwrap();
+            int total = 0;
+            for (var w : mobs) {
+                total += w.weight();
+            }
+            for (var w : mobs) {
+                Identifier type = BuiltInRegistries.ENTITY_TYPE.getKey(w.value().type());
+                if (!MoCreatures.MOD_ID.equals(type.getNamespace())) {
+                    continue;
+                }
+                entries++;
+                sb.append("\n  ").append(category.getName()).append(": ").append(type.getPath())
+                        .append(" weight ").append(w.weight())
+                        .append(", packs ").append(w.value().minCount()).append('-').append(w.value().maxCount())
+                        .append(String.format(Locale.ROOT, " (%.0f%% of the %s pool)",
+                                100.0D * w.weight() / total, category.getName()));
+            }
+        }
+        if (entries == 0) {
+            sb.append("\n  no Mo'Creatures spawns here");
+        }
+        String text = sb.toString();
+        ctx.getSource().sendSuccess(() -> Component.literal(text), false);
+        return entries;
+    }
+
     private static int listBiomeGroups(CommandContext<CommandSourceStack> ctx) {
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "Mo'Creatures biome groups: " + String.join(", ", MoCConfig.biomeGroupNames())
@@ -336,7 +401,7 @@ public final class MoCCommand {
     private static final String SUPPORTED_NUMBERS =
             "ogreStrength, caveOgreStrength, fireOgreStrength, ogreAttackRange, caveOgreChance, "
             + "fireOgreChance, sharkStrength, zebraChance, wyvernEggDropChance, monsterEggDropChance, "
-            + "maxAnimals, maxMobs, maxWaterMobs, maxAmbient, maxTamed, maxOPTamed";
+            + "maxMobs, maxWaterMobs, maxTamed, maxOPTamed";
 
     private static int numberShow(CommandContext<CommandSourceStack> ctx) {
         String name = StringArgumentType.getString(ctx, "name");
@@ -399,10 +464,8 @@ public final class MoCCommand {
             case "zebrachance":          return (double) cfg.zebraChance;
             case "wyverneggdropchance":  return (double) cfg.wyvernEggDropChance;
             case "monstereggdropchance": return (double) cfg.monsterEggDropChance;
-            case "maxanimals":           return (double) cfg.maxAnimals;
             case "maxmobs":              return (double) cfg.maxMobs;
             case "maxwatermobs":         return (double) cfg.maxWaterMobs;
-            case "maxambient":           return (double) cfg.maxAmbient;
             case "maxtamed":             return (double) cfg.maxTamed;
             case "maxoptamed":           return (double) cfg.maxOPTamed;
             default:                     return null;

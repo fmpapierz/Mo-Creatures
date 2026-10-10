@@ -54,11 +54,9 @@ import net.minecraft.world.level.storage.ValueInput;
  * threw away the panic/flee/wander goals and installed a melee attack, a herd follow and a
  * nearest-player target goal, carried 6 HP instead of 4 and 2 points of attack damage, and reported
  * {@code isNotScared() == true} so nothing could frighten it ({@code MoCEntityPiranha}:26-52, 84-87). The
- * <em>angler</em> is the deep-water one: it is the only species besides the clownfish, hippotang and
- * manderin that legacy's spawn table refused to place in rivers ({@code MoCEntities}:372-381), which is the
- * whole of its difference from its siblings in 12.0.5 — it has no code of its own beyond texture and egg id.
- * Since one merged class can no longer be filtered per-species by the spawner, {@link #selectType()} now
- * applies those biome lists itself.</p>
+ * <em>angler</em> has no code of its own beyond texture and egg id. Its 12.0.5 list leaves out
+ * {@code RIVER}, but it names {@code WATER}, the Forge 1.12 supertype every ocean and river carried, so in
+ * 12.0.5 it, like all seven, swam in oceans and rivers alike ({@code MoCEntities}:360-381, {@link #selectType()}).</p>
  */
 public class MoCEntitySmallFish extends MoCAquatic {
 
@@ -79,14 +77,9 @@ public class MoCEntitySmallFish extends MoCAquatic {
     private static final double PIRANHA_HEALTH = 6.0D;
 
     /**
-     * Species legacy allowed in rivers: {@code Type.RIVER} appears only in the anchovy, angelfish and
-     * goldfish spawn entries ({@code MoCEntities}:368-381).
+     * Every species' 12.0.5 list names {@code BEACH}, {@code SWAMP} and {@code WATER} (every ocean and river), so
+     * all seven spawn wherever small fish do, at equal weight.
      */
-    private static final int[] RIVER_SPECIES = {TYPE_ANCHOVY, TYPE_ANGELFISH, TYPE_GOLDFISH};
-    /** Species legacy allowed in oceans: everything except the goldfish, which is river/swamp/beach only. */
-    private static final int[] OCEAN_SPECIES =
-            {TYPE_ANCHOVY, TYPE_ANGELFISH, TYPE_ANGLER, TYPE_CLOWNFISH, TYPE_HIPPOTANG, TYPE_MANDERIN};
-    /** Every species carries {@code Type.BEACH}, {@code Type.SWAMP} and {@code Type.WATER}, so all seven. */
     private static final int[] ALL_SPECIES = {TYPE_ANCHOVY, TYPE_ANGELFISH, TYPE_ANGLER, TYPE_CLOWNFISH,
             TYPE_GOLDFISH, TYPE_HIPPOTANG, TYPE_MANDERIN};
     /** Legacy spawn weight of each ordinary species ({@code MoCEntities}:368-381: SpawnListEntry(..., 12, 1, 6)). */
@@ -262,21 +255,14 @@ public class MoCEntitySmallFish extends MoCAquatic {
     }
 
     /**
-     * Legacy {@code selectType()}:74-80 rolled a uniform 1-7 and left the biome filtering to the spawner,
-     * which held a separate {@code SpawnListEntry} + biome-type list per species ({@code MoCEntities}:360-381).
-     * With all eight merged behind one {@link EntityType} that table is gone, so the split is reproduced here
-     * from the biome the fish spawned in:
-     *
-     * <ul>
-     *   <li>rivers: anchovy, angelfish, goldfish (the only three legacy listed under {@code Type.RIVER});</li>
-     *   <li>oceans: everything except the goldfish, which legacy never listed under {@code Type.OCEAN};</li>
-     *   <li>anything else (swamps, beaches, ponds): all seven, which all carried
-     *       {@code BEACH}/{@code SWAMP}/{@code WATER}.</li>
-     * </ul>
+     * Legacy {@code selectType()}:74-80 rolled a uniform 1-7; the spawner held a separate {@code SpawnListEntry}
+     * per species ({@code MoCEntities}:360-381), and every one of their lists names {@code WATER}, which Forge
+     * 1.12 gave every ocean and river, plus {@code BEACH} and {@code SWAMP}. So in 12.0.5 all seven swam
+     * everywhere small fish did, at 12 each. (The port used to keep the angler, clownfish, hippo tang and
+     * manderin out of rivers and the goldfish out of oceans, reading only the RIVER/OCEAN entries.)
      *
      * <p>The piranha is rolled against the others at legacy's own relative weights — 4 against 12 per
-     * ordinary species — so it stays the rare one (~4.5% in open water, ~10% in a river where only three
-     * species compete with it), and is suppressed entirely when the {@code spawnPiranhas} config flag is off,
+     * ordinary species, ~4.5% — and is suppressed entirely when the {@code spawnPiranhas} config flag is off,
      * the same gate {@link MoCEntityFishy} applies to its type-10 piranha.</p>
      */
     @Override
@@ -284,14 +270,7 @@ public class MoCEntitySmallFish extends MoCAquatic {
         if (getTypeMoC() != 0) {
             return;
         }
-        int[] pool;
-        if (this.level().getBiome(this.blockPosition()).is(BiomeTags.IS_OCEAN)) {
-            pool = OCEAN_SPECIES;
-        } else if (this.level().getBiome(this.blockPosition()).is(BiomeTags.IS_RIVER)) {
-            pool = RIVER_SPECIES;
-        } else {
-            pool = ALL_SPECIES;
-        }
+        int[] pool = ALL_SPECIES;
         boolean piranhas = MoCConfig.get().spawnPiranhas;
         int total = (pool.length * SPECIES_WEIGHT) + (piranhas ? PIRANHA_WEIGHT : 0);
         if (piranhas && this.random.nextInt(total) < PIRANHA_WEIGHT) {

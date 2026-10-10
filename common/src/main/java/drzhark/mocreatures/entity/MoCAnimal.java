@@ -1223,11 +1223,11 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
      * vanilla cows and pigs stayed and every Mo'Creatures animal beyond the despawn radius was discarded. In
      * play that reads as "Mo'Creatures mobs don't spawn".</p>
      *
-     * <p>Population is instead bounded by {@code MoCMobCap}, which is what it was written for: it trims untamed,
-     * un-named, non-persistent Mo'Creatures entities down to {@code maxAnimals} per level and removes the ones
-     * <em>farthest</em> from any player first, so the surviving population concentrates where it can be seen.
-     * Aquatics ({@code MoCAquatic}) and monsters ({@code MoCMob}) keep {@code !getIsTamed()}, which is what
-     * vanilla {@code WaterAnimal} and {@code Monster} do.</p>
+     * <p>Nothing else removes them either: {@code MoCMobCap} used to trim them to {@code maxAnimals}, farthest
+     * from players first, which deleted animals for good just the same (removed 2026-10-09; 12.0.5 had no cap).
+     * Like vanilla animals, their numbers are set by chunk generation alone. Aquatics ({@code MoCAquatic}) and
+     * monsters ({@code MoCMob}) keep {@code !getIsTamed()}, which is what vanilla {@code WaterAnimal} and
+     * {@code Monster} do.</p>
      */
     @Override
     public boolean removeWhenFarAway(double distanceSquared) {

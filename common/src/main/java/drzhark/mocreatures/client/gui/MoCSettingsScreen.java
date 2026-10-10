@@ -44,8 +44,8 @@ public class MoCSettingsScreen extends Screen {
     private static final String[] NUMBER_NAMES = {
             "ogreStrength", "caveOgreStrength", "fireOgreStrength", "ogreAttackRange",
             "caveOgreChance", "fireOgreChance", "sharkStrength", "zebraChance",
-            "wyvernEggDropChance", "monsterEggDropChance", "maxAnimals", "maxMobs",
-            "maxWaterMobs", "maxAmbient", "maxTamed", "maxOPTamed"};
+            "wyvernEggDropChance", "monsterEggDropChance", "maxMobs",
+            "maxWaterMobs", "maxTamed", "maxOPTamed"};
 
     /** Shared widget metrics: every row is {@code ROW_H} tall on a {@code ROW_H + ROW_GAP} pitch. */
     private static final int BTN_W = 150;
@@ -360,10 +360,8 @@ public class MoCSettingsScreen extends Screen {
             case "zebraChance":          return Integer.toString(c.zebraChance);
             case "wyvernEggDropChance":  return Integer.toString(c.wyvernEggDropChance);
             case "monsterEggDropChance": return Integer.toString(c.monsterEggDropChance);
-            case "maxAnimals":           return Integer.toString(c.maxAnimals);
             case "maxMobs":              return Integer.toString(c.maxMobs);
             case "maxWaterMobs":         return Integer.toString(c.maxWaterMobs);
-            case "maxAmbient":           return Integer.toString(c.maxAmbient);
             case "maxTamed":             return Integer.toString(c.maxTamed);
             case "maxOPTamed":           return Integer.toString(c.maxOPTamed);
             default:                     return "";

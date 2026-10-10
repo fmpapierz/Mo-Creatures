@@ -34,11 +34,14 @@ import java.util.List;
  *
  * <p>Caps map to config fields as follows:</p>
  * <ul>
- *   <li>{@link MobCategory#CREATURE} &rarr; {@link MoCConfig#maxAnimals}</li>
+ *   <li>{@link MobCategory#CREATURE}: <em>never capped</em>. Animals spawn almost only when chunks generate and
+ *       never despawn, so every one this cap removed (it used to, down to {@code maxAnimals}) was gone for good
+ *       and the explored world slowly emptied of Mo'Creatures fauna. 12.0.5 had no cap; removed 2026-10-09.</li>
  *   <li>{@link MobCategory#MONSTER} &rarr; {@link MoCConfig#maxMobs}</li>
  *   <li>{@link MobCategory#WATER_CREATURE} + {@link MobCategory#UNDERGROUND_WATER_CREATURE}
  *       &rarr; {@link MoCConfig#maxWaterMobs}</li>
- *   <li>{@link MobCategory#AMBIENT} &rarr; {@link MoCConfig#maxAmbient}</li>
+ *   <li>{@link MobCategory#AMBIENT}: <em>never capped</em> either. The insects are 12.0.5 ambient mobs that
+ *       never despawn, so trimming them deleted them for good (maxAmbient, removed 2026-10-10).</li>
  * </ul>
  *
  * <p>Enforcement is deliberately conservative: only <em>untamed</em>, non-persistent, un-named,
@@ -91,10 +94,8 @@ public final class MoCMobCap {
         // Collect removable (untamed / non-persistent / un-named / un-ridden) Mo'Creatures entities
         // per category. Tamed / named / ridden / persistence-required creatures are excluded up front
         // so they can never be counted toward the cap or removed.
-        List<Entity> creatures = null;
         List<Entity> monsters = null;
         List<Entity> water = null;
-        List<Entity> ambient = null;
 
         for (Entity e : level.getAllEntities()) {
             if (!(e instanceof IMoCEntity moc)) {
@@ -104,22 +105,18 @@ public final class MoCMobCap {
                 continue;
             }
             switch (e.getType().getCategory()) {
-                case CREATURE -> (creatures != null ? creatures : (creatures = new ArrayList<>())).add(e);
                 case MONSTER -> (monsters != null ? monsters : (monsters = new ArrayList<>())).add(e);
                 case WATER_CREATURE, UNDERGROUND_WATER_CREATURE ->
                         (water != null ? water : (water = new ArrayList<>())).add(e);
-                case AMBIENT -> (ambient != null ? ambient : (ambient = new ArrayList<>())).add(e);
                 default -> {
-                    // WATER_AMBIENT / MISC etc. are not managed by Mo'Creatures caps.
+                    // CREATURE and AMBIENT (see the class note), WATER_AMBIENT, MISC etc. are not capped.
                 }
             }
         }
 
         List<ServerPlayer> players = level.players();
-        enforce(creatures, cfg.maxAnimals, players);
         enforce(monsters, cfg.maxMobs, players);
         enforce(water, cfg.maxWaterMobs, players);
-        enforce(ambient, cfg.maxAmbient, players);
 
         // Legacy despawnVanillaAnimals: when Mo'Creatures manages spawns, thin out distant vanilla farm
         // animals so the world has room for Mo'Creatures fauna. Legacy gated this on a SEPARATE
@@ -194,9 +191,8 @@ public final class MoCMobCap {
         if (moc.getIsTamed()) {
             return false;
         }
-        // Never cull a baby. Now that MoCAnimal no longer despawns on its own, this cap is the only thing
-        // removing land animals — and a bred litter (kittens, foals, cubs) is the last thing a player wants
-        // deleted. Babies grow into adults, so they become cullable on their own.
+        // Never cull a baby: a bred or hatched youngster (a shark pup, a wolf cub) is the last thing a player
+        // wants deleted. Babies grow into adults, so they become cullable on their own.
         if (!moc.getIsAdult()) {
             return false;
         }
@@ -208,8 +204,7 @@ public final class MoCMobCap {
         }
         // Every Mo'Creatures entity extends Mob (via Animal / Monster), so these are always available;
         // guard the cast defensively regardless. isPersistenceRequired covers spawn-egg / spawner-placed /
-        // name-tagged creatures, requiresCustomPersistence covers leashed and passengers. This matters more
-        // now that MoCAnimal no longer despawns on its own: this cap is the only thing culling land animals.
+        // name-tagged creatures, requiresCustomPersistence covers leashed and passengers.
         if (e instanceof Mob mob && (mob.requiresCustomPersistence() || mob.isPersistenceRequired())) {
             return false;
         }

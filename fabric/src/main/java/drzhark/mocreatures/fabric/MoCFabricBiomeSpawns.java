@@ -35,6 +35,11 @@ public final class MoCFabricBiomeSpawns {
         }
 
         @Override
+        public net.minecraft.resources.Identifier biomeId() {
+            return this.ctx.getKey().orElse(null);
+        }
+
+        @Override
         public void addSpawn(MobCategory category, EntityType<?> type, int weight, int min, int max) {
             this.props.getSpawnProperties().addSpawn(category,
                     new MobSpawnSettings.SpawnerData(type, min, max), weight);

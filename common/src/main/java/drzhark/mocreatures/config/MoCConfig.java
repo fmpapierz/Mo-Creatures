@@ -54,8 +54,8 @@ public final class MoCConfig {
     public boolean easyBreeding;
     /** Simplified harvesting (e.g. milk/wool without extra steps). New tunable in the port. */
     public boolean easyHarvesting;
-    /** Use the legacy curated per-creature biome-group defaults when an entity has no explicit biomegroup
-     * override (legacy MoCProperties useDefaultBiomeGroups: true) — bears favour forests, crocs swamps, etc. */
+    /** Spawn each creature only in the biomes 12.0.5 listed for it (DEFAULT_SPAWNS) when it has no explicit
+     * biomegroup override. Off: every biome of its world. Legacy MoCProperties useDefaultBiomeGroups: true. */
     public boolean useDefaultBiomeGroups;
     /** Water creatures may attack dolphins. Legacy: false. */
     public boolean attackDolphins;
@@ -76,8 +76,8 @@ public final class MoCConfig {
      *
      * <p>Legacy MoCProperties DespawnVanilla defaulted to true, but legacy also replaced vanilla spawning
      * wholesale with its own CustomSpawner, so thinning vanilla herds was how it made room. This port spawns
-     * through the vanilla pipeline and now uses spawn weights sized against vanilla's (see
-     * DEFAULT_FREQ_CREATURE), so the cull is no longer needed to leave room — and it is destructive by nature:
+     * through the vanilla pipeline, where vanilla and Mo'Creatures animals share one weighted pick per chunk
+     * (see DEFAULT_SPAWNS), so the cull is not needed to leave room — and it is destructive by nature:
      * vanilla farm animals never despawn on their own, so anything it removes is a permanent loss the player
      * did not ask for. Defaults to false; the cull additionally refuses to touch any animal that shows a sign
      * of player investment — named, leashed, ridden, tamed, persistence-flagged, or bred/fed/still a baby
@@ -141,14 +141,15 @@ public final class MoCConfig {
     /** Percent chance a monster drops a monster-egg on death. New tunable in the port. */
     public int monsterEggDropChance;
 
-    /** Soft cap of Mo'Creatures animals per player view (custom spawner). Port default 40 (legacy 90). */
-    public int maxAnimals;
-    /** Soft cap of Mo'Creatures monsters per player view (custom spawner). Port default 60 (legacy 70). */
+    // There is no animal or ambient cap. The port had maxAnimals and maxAmbient caps (MoCMobCap) that discarded
+    // wild Mo'Creatures animals and insects over them, farthest from players first. Neither ever despawns, and
+    // animals only spawn when chunks generate, so every one removed was gone for good (old configs still held an
+    // animal cap of 40). 12.0.5 had no caps at all. Removed 2026-10-09 (animals) and 2026-10-10 (insects) at the
+    // user's request; maxAnimals / maxAmbient lines left in an old config file are ignored and dropped on save.
+    /** Cap on wild Mo'Creatures monsters per dimension (MoCMobCap trims the excess; they respawn). Default 70. */
     public int maxMobs;
-    /** Soft cap of Mo'Creatures water mobs per player view. Port default 10 (legacy 30). */
+    /** Cap on wild Mo'Creatures water mobs per dimension (MoCMobCap trims the excess; they respawn). Default 30. */
     public int maxWaterMobs;
-    /** Soft cap of Mo'Creatures ambient/insect mobs per player view. Port default 10 (legacy 20). */
-    public int maxAmbient;
     /** Max tamed creatures a normal player may own. Legacy maxTamedPerPlayer: 10 (flag list suggested 5). */
     public int maxTamed;
     /** Max tamed creatures an op may own. Legacy maxTamedPerOP: 20. */
@@ -157,44 +158,132 @@ public final class MoCConfig {
     // ------------------------------------------------------------------------------------------
     // Per-entity spawn tuning (keyed spawn.<id>.frequency / .min / .max)
     //   Downstream MoCSpawns reads these via spawnFrequency/spawnMin/spawnMax(String entityId).
-    //   Absent keys fall back to the current uniform vanilla weights.
+    //   Absent keys fall back to the 12.0.5 per-species defaults below.
     // ------------------------------------------------------------------------------------------
 
     /** Backing store for the whole file, retained for the keyed per-entity spawn lookups. */
     private final Properties props;
 
-    // Uniform fallback spawn weights, sized against the vanilla weights they actually compete with.
+    // Default spawns: 12.0.5's own per-species SpawnListEntry values (weight, pack) AND biome-type lists
+    // (MoCEntities.java:262-453), restored at the user's request 2026-10-09 (weights) and 2026-10-10 (biomes, insects).
+    // 12.0.5 added each species to every biome whose Forge 1.12 BiomeDictionary types met its list; MoCBiomeTypes
+    // gives a 26.2 biome those same types, so the lists below apply unchanged. They replace the port's own seven
+    // biome groups, which had widened most species well past 12.0.5 (kitties in forests, elephants in jungles,
+    // ants, moles, raccoons and Ents everywhere) and left others short (no crabs on beaches, no hell rats in dark
+    // forests, no fire ogres or nightmares in the Nether).
     //
-    // What matters at chunk generation is weight x average pack size, not weight alone: vanilla's farm animals
-    // all spawn in fixed packs of 4, so a plains biome is 46 points of weight but 182 points of "animals placed"
-    // (sheep 12x4, pig 10x4, chicken 10x4, cow 8x4, horse 5x4, donkey 1x2). Mo'Creatures packs average 2.5
-    // (min 1 / max 4 below), so its weights must be read against that 182, not against 46.
+    // Where the port merged several 12.0.5 species into one entity (4 bears, 4 big cats, 3 ogres, 8 small fish,
+    // 3 medium fish, 2 rays) each subspecies keeps its own entry: a biome gets the summed weight of those whose list
+    // it meets (a forest: black + grizzly + panda bear = 18; a snowy plain: the polar bear's 6), the pack spanning
+    // theirs, and the entity spawns only where at least one is listed.
     //
-    // These used to be creature 8 / insect 10 / water 8. That put ~26 Mo'Creatures species at 218 of the 264
-    // points of CREATURE weight in a plains biome (83%) and crowded vanilla farm animals out of new chunks —
-    // which is the pressure the (destructive) despawnVanilla cull existed to relieve. At creature 3 / insect 4
-    // the mod places 21x3x2.5 + 5x4x2.5 = ~208 against vanilla's 182, i.e. a little over half of the animals in
-    // a new chunk are Mo'Creatures, which is the point of the mod, while vanilla keeps a healthy 47%.
+    // The eleven insects and small critters are 12.0.5 AMBIENT spawns (MoCSpawns spawns them in the ambient pool,
+    // with the bats). The chimpanzee, medusa and minotaur never existed in any Mo'Creatures release, so their
+    // entries are the port's own: the chimpanzee (built on the raccoon) the raccoon's weight in forests and jungles,
+    // the two monsters the werewolf's list at the port's 6.
     //
-    // Monsters were never the problem (8 species x 6 against vanilla's ~400 points of monster weight), and water
-    // at 2 gives the four ocean species 8 points against vanilla ocean's 7. Both are unchanged.
-    // Any server wanting different numbers can set spawn.<id>.frequency in mocreatures.properties.
-    private static final int DEFAULT_GROUP_MIN = 1;
-    private static final int DEFAULT_GROUP_MAX = 4;
-    private static final int DEFAULT_FREQ_CREATURE = 3;
-    private static final int DEFAULT_FREQ_MONSTER = 6;
-    private static final int DEFAULT_FREQ_WATER = 2;
-    private static final int DEFAULT_FREQ_INSECT = 4;
+    // A server can still override any entity with spawn.<id>.frequency / .min / .max (any biome it spawns in) and
+    // biomegroup.<id> (the 1.12 types it spawns in) in mocreatures.properties.
+    private record SpawnSub(int weight, int min, int max, java.util.Set<String> types) {}
 
-    // Ids whose default spawn weight is not the plain creature weight of 8.
-    private static final java.util.Set<String> MONSTER_IDS = java.util.Set.of(
-            "golem", "ogre", "rat", "scorpion", "wildwolf", "wild_wolf", "werewolf", "wraith",
-            "hellrat", "hell_rat", "flamewraith", "flame_wraith", "horsemob", "horse_mob",
-            "silver_skeleton", "mini_golem", "manticore", "medusa", "minotaur");
-    private static final java.util.Set<String> WATER_IDS = java.util.Set.of(
-            "dolphin", "fishy", "jellyfish", "ray", "shark", "small_fish", "medium_fish");
-    private static final java.util.Set<String> INSECT_IDS = java.util.Set.of(
-            "bee", "butterfly", "dragonfly", "firefly", "fly");
+    /** One 12.0.5 SpawnListEntry: weight, pack size, and its space-separated biome types (lowercase). */
+    private static SpawnSub sub(int weight, int min, int max, String types) {
+        return new SpawnSub(weight, min, max, java.util.Set.of(types.split(" ")));
+    }
+
+    // 12.0.5's recurring lists, verbatim.
+    private static final String LAND_MOBS = "sandy forest snowy jungle hills mesa mountain plains swamp wasteland";
+    private static final String GRASSLANDS = "forest hills jungle mesa mountain plains";
+    private static final String WATERS = "beach swamp water ocean river";
+
+    private static final java.util.Map<String, java.util.List<SpawnSub>> DEFAULT_SPAWNS = java.util.Map.ofEntries(
+            // --- animals (12.0.5 CREATURE)
+            java.util.Map.entry("bear", java.util.List.of(
+                    sub(6, 1, 3, "forest hills mesa mountain plains"),          // black bear
+                    sub(6, 1, 2, "forest hills mesa mountain plains"),          // grizzly
+                    sub(6, 1, 3, "forest hills mesa plains"),                   // panda
+                    sub(6, 1, 2, "snowy"))),                                    // polar bear
+            java.util.Map.entry("big_cat", java.util.List.of(
+                    sub(6, 1, 2, "hills jungle mountain snowy"),                // leopard
+                    sub(6, 1, 2, "jungle plains"),                              // lion
+                    sub(6, 1, 2, "forest hills jungle mountain"),               // panther
+                    sub(6, 1, 2, "forest jungle plains"))),                     // tiger
+            java.util.Map.entry("bird", java.util.List.of(sub(15, 2, 3, GRASSLANDS))),
+            java.util.Map.entry("boar", java.util.List.of(sub(8, 2, 2, "forest jungle plains"))),
+            java.util.Map.entry("bunny", java.util.List.of(sub(8, 2, 3, "forest jungle plains snowy"))),
+            java.util.Map.entry("crocodile", java.util.List.of(sub(6, 1, 2, "swamp"))),
+            java.util.Map.entry("deer", java.util.List.of(sub(8, 1, 2, "forest plains"))),
+            java.util.Map.entry("duck", java.util.List.of(sub(8, 1, 2, "forest jungle plains"))),
+            java.util.Map.entry("elephant", java.util.List.of(sub(4, 1, 1, "sandy forest plains snowy"))),
+            java.util.Map.entry("ent", java.util.List.of(sub(4, 1, 2, "forest jungle plains"))),
+            java.util.Map.entry("fox", java.util.List.of(sub(8, 1, 1, "forest jungle plains snowy"))),
+            java.util.Map.entry("goat", java.util.List.of(sub(8, 1, 3, GRASSLANDS))),
+            java.util.Map.entry("horse", java.util.List.of(sub(8, 1, 4, "forest hills mesa mountain plains"))),
+            java.util.Map.entry("kitty", java.util.List.of(sub(8, 1, 2, "plains"))),
+            java.util.Map.entry("komodo", java.util.List.of(sub(8, 1, 2, "swamp"))),
+            java.util.Map.entry("mole", java.util.List.of(sub(7, 1, 2, "forest plains"))),
+            java.util.Map.entry("mouse", java.util.List.of(sub(7, 1, 2, GRASSLANDS))),
+            java.util.Map.entry("ostrich", java.util.List.of(sub(4, 1, 1, "sandy plains"))),
+            java.util.Map.entry("raccoon", java.util.List.of(sub(8, 1, 2, "forest hills mesa mountain plains"))),
+            java.util.Map.entry("snake", java.util.List.of(sub(8, 1, 2,
+                    "sandy forest hills jungle mesa mountain plains swamp wasteland"))),
+            java.util.Map.entry("turkey", java.util.List.of(sub(8, 1, 2, "plains"))),
+            java.util.Map.entry("turtle", java.util.List.of(sub(6, 1, 2, "jungle swamp"))),
+            java.util.Map.entry("chimpanzee", java.util.List.of(sub(8, 1, 2, "forest jungle"))),     // port-only
+            // --- insects and small critters (12.0.5 AMBIENT)
+            java.util.Map.entry("ant", java.util.List.of(sub(7, 1, 4, GRASSLANDS + " swamp wasteland"))),
+            java.util.Map.entry("bee", java.util.List.of(sub(6, 1, 2, GRASSLANDS))),
+            java.util.Map.entry("butterfly", java.util.List.of(sub(8, 1, 3, GRASSLANDS))),
+            java.util.Map.entry("crab", java.util.List.of(sub(8, 1, 2, "beach water"))),
+            java.util.Map.entry("cricket", java.util.List.of(sub(8, 1, 2, GRASSLANDS + " swamp"))),
+            java.util.Map.entry("dragonfly", java.util.List.of(sub(6, 1, 2, GRASSLANDS + " swamp beach"))),
+            java.util.Map.entry("firefly", java.util.List.of(sub(8, 1, 2, GRASSLANDS + " swamp"))),
+            java.util.Map.entry("fly", java.util.List.of(sub(8, 1, 2, GRASSLANDS + " swamp wasteland"))),
+            java.util.Map.entry("maggot", java.util.List.of(sub(8, 1, 2, "forest jungle plains swamp"))),
+            java.util.Map.entry("roach", java.util.List.of(sub(8, 1, 2, "forest jungle plains swamp"))),
+            java.util.Map.entry("snail", java.util.List.of(sub(7, 1, 2, "forest jungle plains"))),
+            // --- monsters (12.0.5 MONSTER)
+            java.util.Map.entry("golem", java.util.List.of(sub(3, 1, 1, LAND_MOBS))),
+            java.util.Map.entry("ogre", java.util.List.of(
+                    sub(8, 1, 2, "sandy forest jungle hills mesa mountain plains swamp wasteland dead spooky"), // green
+                    sub(6, 1, 2, "sandy forest jungle hills mesa mountain nether plains swamp wasteland dead spooky"), // fire
+                    sub(5, 1, 2, LAND_MOBS + " dead spooky"))),                                              // cave
+            java.util.Map.entry("rat", java.util.List.of(sub(7, 1, 2, LAND_MOBS))),
+            java.util.Map.entry("scorpion", java.util.List.of(sub(6, 1, 3, LAND_MOBS + " nether"))),
+            java.util.Map.entry("wild_wolf", java.util.List.of(sub(8, 1, 3, LAND_MOBS))),
+            java.util.Map.entry("werewolf", java.util.List.of(sub(8, 1, 4, LAND_MOBS))),
+            java.util.Map.entry("wraith", java.util.List.of(sub(6, 1, 4, LAND_MOBS + " dead spooky"))),
+            java.util.Map.entry("hell_rat", java.util.List.of(sub(6, 1, 4, "nether dead spooky"))),
+            java.util.Map.entry("flame_wraith", java.util.List.of(sub(5, 1, 2, LAND_MOBS + " nether dead spooky"))),
+            java.util.Map.entry("horse_mob", java.util.List.of(sub(8, 1, 3, LAND_MOBS + " nether dead spooky"))),
+            java.util.Map.entry("silver_skeleton", java.util.List.of(sub(6, 1, 4, LAND_MOBS + " dead spooky"))),
+            java.util.Map.entry("mini_golem", java.util.List.of(sub(6, 1, 3, LAND_MOBS))),
+            java.util.Map.entry("manticore", java.util.List.of(sub(8, 1, 3,
+                    "sandy forest snowy jungle hills mountain plains swamp wasteland nether dead spooky"))),
+            java.util.Map.entry("medusa", java.util.List.of(sub(6, 1, 4, LAND_MOBS))),             // port-only
+            java.util.Map.entry("minotaur", java.util.List.of(sub(6, 1, 4, LAND_MOBS))),           // port-only
+            // --- aquatics (12.0.5 WATER_CREATURE; WATER is every ocean and river)
+            java.util.Map.entry("dolphin", java.util.List.of(sub(6, 2, 4, "beach water ocean river"))),
+            java.util.Map.entry("fishy", java.util.List.of(sub(12, 1, 6, WATERS))),
+            java.util.Map.entry("jellyfish", java.util.List.of(sub(8, 1, 4, "water ocean river"))),
+            java.util.Map.entry("shark", java.util.List.of(sub(6, 1, 2, "water ocean river"))),
+            java.util.Map.entry("ray", java.util.List.of(
+                    sub(10, 1, 2, "ocean"),                                     // manta ray
+                    sub(10, 1, 2, "swamp water river"))),                       // sting ray
+            java.util.Map.entry("small_fish", java.util.List.of(
+                    sub(12, 1, 6, WATERS),                                      // anchovy
+                    sub(12, 1, 6, WATERS),                                      // angelfish
+                    sub(12, 1, 6, "beach swamp water ocean"),                   // angler
+                    sub(12, 1, 6, "beach swamp water ocean"),                   // clownfish
+                    sub(12, 1, 6, "beach swamp water river"),                   // goldfish
+                    sub(12, 1, 6, "beach swamp water ocean"),                   // hippo tang
+                    sub(12, 1, 6, "beach swamp water ocean"),                   // manderin
+                    sub(4, 1, 3, WATERS))),                                     // piranha
+            java.util.Map.entry("medium_fish", java.util.List.of(
+                    sub(10, 1, 4, WATERS), sub(10, 1, 4, WATERS), sub(10, 1, 4, WATERS))));  // bass, cod, salmon
+
+    /** An id no table entry covers: 12.0.5's commonest animal entry, on its ordinary land. */
+    private static final SpawnSub FALLBACK_SPAWN = sub(8, 1, 2, GRASSLANDS);
 
     // ------------------------------------------------------------------------------------------
 
@@ -239,12 +328,10 @@ public final class MoCConfig {
         this.wyvernEggDropChance = getInt(p, "wyvernEggDropChance", 10);
         this.monsterEggDropChance= getInt(p, "monsterEggDropChance", 25);
 
-        // Legacy population caps (MoCProxy: maxAnimals=90, maxMobs=70, maxWaterMobs=30, maxAmbient=20,
-        // maxTamedPerPlayer=10) — the legacy world was denser than the port's earlier conservative values.
-        this.maxAnimals          = getInt(p, "maxAnimals", 90);
+        // Population caps (5.1.5 MoCProxy: maxMobs=70, maxWaterMobs=30, maxTamedPerPlayer=10).
+        // Its maxAnimals and maxAmbient are gone: see the note on the fields.
         this.maxMobs             = getInt(p, "maxMobs", 70);
         this.maxWaterMobs        = getInt(p, "maxWaterMobs", 30);
-        this.maxAmbient          = getInt(p, "maxAmbient", 20);
         this.maxTamed            = getInt(p, "maxTamed", 10);
         this.maxOPTamed          = getInt(p, "maxOPTamed", 20);
     }
@@ -312,23 +399,75 @@ public final class MoCConfig {
     // ------------------------------------------------------------------------------------------
 
     /**
-     * Spawn weight/frequency for an entity, keyed {@code spawn.<id>.frequency}. When the key is
-     * absent it falls back to the uniform default weight for that entity's category
-     * (creature 8, monster 6, water 8, insect 10). {@code id} is the lowercase registry path,
-     * e.g. {@code "elephant"}, {@code "shark"}, {@code "ogre"}.
+     * Spawn weight of an entity in a biome whose Forge 1.12 types are {@code biomeTypes} (see
+     * {@code MoCBiomeTypes}), or 0 where it does not spawn. Without a {@code spawn.<id>.frequency} override it is
+     * the 12.0.5 default (see {@link #DEFAULT_SPAWNS}): for a merged entity, the summed weight of the subspecies
+     * 12.0.5 listed for one of those types. {@code id} is the lowercase registry path, e.g. {@code "elephant"}.
      */
-    public int spawnFrequency(String entityId) {
-        return spawnInt(entityId, "frequency", defaultFrequency(entityId));
+    public int spawnFrequency(String entityId, java.util.Set<String> biomeTypes) {
+        java.util.List<SpawnSub> subs = spawnSubs(entityId, biomeTypes);
+        if (subs.isEmpty()) {
+            return 0;
+        }
+        int weight = 0;
+        for (SpawnSub s : subs) {
+            weight += s.weight();
+        }
+        return spawnInt(entityId, "frequency", weight);
     }
 
-    /** Minimum pack size for an entity, keyed {@code spawn.<id>.min}. Defaults to 1. */
-    public int spawnMin(String entityId) {
-        return spawnInt(entityId, "min", DEFAULT_GROUP_MIN);
+    /** Minimum pack size for an entity in a biome, keyed {@code spawn.<id>.min}; defaults to 12.0.5's. */
+    public int spawnMin(String entityId, java.util.Set<String> biomeTypes) {
+        int min = Integer.MAX_VALUE;
+        for (SpawnSub s : spawnSubs(entityId, biomeTypes)) {
+            min = Math.min(min, s.min());
+        }
+        return spawnInt(entityId, "min", min == Integer.MAX_VALUE ? 1 : min);
     }
 
-    /** Maximum pack size for an entity, keyed {@code spawn.<id>.max}. Defaults to 4. */
-    public int spawnMax(String entityId) {
-        return spawnInt(entityId, "max", DEFAULT_GROUP_MAX);
+    /** Maximum pack size for an entity in a biome, keyed {@code spawn.<id>.max}; defaults to 12.0.5's. */
+    public int spawnMax(String entityId, java.util.Set<String> biomeTypes) {
+        int max = 1;
+        for (SpawnSub s : spawnSubs(entityId, biomeTypes)) {
+            max = Math.max(max, s.max());
+        }
+        return spawnInt(entityId, "max", max);
+    }
+
+    /**
+     * The 12.0.5 subspecies entries an entity spawns with in a biome; empty where it does not spawn. Whether it
+     * spawns there at all: an explicit {@code biomegroup.<id>} list decides if set; otherwise 12.0.5's own lists
+     * (any subspecies listed for one of the biome's types), or, with {@link #useDefaultBiomeGroups} off, every
+     * biome of its world (overworld, or the Nether for a species 12.0.5 listed there). Where it spawns but no
+     * subspecies is listed (an override or the flag put it there), it spawns at its heaviest entry.
+     */
+    private java.util.List<SpawnSub> spawnSubs(String entityId, java.util.Set<String> biomeTypes) {
+        String id = entityId == null ? "" : entityId.toLowerCase(java.util.Locale.ROOT);
+        java.util.List<SpawnSub> subs = DEFAULT_SPAWNS.getOrDefault(id, java.util.List.of(FALLBACK_SPAWN));
+        java.util.List<SpawnSub> listed = new java.util.ArrayList<>();
+        for (SpawnSub s : subs) {
+            if (!java.util.Collections.disjoint(s.types(), biomeTypes)) {
+                listed.add(s);
+            }
+        }
+        java.util.List<String> override = biomeGroupOverride(id);
+        boolean spawns;
+        if (override != null) {
+            spawns = !java.util.Collections.disjoint(override, biomeTypes);
+        } else if (this.useDefaultBiomeGroups) {
+            spawns = !listed.isEmpty();
+        } else {
+            boolean nether = biomeTypes.contains("nether");
+            spawns = !biomeTypes.contains("end") && subs.stream().anyMatch(
+                    s -> nether ? s.types().contains("nether") : !s.types().equals(java.util.Set.of("nether")));
+        }
+        if (!spawns) {
+            return java.util.List.of();
+        }
+        if (listed.isEmpty()) {
+            listed.add(subs.stream().max(java.util.Comparator.comparingInt(SpawnSub::weight)).orElseThrow());
+        }
+        return listed;
     }
 
     private int spawnInt(String entityId, String suffix, int fallback) {
@@ -352,133 +491,99 @@ public final class MoCConfig {
                 String.valueOf(value));
     }
 
-    // ---- Per-entity biome-group assignment (legacy CustomSpawner biome groups) -------------------
-    // Keyed spawn-restriction: biomegroup.<id> = comma list of the groups an entity is allowed to spawn in.
-    // Empty (the default) means "spawn in every overworld biome" (unchanged behaviour). Consumed by MoCSpawns.
+    // ---- Per-entity biome restriction (12.0.5's per-species biome-type lists) -----------------------------
+    // Keyed: biomegroup.<id> = comma list of the Forge 1.12 biome types an entity spawns in, replacing its 12.0.5
+    // list. Absent (the default) = the 12.0.5 list in DEFAULT_SPAWNS. Consumed by MoCSpawns via spawnFrequency.
 
-    /** The seven legacy biome groups the port recognises (desert is approximated by badlands/savanna). */
-    private static final java.util.List<String> BIOME_GROUP_NAMES =
-            java.util.List.of("forest", "arctic", "normal", "mountain", "jungle", "desert", "swamp");
+    /** Forge 1.12.2's BiomeDictionary types (lowercase), the vocabulary of 12.0.5's lists and of the overrides. */
+    private static final java.util.List<String> BIOME_GROUP_NAMES = java.util.List.of(
+            "forest", "plains", "jungle", "mountain", "hills", "swamp", "sandy", "mesa", "savanna", "snowy",
+            "wasteland", "beach", "ocean", "river", "water", "mushroom", "spooky", "dead", "coniferous", "hot", "cold",
+            "wet", "dry", "dense", "sparse", "lush", "magical", "rare", "nether", "end", "void");
 
     /**
-     * Curated per-creature default biome groups, seeded from the legacy {@code MoCProperties.cfg}
-     * {@code useDefaultBiomeGroups} table and mapped onto the seven overworld-terrain groups the port models.
-     *
-     * <p>Every group must have a substantial roster, because this is a hard gate: a creature whose groups do
-     * not intersect the biome's is never added to that biome's spawn list at all. The legacy-transcribed table
-     * left {@code desert} with two species (elephant, ostrich) and {@code arctic} with three (bear, bunny, fox),
-     * so deserts, badlands, savannas and snowy biomes read as empty of Mo'Creatures fauna. The assignments below
-     * keep every legacy entry and extend each creature to the terrain it plausibly belongs in — lions and
-     * cheetahs on savanna, rattlesnakes and komodos in the desert, snow leopards and taiga boar in the arctic —
-     * so no group has fewer than ten species.</p>
-     *
-     * <p>Aquatic / monster-category / nether / Wyvern-Lair creatures are intentionally absent: their legacy
-     * groups (OCEAN/RIVER/BEACHES/MOBS/NETHER/WYVERNLAIR) have no overworld-terrain equivalent, so they are
-     * placed by an explicit dimension or water-tag gate in {@code MoCSpawns} instead.</p>
+     * The port's earlier seven group names (biomegroup overrides written before 2026-10-10) and the 1.12 types each
+     * stood for: its "normal" was open plains, "arctic" snow, "desert" desert/badlands/savanna, "mountain"
+     * mountains and hills.
      */
-    private static final java.util.Map<String, java.util.List<String>> DEFAULT_BIOME_GROUPS =
-            java.util.Map.ofEntries(
-                    java.util.Map.entry("bear", java.util.List.of("forest", "normal", "arctic", "mountain", "jungle")),
-                    java.util.Map.entry("bee", java.util.List.of("forest", "normal", "jungle", "mountain")),
-                    java.util.Map.entry("big_cat", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "arctic")),
-                    java.util.Map.entry("bird", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "arctic", "swamp")),
-                    java.util.Map.entry("boar", java.util.List.of("forest", "normal", "jungle", "mountain", "arctic")),
-                    java.util.Map.entry("bunny", java.util.List.of("forest", "normal", "jungle", "arctic", "mountain", "desert")),
-                    java.util.Map.entry("butterfly", java.util.List.of("normal", "forest", "jungle", "mountain", "swamp")),
-                    java.util.Map.entry("chimpanzee", java.util.List.of("forest", "jungle")),
-                    java.util.Map.entry("crab", java.util.List.of("normal", "swamp", "jungle", "desert")),
-                    java.util.Map.entry("cricket", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "swamp")),
-                    java.util.Map.entry("crocodile", java.util.List.of("swamp", "jungle")),
-                    java.util.Map.entry("deer", java.util.List.of("forest", "normal", "arctic", "mountain")),
-                    java.util.Map.entry("dragonfly", java.util.List.of("forest", "normal", "jungle", "mountain", "swamp")),
-                    java.util.Map.entry("duck", java.util.List.of("forest", "normal", "jungle", "swamp")),
-                    java.util.Map.entry("elephant", java.util.List.of("forest", "normal", "desert", "jungle")),
-                    java.util.Map.entry("firefly", java.util.List.of("forest", "normal", "jungle", "mountain", "swamp")),
-                    java.util.Map.entry("fly", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "swamp")),
-                    java.util.Map.entry("fox", java.util.List.of("forest", "jungle", "arctic", "normal", "mountain")),
-                    java.util.Map.entry("goat", java.util.List.of("forest", "normal", "mountain", "arctic")),
-                    java.util.Map.entry("horse", java.util.List.of("forest", "normal", "mountain", "desert", "arctic")),
-                    java.util.Map.entry("kitty", java.util.List.of("normal", "forest")),
-                    java.util.Map.entry("komodo", java.util.List.of("swamp", "jungle", "desert")),
-                    java.util.Map.entry("maggot", java.util.List.of("forest", "normal", "jungle", "mountain", "desert", "swamp")),
-                    java.util.Map.entry("mouse", java.util.List.of("forest", "jungle", "normal", "mountain", "desert", "arctic", "swamp")),
-                    java.util.Map.entry("ostrich", java.util.List.of("normal", "desert")),
-                    java.util.Map.entry("roach", java.util.List.of("normal", "swamp", "mountain", "forest", "jungle", "desert")),
-                    java.util.Map.entry("snail", java.util.List.of("forest", "jungle", "normal", "swamp")),
-                    java.util.Map.entry("snake", java.util.List.of("forest", "jungle", "normal", "mountain", "desert", "swamp")),
-                    java.util.Map.entry("turkey", java.util.List.of("normal", "forest", "desert")),
-                    java.util.Map.entry("turtle", java.util.List.of("swamp", "jungle", "normal")));
+    private static final java.util.Map<String, java.util.List<String>> LEGACY_GROUP_NAMES = java.util.Map.of(
+            "normal", java.util.List.of("plains"),
+            "arctic", java.util.List.of("snowy"),
+            "desert", java.util.List.of("sandy", "mesa", "savanna"),
+            "mountain", java.util.List.of("mountain", "hills"));
 
     public static java.util.List<String> biomeGroupNames() {
         return BIOME_GROUP_NAMES;
     }
 
-    /** The biome groups an entity is restricted to, or an empty list = no restriction (spawns everywhere). */
-    public java.util.List<String> biomeGroups(String entityId) {
-        if (entityId == null) {
-            return java.util.List.of();
-        }
-        String v = props.getProperty("biomegroup." + entityId.toLowerCase(java.util.Locale.ROOT), "");
+    /** An explicit biomegroup.<id> list (old group names translated), or null when there is none. */
+    private java.util.@org.jspecify.annotations.Nullable List<String> biomeGroupOverride(String id) {
+        String v = props.getProperty("biomegroup." + id, "");
         if (v.isBlank()) {
-            // No explicit override: fall back to the legacy curated defaults (so creatures favour their native
-            // biomes) unless the user has turned useDefaultBiomeGroups off, in which case spawn everywhere.
-            if (this.useDefaultBiomeGroups) {
-                return DEFAULT_BIOME_GROUPS.getOrDefault(
-                        entityId.toLowerCase(java.util.Locale.ROOT), java.util.List.of());
-            }
-            return java.util.List.of();
+            return null;
         }
         java.util.List<String> out = new java.util.ArrayList<>();
-        for (String s : v.split(",")) {
-            String t = s.trim().toLowerCase(java.util.Locale.ROOT);
-            if (!t.isEmpty() && !out.contains(t)) {
-                out.add(t);
+        for (String raw : v.split(",")) {
+            String t = raw.trim().toLowerCase(java.util.Locale.ROOT);
+            for (String type : LEGACY_GROUP_NAMES.getOrDefault(t, java.util.List.of(t))) {
+                if (!type.isEmpty() && !out.contains(type)) {
+                    out.add(type);
+                }
             }
         }
         return out;
     }
 
-    /** Adds a biome group to an entity's allow-list (call {@link #save()} to persist). False if unknown group. */
+    /**
+     * The biome types an entity spawns in: its biomegroup override, else its 12.0.5 list (all subspecies), or an
+     * empty list = every biome of its world (useDefaultBiomeGroups off).
+     */
+    public java.util.List<String> biomeGroups(String entityId) {
+        if (entityId == null) {
+            return java.util.List.of();
+        }
+        String id = entityId.toLowerCase(java.util.Locale.ROOT);
+        java.util.List<String> override = biomeGroupOverride(id);
+        if (override != null) {
+            return override;
+        }
+        if (!this.useDefaultBiomeGroups) {
+            return java.util.List.of();
+        }
+        java.util.Set<String> all = new java.util.TreeSet<>();
+        for (SpawnSub s : DEFAULT_SPAWNS.getOrDefault(id, java.util.List.of(FALLBACK_SPAWN))) {
+            all.addAll(s.types());
+        }
+        return new java.util.ArrayList<>(all);
+    }
+
+    /** Adds a biome type to an entity's list (call {@link #save()} to persist). False if the type is unknown. */
     public boolean addBiomeGroup(String entityId, String group) {
         String g = group == null ? "" : group.toLowerCase(java.util.Locale.ROOT);
-        if (!BIOME_GROUP_NAMES.contains(g) || entityId == null) {
+        java.util.List<String> types = LEGACY_GROUP_NAMES.getOrDefault(g, java.util.List.of(g));
+        if (entityId == null || !BIOME_GROUP_NAMES.containsAll(types)) {
             return false;
         }
         java.util.List<String> cur = new java.util.ArrayList<>(biomeGroups(entityId));
-        if (!cur.contains(g)) {
-            cur.add(g);
+        for (String t : types) {
+            if (!cur.contains(t)) {
+                cur.add(t);
+            }
         }
         props.setProperty("biomegroup." + entityId.toLowerCase(java.util.Locale.ROOT), String.join(",", cur));
         return true;
     }
 
-    /** Removes a biome group from an entity's allow-list (call {@link #save()} to persist). */
+    /** Removes a biome type from an entity's list (call {@link #save()} to persist). */
     public boolean removeBiomeGroup(String entityId, String group) {
         if (entityId == null) {
             return false;
         }
         String g = group == null ? "" : group.toLowerCase(java.util.Locale.ROOT);
         java.util.List<String> cur = new java.util.ArrayList<>(biomeGroups(entityId));
-        boolean removed = cur.remove(g);
+        boolean removed = cur.removeAll(LEGACY_GROUP_NAMES.getOrDefault(g, java.util.List.of(g)));
         props.setProperty("biomegroup." + entityId.toLowerCase(java.util.Locale.ROOT), String.join(",", cur));
         return removed;
-    }
-
-    private static int defaultFrequency(String entityId) {
-        if (entityId == null) {
-            return DEFAULT_FREQ_CREATURE;
-        }
-        String id = entityId.toLowerCase(java.util.Locale.ROOT);
-        if (MONSTER_IDS.contains(id)) {
-            return DEFAULT_FREQ_MONSTER;
-        }
-        if (WATER_IDS.contains(id)) {
-            return DEFAULT_FREQ_WATER;
-        }
-        if (INSECT_IDS.contains(id)) {
-            return DEFAULT_FREQ_INSECT;
-        }
-        return DEFAULT_FREQ_CREATURE;
     }
 
     // ------------------------------------------------------------------------------------------
@@ -600,10 +705,8 @@ public final class MoCConfig {
             case "zebrachance":          this.zebraChance = (int) Math.round(value);   return true;
             case "wyverneggdropchance":  this.wyvernEggDropChance = (int) Math.round(value); return true;
             case "monstereggdropchance": this.monsterEggDropChance = (int) Math.round(value); return true;
-            case "maxanimals":           this.maxAnimals = (int) Math.round(value);    return true;
             case "maxmobs":              this.maxMobs = (int) Math.round(value);       return true;
             case "maxwatermobs":         this.maxWaterMobs = (int) Math.round(value);  return true;
-            case "maxambient":           this.maxAmbient = (int) Math.round(value);    return true;
             case "maxtamed":             this.maxTamed = (int) Math.round(value);      return true;
             case "maxoptamed":           this.maxOPTamed = (int) Math.round(value);    return true;
             default:                     return false;
@@ -672,10 +775,8 @@ public final class MoCConfig {
         line(sb, "zebraChance", this.zebraChance);
         line(sb, "wyvernEggDropChance", this.wyvernEggDropChance);
         line(sb, "monsterEggDropChance", this.monsterEggDropChance);
-        line(sb, "maxAnimals", this.maxAnimals);
         line(sb, "maxMobs", this.maxMobs);
         line(sb, "maxWaterMobs", this.maxWaterMobs);
-        line(sb, "maxAmbient", this.maxAmbient);
         line(sb, "maxTamed", this.maxTamed);
         line(sb, "maxOPTamed", this.maxOPTamed);
         sb.append('\n');
@@ -684,8 +785,9 @@ public final class MoCConfig {
         sb.append("# Uncomment and edit to override the default spawn weight / pack size for an\n");
         sb.append("# entity. Key form: spawn.<id>.frequency, spawn.<id>.min, spawn.<id>.max\n");
         sb.append("# where <id> is the lowercase entity id (e.g. elephant, shark, ogre).\n");
-        sb.append("# Defaults: frequency 8 (creature) / 6 (monster) / 8 (water) / 10 (insect),\n");
-        sb.append("# min 1, max 4.\n");
+        sb.append("# Defaults: Mo'Creatures 12.0.5's own per-species weights and pack sizes (e.g. bird 15,\n");
+        sb.append("# horse 8, elephant 4, golem 3); a merged species such as the bear sums the subspecies\n");
+        sb.append("# 12.0.5 had in each biome. An override here applies in every biome.\n");
         // Round-trip any spawn.* overrides currently in the backing store so save() preserves them.
         boolean wroteOverride = false;
         for (String key : new java.util.TreeSet<>(this.props.stringPropertyNames())) {
@@ -695,9 +797,9 @@ public final class MoCConfig {
             }
         }
         if (!wroteOverride) {
-            sb.append("#spawn.elephant.frequency=8\n");
+            sb.append("#spawn.elephant.frequency=4\n");
             sb.append("#spawn.elephant.min=1\n");
-            sb.append("#spawn.elephant.max=4\n");
+            sb.append("#spawn.elephant.max=1\n");
         }
 
         try (OutputStream out = Files.newOutputStream(file)) {
