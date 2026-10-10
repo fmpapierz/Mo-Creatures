@@ -2,7 +2,8 @@
 
 Covers the fixes made for the first player reports: horse taming, MoC x vanilla horse breeding, the kitty bed, the
 scorpion model, led animals on steps, and spawning (no animal cap, 12.0.5 weights, 12.0.5 biome placement, insects
-back in the ambient pool).
+back in the ambient pool). Second round (2026-10-10): filling the kitty bed by clicking its food bowl, kitties going to
+bed at night and staying there, and a bucking horse no longer rearing up through its rider.
 
 ## Setup
 
@@ -15,6 +16,8 @@ Launch the Fabric dev client into the prepared test world (a creative world with
 - The world is `fabric/run/saves/MoC_Player_Reports_Test`. Creative, cheats on.
 - The username `MoCTester` matters: the test pets are owned by `MoCTester`, so the kitty's mood icon shows.
 - If an "Experimental Settings" screen appears, accept it.
+- New shortcuts `kitty_night` and `buck` were added to the world's datapack; if the world was already open, run
+  `/reload` once.
 - Chat lists the shortcuts on joining. Each `/function moctest:...` builds a fenced grass pen around you and puts
   the test animals and items in it. Run each in open ground; `/function moctest:guide` shows the list again.
 
@@ -31,6 +34,7 @@ saddles, a MoC horse saddle and golden carrots.
 | 1d | Empty hand, right-click the **Wild vanilla horse** | You mount it (vanilla). Keep remounting until hearts appear: vanilla taming works with the mod installed. |
 | 1e | `/summon mocreatures:horse ~ ~ ~3 {TypeMoC:2,Adult:0b,AgeMoC:10}`, empty-hand right-click the foal | "... is too young to ride - give it an apple to tame it". |
 | 1f | `/summon mocreatures:horse ~ ~ ~3 {TypeMoC:36,Adult:1b,AgeMoC:100}` (a unicorn), empty-hand right-click | "... won't take food - once it is grown, saddle it and ride it until it stops bucking". |
+| 1g | `/function moctest:buck`, then ride the **Bucking wild horse** (empty hand) and keep remounting for a minute; F5 helps | It hops, lurches and throws you off beside it now and then, but it never rears up on its hind legs while you ride, so its head never comes up through you. Unridden horses still rear now and then (when hurt, or at random), as in 12.0.5. |
 
 ## 2. Breeding a Mo'Creatures horse with a vanilla horse
 
@@ -52,7 +56,10 @@ saddles, a MoC horse saddle and golden carrots.
 | 3b | Right-click the bed with **pet food** | The bowl in the bed fills. Within a few seconds the kitty walks over, climbs in and makes an eating sound; its icon becomes a happy cat face. |
 | 3c | Wait about 35 seconds | The bowl empties, the kitty climbs out, its icon is gone (fed). `/data get entity @e[type=mocreatures:kitty,sort=nearest,limit=1] KittyHunger` shows a small number. |
 | 3d | Repeat with the **milk bucket** (run `/function moctest:kitty` again for a new hungry kitty) | The same, with the drinking sound. |
-| 3e | `/time set night` and wait near a calm, fed kitty | When it naps, the icon is the sleeping cat with "Zz" (it used to show the litter-box icon). Napping starts at random, so it can take a while. |
+| 3e | `/function moctest:kitty` again, and this time right-click the **food bowl** beside the bed (the tray, not the bed) with the milk bucket or pet food | The bowl fills just as when you click the bed; the milk bucket comes back empty. Clicking the bowl with anything else does nothing special. |
+| 3f | `/function moctest:kitty_night` (sets midnight): three fed tamed kitties, two open beds and one bed walled in with glass | Within a minute or two every kitty turns in: each open bed takes exactly one kitty (they climb in), the third curls up on the floor where it stands, and nobody stays stuck at the walled-in bed (a kitty that cannot reach a bed gives it up within 30 seconds). Each sleeper shows the sleeping cat with "Zz". |
+| 3g | Wait a few minutes of night | They stay asleep, the two in the beds stay in them. Their hunger does not rise while asleep: `/data get entity @e[type=mocreatures:kitty,sort=nearest,limit=1] KittyHunger` stays the same. Hurting one wakes only that one. |
+| 3h | `/time set day` | All three wake up within a few seconds and the two climb out of the beds. |
 
 ## 4. Scorpion
 
@@ -87,7 +94,7 @@ ostrich and big cat, a wild deer, and a vanilla cow labelled "old behaviour". Gi
 | 6f | `/moc spawnlist minecraft:dark_forest` and `minecraft:nether_wastes` | Dark forest includes hell_rat 6. Nether: ogre 6 (fire ogre), horse_mob 8, hell_rat, flame_wraith, scorpion, manticore. |
 | 6g | `/moc spawnlist minecraft:mushroom_fields` | No Mo'Creatures spawns (as in 12.0.5). |
 | 6h | Stand on a plains or forest in daylight for a minute or two, then `/execute if entity @e[type=mocreatures:butterfly,distance=..64]` (also try bee, fly, cricket, ant) | Insects appear around you over time (the ambient pool spawns around players all the time, like bats). |
-| 6i | `/moc spawn deer 120`, wait 30 seconds, `/execute if entity @e[type=mocreatures:deer]` | Still 120 (or all the adults that haven't died): nothing removes animals any more. The old cap cut them to 90 (40 in old configs). |
+| 6i | `/gamerule max_entity_cramming 0` first (`/moc spawn` puts them all on one spot, and vanilla's entity cramming kills everything past 24 in one block space: that, not a cap, is why 240 summoned deer came down to 199). Then `/moc spawn deer 120`, wait 30 seconds, `/execute if entity @e[type=mocreatures:deer]`, and `/gamerule max_entity_cramming 24` afterwards | Still 120: nothing removes animals any more. The old cap cut them to 90 (40 in old configs). |
 | 6j | Fly into unexplored land in different biomes | New chunks hold Mo'Creatures animals at 12.0.5's frequencies: birds and bears common in temperate land, kitties only on plains, elephants and ostriches in deserts, crocodiles, komodos and turtles in swamps. |
 | 6k | Open the F9 settings, page 2, numeric tunables | No maxAnimals or maxAmbient any more. |
 

@@ -35,6 +35,13 @@ public final class MinimizedWindowAgent {
     }
 
     public static void premain(String args, Instrumentation instrumentation) {
+        // No loader error windows in a test run: Fabric and Quilt Loader log the error and exit instead of opening a
+        // "Minecraft failed to launch!" window (both read these before any mod loads); NeoForge's FML has no such
+        // switch, so its dialog method is rewritten (FatalDialogTransformer). The test scripts read the error from the
+        // log (tools/testclient/launchwatch.py).
+        System.setProperty("fabric.noGui", "true");
+        System.setProperty("loader.noGui", "true");
+        instrumentation.addTransformer(new FatalDialogTransformer());
         instrumentation.addTransformer(new GlfwTransformer());
         // Scriptable screenshots and commands for the minimized client, and the startup prompts (see RemoteControl).
         RemoteControl.start(instrumentation);

@@ -84,6 +84,14 @@ public class MoCEntityKitty extends MoCAnimal {
     /** Cached furniture targets so the kitty walks to one steadily instead of re-scanning every tick. */
     @Nullable private MoCEntityKittyBed targetBed;
     @Nullable private MoCEntityLitterBox targetLitter;
+    /** Ticks spent walking to {@link #targetBed} for the night; past {@link #BED_WALK_LIMIT} the bed is given up. */
+    private int bedWalkTicks;
+    /** Consecutive on-ground ticks with no path to {@link #targetBed}; past 40 (2 s) the bed is given up. */
+    private int bedNoPathTicks;
+    /** Beds this kitty found it could not reach tonight (walled off, across water); forgotten at dawn. */
+    private final java.util.Set<java.util.UUID> unreachableBeds = new java.util.HashSet<>();
+    /** 30 s: a bed within {@link #FURNITURE_RANGE} is a few seconds' walk, so this only trips on a bed out of reach. */
+    private static final int BED_WALK_LIMIT = 600;
 
     public MoCEntityKitty(EntityType<? extends MoCEntityKitty> type, Level level) {
         super(type, level);
@@ -175,10 +183,12 @@ public class MoCEntityKitty extends MoCAnimal {
     protected void customServerAiStep(ServerLevel level) {
         super.customServerAiStep(level);
 
-        // ---- hunger accumulates every tick for EVERY kitty until it is fed (see mobInteract) ----
+        // ---- hunger accumulates every tick for every kitty that is awake, until it is fed (see mobInteract) ----
         // A tamed kitty begs (and is calmed by feeding); a WILD kitty that has gone hungry hunts small prey
         // (legacy findPlayerToAttack only returned prey while getIsHungry()). See the target goal in registerGoals.
-        if (hungerCounter < Integer.MAX_VALUE) {
+        // A sleeping kitty does not get hungry: it sleeps the night through instead of waking to beg.
+        final boolean asleep = getKittyState() == STATE_SLEEPING;
+        if (!asleep && hungerCounter < Integer.MAX_VALUE) {
             hungerCounter++;
         }
 
@@ -207,29 +217,34 @@ public class MoCEntityKitty extends MoCAnimal {
             }
         }
 
-        // ---- the "needs the litter box" urge builds over time; using a box resets it ----
-        if (litterCounter < Integer.MAX_VALUE) {
+        // ---- the "needs the litter box" urge builds over time while awake; using a box resets it ----
+        if (!asleep && litterCounter < Integer.MAX_VALUE) {
             litterCounter++;
         }
         final boolean needsLitter = litterCounter > LITTER_THRESHOLD;
 
         // ---- decide, once, whether the kitty wants to sleep this night ----
-        updateSleepIntent(level);
+        updateSleepIntent(level, hungry);
 
-        // ---- decide this tick's mood: HUNGRY > litter box > SLEEPING > PLAYING > CALM ----
+        // ---- decide this tick's mood: SLEEPING (once settled) > HUNGRY > litter box > going to bed > PLAYING >
+        //      CALM. A settled sleeper stays put until morning (or until something wakes it, see hurtServer). ----
         int newState;
-        if (hungry || getKittyState() == STATE_EATING) {
+        if (asleep && wantsToSleep) {
+            newState = keepSleeping();
+        } else if (hungry || getKittyState() == STATE_EATING) {
             newState = eatFromBed(level);
+        } else if (getHealth() < getMaxHealth()
+                && nearest(level, MoCEntityKittyBed.class, b -> b.getHasMilk() || b.getHasFood()) != null) {
+            // Legacy state 3: a hurt kitty also eats from a stocked bed (which heals it to full), day or night.
+            int s = eatFromBed(level);
+            newState = s == STATE_HUNGRY ? STATE_CALM : s;
         } else if (needsLitter && useLitterBox(level)) {
             // Heading to / using a litter box; render as calm.
             newState = STATE_CALM;
-        } else if (wantsToSleep || (getHealth() < getMaxHealth()
-                && nearest(level, MoCEntityKittyBed.class, b -> b.getHasMilk() || b.getHasFood()) != null)) {
-            // Curl up in a bed if one is reachable; otherwise nap where we stand. While still walking
-            // to a distant bed we read as calm so the sleeping pose only shows once settled. Legacy state 3
-            // (seek a milk/food-stocked bed to heal to full) was reachable day OR night — so a hurt tamed
-            // kitty also walks to a stocked bed in daylight, not only when the night-sleep flag is set.
-            newState = goToBedOrSleep(level) ? STATE_SLEEPING : STATE_CALM;
+        } else if (wantsToSleep) {
+            // Walk to a free bed and climb in, or nap where it stands if there is none. Reads as calm while
+            // still walking, so the sleeping pose only shows once settled.
+            newState = goToBed(level) ? STATE_SLEEPING : STATE_CALM;
         } else if (isPlaying(level)) {
             newState = STATE_PLAYING;
         } else {
@@ -238,8 +253,7 @@ public class MoCEntityKitty extends MoCAnimal {
 
         // Leaving the sleeping state: stand back up, climb out of the bed, and forget it. A kitty that wakes up
         // hungry in a stocked bed stays in it and eats instead.
-        if (getKittyState() == STATE_SLEEPING && newState != STATE_SLEEPING && newState != STATE_EATING
-                && isSitting()) {
+        if (getKittyState() == STATE_SLEEPING && newState != STATE_SLEEPING && newState != STATE_EATING) {
             setSitting(false);
             if (this.getVehicle() instanceof MoCEntityKittyBed) {
                 this.stopRiding();
@@ -257,16 +271,27 @@ public class MoCEntityKitty extends MoCAnimal {
     }
 
     /**
-     * A calm, tamed kitty has a small chance to decide to nap once night falls, and keeps that intent
-     * until day (or until something wakes it — see {@link #hurtServer}). Holding the decision in a flag
-     * (rather than re-rolling every tick) lets the kitty commit to walking all the way to its bed.
+     * A calm, fed, tamed kitty decides to turn in once night falls (legacy state 7 -> 12 at 1 in 500 a tick at
+     * night; here 1 in 400, so every kitty is in bed within a minute or two of dusk) and keeps that intent until
+     * day, or until something wakes it ({@link #hurtServer}). Holding the decision in a flag (rather than
+     * re-rolling every tick) lets the kitty commit to walking all the way to its bed.
      */
-    private void updateSleepIntent(ServerLevel level) {
+    private void updateSleepIntent(ServerLevel level, boolean hungry) {
         if (level.isBrightOutside()) {
             wantsToSleep = false; // daytime: always awake.
-        } else if (!wantsToSleep && getKittyState() == STATE_CALM && getRandom().nextInt(400) == 0) {
+            unreachableBeds.clear();
+        } else if (!wantsToSleep && !hungry && getKittyState() == STATE_CALM && getRandom().nextInt(400) == 0) {
             wantsToSleep = true; // night, content: drift off.
         }
+    }
+
+    /** A settled sleeper: stays in its bed, or curled up where it lay down when there was no free bed. */
+    private int keepSleeping() {
+        getNavigation().stop();
+        if (!isSitting()) {
+            setSitting(true);
+        }
+        return STATE_SLEEPING;
     }
 
     /** Legacy stage-1 taming: a kitty only accepts a Medallion once it has eaten a dropped cooked fish. */
@@ -384,49 +409,69 @@ public class MoCEntityKitty extends MoCAnimal {
     }
 
     /**
-     * Walk to the nearest kitty bed and curl up in it; if none is nearby, just nap on the spot.
+     * Turning in for the night: walk to the nearest free kitty bed and climb into it (food or not), or, when no
+     * bed within {@link #FURNITURE_RANGE} is free, curl up where it stands (legacy state 12, which never used a
+     * bed at all). A bed is free when nobody is in it and no other kitty is on its way to it, so several sleepy
+     * kitties spread over several beds instead of piling onto one. Riding the bed is what keeps the kitty in it.
      *
-     * @return {@code true} once the kitty is actually settled (sitting), {@code false} while it is
-     *         still travelling to a distant bed.
+     * <p>Not 12.0.5: there a kitty only ever climbed into a bed to eat (state 4) or to give birth (states
+     * 19-21); a sleepy one dozed wherever it was. Sleeping in a bed is the port's, by the user's request.</p>
+     *
+     * @return {@code true} once the kitty is settled (in its bed, or lying down), {@code false} while it is
+     *         still on its way to a bed.
      */
-    private boolean goToBedOrSleep(ServerLevel level) {
-        if (targetBed != null && !targetBed.isAlive()) {
+    private boolean goToBed(ServerLevel level) {
+        if (this.getVehicle() instanceof MoCEntityKittyBed) {
+            return true;
+        }
+        if (targetBed != null && (!bedIsFree(level, targetBed))) {
             targetBed = null;
         }
-        if (targetBed == null && getRandom().nextInt(20) == 0) {
-            targetBed = nearest(level, MoCEntityKittyBed.class, b -> true);
+        if (targetBed == null) {
+            targetBed = nearest(level, MoCEntityKittyBed.class,
+                    b -> bedIsFree(level, b) && !unreachableBeds.contains(b.getUUID()));
+            bedWalkTicks = 0;
+            bedNoPathTicks = 0;
+            if (targetBed == null) {
+                getNavigation().stop();
+                if (!isSitting()) {
+                    setSitting(true);
+                }
+                return true; // no free bed: sleep on the spot
+            }
+        }
+        if (isSitting()) {
+            setSitting(false);
         }
         // Within 2 blocks, as legacy (1.5 squared left a kitty pathed to the next block standing beside the bed).
-        if (targetBed != null && distanceToSqr(targetBed) >= 4.0D) {
-            // Still heading to the bed — stay on our feet and keep pathing.
-            if (isSitting()) {
-                setSitting(false);
+        if (distanceToSqr(targetBed) >= 4.0D) {
+            boolean pathed = getNavigation().moveTo(targetBed, 1.0D);
+            // No path is only telling while standing: navigation refuses to plan in mid-air (a hop up a step).
+            bedNoPathTicks = pathed ? 0 : this.onGround() ? bedNoPathTicks + 1 : bedNoPathTicks;
+            if (bedNoPathTicks > 40 || ++bedWalkTicks > BED_WALK_LIMIT) {
+                // No way there: give that bed up for the night and take another free one, or sleep here. A kitty
+                // used to stand frozen all night facing a bed it could not reach, and kept it from every other kitty.
+                unreachableBeds.add(targetBed.getUUID());
+                targetBed = null;
             }
-            getNavigation().moveTo(targetBed, 1.0D);
             return false;
         }
-        if (targetBed != null) {
-            // Legacy kitty state 3->4: on reaching a bed stocked with milk or pet food and not already occupied,
-            // the kitty CLIMBS IN (becomes the bed's passenger) — that is what triggers the bed's heal-to-full and
-            // supply drain. An empty or occupied bed is just curled up on top of instead.
-            if (this.getVehicle() != targetBed && targetBed.getPassengers().isEmpty()
-                    && (targetBed.getHasMilk() || targetBed.getHasFood())) {
-                // Legacy state 4 played a contextual feeding sound while nestled: 'kittyeatingm' drinking
-                // from a milk-stocked bed, 'kittyeatingf' eating from a food-stocked bed. Only on actually
-                // climbing in: startRiding fails during the 60-tick boarding cooldown after leaving a bed.
-                if (this.startRiding(targetBed)) {
-                    this.playSound((targetBed.getHasMilk() ? MoCSounds.KITTYEATINGM : MoCSounds.KITTYEATINGF).get(),
-                            1.0F, 1.0F + (getRandom().nextFloat() - getRandom().nextFloat()) * 0.2F);
-                }
-            } else if (!this.isPassenger()) {
-                this.setPos(targetBed.getX(), targetBed.getY(), targetBed.getZ());
-            }
-        }
-        if (!isSitting()) {
+        // startRiding fails during the 60-tick boarding cooldown after leaving a bed; it simply retries.
+        if (this.startRiding(targetBed)) {
+            getNavigation().stop();
             setSitting(true);
+            return true;
         }
-        getNavigation().stop();
-        return true;
+        return false;
+    }
+
+    /** Nobody in it, not being carried, and no other kitty heading for it. */
+    private boolean bedIsFree(ServerLevel level, MoCEntityKittyBed bed) {
+        if (!bed.isAlive() || bed.isBeingCarried() || (bed.isVehicle() && !bed.hasPassenger(this))) {
+            return false;
+        }
+        return level.getEntitiesOfClass(MoCEntityKitty.class, bed.getBoundingBox().inflate(FURNITURE_RANGE * 2.0D),
+                k -> k != this && k.targetBed == bed).isEmpty();
     }
 
     /**
@@ -666,9 +711,12 @@ public class MoCEntityKitty extends MoCAnimal {
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
         boolean hurt = super.hurtServer(level, source, amount);
         if (hurt && getKittyState() == STATE_SLEEPING) {
-            // Startle awake — and give up on napping for now.
+            // Startle awake — and give up on napping for now: out of the bed and back on its feet.
             setKittyState(STATE_CALM);
             setSitting(false);
+            if (this.getVehicle() instanceof MoCEntityKittyBed) {
+                this.stopRiding();
+            }
             wantsToSleep = false;
             targetBed = null;
         }
@@ -689,6 +737,8 @@ public class MoCEntityKitty extends MoCAnimal {
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
         setKittyState(input.getIntOr("KittyState", STATE_CALM));
+        // A kitty saved asleep (in its bed at night) is still asleep when the world loads again; day wakes it.
+        wantsToSleep = getKittyState() == STATE_SLEEPING;
         hungerCounter = input.getIntOr("KittyHunger", 0);
         litterCounter = input.getIntOr("KittyLitter", 0);
     }

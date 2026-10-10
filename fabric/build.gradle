@@ -35,6 +35,12 @@ loom {
             name = "Fabric Test Server"
             source sourceSets.main
             runDir = "run-testserver"
+            // Machine rules for test servers: the loader logs a refused mod set and exits instead of opening an
+            // error window, and the old select()-based NIO selector (a wepoll server now and then leaves a login
+            // handshake unsent).
+            property 'fabric.noGui', 'true'
+            property 'loader.noGui', 'true'
+            property 'java.nio.channels.spi.SelectorProvider', 'sun.nio.ch.WindowsSelectorProvider'
         }
     }
 }

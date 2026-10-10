@@ -12,8 +12,13 @@
 # SW_MINIMIZE, which hands the focus back to the next window in the Z order (the user's); a window that is only
 # un-minimized gets SW_SHOWMINNOACTIVE, which never activates anything. Each window is put away at most once (an
 # always-on re-minimizer makes windows impossible to look at); later violations are only logged. Only java processes
-# whose command line contains this project's folder are looked at (machine rule on processes). Stops after -Seconds,
-# or 30 seconds after the last such process has exited.
+# whose command line contains this project's folder are looked at (machine rule on processes), plus their java
+# children (Fabric forks a JVM for its error window). Stops after -Seconds, or 30 seconds after the last such process
+# has exited.
+# Two rules added 2026-10-09 after a Quilt "Minecraft failed to launch!" window slipped through while the user typed:
+#   - a window seen for the FIRST time is never the user's, whatever input came just before it;
+#   - any visible window whose title is not the game's ("Minecraft...") is logged as "DIALOG PID ..." - a loader error
+#     window or crash box. tools/testclient/launchwatch.py reads that line and the test scripts then kill the launch.
 param([int]$Seconds = 900, [string]$Log = '', [int]$UserInputMs = 1500)
 $project = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Add-Type @"
@@ -48,14 +53,19 @@ function Write-Guard([string]$line) {
 $states = @{}
 $putAways = @{}
 $userWindows = @{}
+$dialogs = @{}
 $violations = 0
 $deadline = (Get-Date).AddSeconds($Seconds)
 $lastAlive = $null
 $sawProcess = $false
 Write-Guard "watching java windows of $project"
 while ((Get-Date) -lt $deadline) {
-    $ids = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
-            Where-Object { $_.CommandLine -and $_.CommandLine.Contains($project) } | ForEach-Object { [uint32]$_.ProcessId })
+    $javas = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'")
+    $own = @($javas | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($project) } | ForEach-Object { [uint32]$_.ProcessId })
+    # Plus their java children: Fabric Loader opens its error window in a forked JVM whose command line need not
+    # name this project.
+    $ids = @($own + @($javas | Where-Object { $own -contains [uint32]$_.ParentProcessId } |
+            ForEach-Object { [uint32]$_.ProcessId }) | Select-Object -Unique)
     if ($ids.Count -gt 0) { $sawProcess = $true; $lastAlive = Get-Date }
     elseif ($sawProcess -and ((Get-Date) - $lastAlive).TotalSeconds -gt 30) { break }
     # Several quick looks per process listing (the CIM query is the slow part).
@@ -76,13 +86,23 @@ while ((Get-Date) -lt $deadline) {
                     $front = $hwnd -eq $foreground
                     $state = "visible=$visible minimized=$iconic foreground=$front"
                     $idle = [TestClientGuard]::IdleMs()
+                    $firstSighting = -not $states.ContainsKey($key)
                     $changed = $states[$key] -ne $state
+                    # Anything visible that is not the game window (its title starts with "Minecraft") is a dialog: a
+                    # loader's "failed to launch" / incompatible-mods window, a crash or error box. Reported once as
+                    # DIALOG, which the test scripts treat as a failed launch (tools/testclient/launchwatch.py).
+                    if ($visible -and -not $title.ToString().StartsWith('Minecraft') -and -not $dialogs[$key]) {
+                        $dialogs[$key] = $true
+                        $script:events.Add(("DIALOG PID {0}: '{1}' {2}" -f $windowPid, $title, $state))
+                    }
                     if ($changed) {
                         $states[$key] = $state
                         $script:events.Add(("PID {0}: '{1}' {2} (user input {3} ms ago)" -f $windowPid, $title, $state, $idle))
                     }
                     if ($visible -and (-not $iconic -or $front) -and -not $userWindows[$key]) {
-                        if ($changed -and $idle -lt $UserInputMs) {
+                        # A window seen for the first time cannot have been raised by the user, whatever they typed
+                        # just before (a Quilt error dialog was once waved through that way while the user typed).
+                        if ($changed -and $idle -lt $UserInputMs -and -not $firstSighting) {
                             # The user brought it up (taskbar click, Alt+Tab): theirs from now on.
                             $userWindows[$key] = $true
                             $script:events.Add(("USER PID {0}: '{1}' {2} right after user input; left alone from now on" -f $windowPid, $title, $state))
@@ -100,7 +120,7 @@ while ((Get-Date) -lt $deadline) {
             return $true
         }, [IntPtr]::Zero)
         foreach ($event in $script:events) {
-            if ($event.StartsWith('VIOLATION')) { $violations++ }
+            if ($event.StartsWith('VIOLATION') -or $event.StartsWith('DIALOG')) { $violations++ }
             Write-Guard $event
         }
         Start-Sleep -Milliseconds 60

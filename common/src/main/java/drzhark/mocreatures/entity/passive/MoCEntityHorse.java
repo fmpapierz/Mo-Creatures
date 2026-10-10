@@ -504,11 +504,12 @@ public class MoCEntityHorse extends MoCAnimal {
         }
         // Graze / rear pose driving (server-authoritative; the flags are synched to animate the model).
         if (!this.level().isClientSide()) {
-            // Rearing: an untamed horse with a rider bucks up on its hind legs to throw them (legacy standCounter).
-            if (!getIsTamed() && this.isVehicle()) {
-                if (this.rearingTicks <= 0 && this.random.nextInt(20) == 0) {
-                    this.rearingTicks = 12;
-                }
+            // Rearing (legacy standCounter, 20 ticks) never happens with a rider: 12.0.5's stand() returned at once
+            // while isBeingRidden(), and its model only reared a horse with no rider. A bucking horse hops and
+            // veers until it throws you (MoCAnimal.tickBreakingIn). The port used to rear a ridden wild horse,
+            // which swung its neck and head up through the rider. See stand() for when a horse does rear.
+            if (this.isVehicle()) {
+                this.rearingTicks = 0;
             }
             if (this.rearingTicks > 0) {
                 this.rearingTicks--;
@@ -1048,7 +1049,31 @@ public class MoCEntityHorse extends MoCAnimal {
         if (amount < 0.0F) {
             amount = 0.0F;
         }
-        return super.hurtServer(level, source, amount);
+        boolean hurt = super.hurtServer(level, source, amount);
+        // Legacy getHurtSound: a struck horse rears one time in three (a flyer flaps instead).
+        if (hurt && !isFlyer() && this.random.nextInt(3) == 0) {
+            stand();
+        }
+        return hurt;
+    }
+
+    /**
+     * Legacy {@code stand()}: rear up on the hind legs for 20 ticks (standCounter), never with a rider and never in
+     * the air ({@code !isBeingRidden() && !isOnAir()}). Called when struck and on an occasional idle neigh.
+     */
+    private void stand() {
+        if (!this.isVehicle() && this.onGround()) {
+            this.rearingTicks = 20;
+        }
+    }
+
+    /** Legacy getAmbientSound: one neigh in ten rears the horse, unless it is sitting or being ridden. */
+    @Override
+    public void playAmbientSound() {
+        super.playAmbientSound();
+        if (!this.level().isClientSide() && !isSitting() && this.random.nextInt(10) == 0) {
+            stand();
+        }
     }
 
     /**

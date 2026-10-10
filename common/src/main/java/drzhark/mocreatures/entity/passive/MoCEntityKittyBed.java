@@ -162,12 +162,16 @@ public class MoCEntityKittyBed extends MoCAnimal {
 
     // ------------------------------------------------------------------------------- interaction
 
-    @Override
-    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+    /**
+     * Stocks the bowl from the item in {@code hand}: a milk bucket loads milk and hands back an empty bucket
+     * (legacy bucketMilk -> bucketEmpty); pet food loads food, only if the bowl holds no food yet (legacy). Used
+     * by a click on the bed and by a click on its food bowl ({@link #fillBowlUnderCrosshair}).
+     *
+     * @return whether the item was one the bowl takes (the click is then consumed on both sides)
+     */
+    public boolean fillBowl(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        final boolean server = !this.level().isClientSide();
-
-        // Milk bucket -> load milk and hand back an empty bucket (legacy: bucketMilk -> bucketEmpty).
+        boolean server = !this.level().isClientSide();
         if (stack.is(Items.MILK_BUCKET)) {
             if (server) {
                 player.setItemInHand(hand,
@@ -177,9 +181,8 @@ public class MoCEntityKittyBed extends MoCAnimal {
                 this.playSound(MoCSounds.POURINGMILK.get(), 1.0F,
                         1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.2F);
             }
-            return InteractionResult.SUCCESS;
+            return true;
         }
-        // Pet food -> load food (legacy only if the bed is not already stocked with food).
         if (stack.is(MoCItems.PETFOOD.get()) && !getHasFood()) {
             if (server) {
                 if (!player.getAbilities().instabuild) {
@@ -190,6 +193,79 @@ public class MoCEntityKittyBed extends MoCAnimal {
                 this.playSound(MoCSounds.POURINGFOOD.get(), 1.0F,
                         1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.2F);
             }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The food bowl (the tray drawn beside the bed: MoCModelKittyBed's food_tray parts, model x -16..-10, z -1..6,
+     * y 21..24 px) lies outside the bed's 0.98-wide hitbox, so a click on it used to land on the ground behind
+     * it. This box is that tray in the bed's own frame: MoCMobRenderer draws a model point (x, y, z) at
+     * {@code Ry(180 - bodyRot) * (-x/16, 1.501 - y/16, z/16)} from the bed's position (LivingEntityRenderer's
+     * rotation, then scale(-1, -1, 1) and the 1.501 drop), with a little margin so the rim is easy to hit.
+     */
+    private static final net.minecraft.world.phys.AABB BOWL = new net.minecraft.world.phys.AABB(0.6D, 0.0D, -0.1D,
+            1.05D, 0.3D, 0.42D);
+
+    /** How far along a look ray (eye + t * unit look) it meets this bed's food bowl, or -1 if it misses. */
+    private double bowlHitDistance(Vec3 eye, Vec3 look, double reach) {
+        double theta = Math.toRadians(180.0D - this.yBodyRot);
+        double cos = Math.cos(theta);
+        double sin = Math.sin(theta);
+        Vec3 o = eye.subtract(position());
+        // world -> bed frame: the inverse of the renderer's rotation about Y
+        Vec3 from = new Vec3(o.x * cos - o.z * sin, o.y, o.x * sin + o.z * cos);
+        Vec3 dir = new Vec3(look.x * cos - look.z * sin, look.y, look.x * sin + look.z * cos);
+        return BOWL.clip(from, from.add(dir.scale(reach))).map(hit -> hit.distanceTo(from)).orElse(-1.0D);
+    }
+
+    /**
+     * A right click (on a block or on air) with a milk bucket or pet food whose crosshair is on a kitty bed's food
+     * bowl stocks that bed. Runs on both sides with the same geometry, so the client neither drinks the milk nor
+     * places anything. A block nearer than the bowl keeps the click. Registered for Architectury's
+     * RIGHT_CLICK_BLOCK and RIGHT_CLICK_ITEM events in {@code MoCreatures.init}.
+     */
+    public static boolean fillBowlUnderCrosshair(Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (!stack.is(Items.MILK_BUCKET) && !stack.is(MoCItems.PETFOOD.get())) {
+            return false;
+        }
+        double reach = player.blockInteractionRange();
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getViewVector(1.0F);
+        MoCEntityKittyBed best = null;
+        double bestT = Double.MAX_VALUE;
+        for (MoCEntityKittyBed bed : player.level().getEntitiesOfClass(MoCEntityKittyBed.class,
+                player.getBoundingBox().inflate(reach + 2.0D))) {
+            if (!bed.onGround() || bed.isBeingCarried()) {
+                continue; // the tray is only drawn on a bed standing on the ground
+            }
+            double t = bed.bowlHitDistance(eye, look, reach);
+            if (t >= 0.0D && t < bestT) {
+                best = bed;
+                bestT = t;
+            }
+        }
+        if (best == null) {
+            return false;
+        }
+        net.minecraft.world.phys.BlockHitResult block = player.level().clip(new net.minecraft.world.level.ClipContext(
+                eye, eye.add(look.scale(bestT)), net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                net.minecraft.world.level.ClipContext.Fluid.NONE, player));
+        if (block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                && block.getLocation().distanceTo(eye) < bestT - 1.0E-3D) {
+            return false;
+        }
+        return best.fillBowl(player, hand);
+    }
+
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        final boolean server = !this.level().isClientSide();
+
+        if (fillBowl(player, hand)) {
             return InteractionResult.SUCCESS;
         }
         // Any pickaxe -> pick the bed back up as its item (carrying its sheet colour) and remove it.
@@ -226,13 +302,12 @@ public class MoCEntityKittyBed extends MoCAnimal {
         if (this.onGround()) {
             breakPlantsInside((ServerLevel) this.level());
         }
-        // While a kitty is nestled in a stocked bed it heals to full and slowly drains the supply
-        // (legacy MoCEntityKitty state 4 set health = maxHealth; the bed drained milklevel in onUpdate).
-        if ((getHasMilk() || getHasFood()) && this.isVehicle()) {
-            Entity passenger = this.getFirstPassenger();
-            if (passenger instanceof MoCEntityKitty kitty) {
-                kitty.heal(kitty.getMaxHealth());
-            }
+        // While a kitty eats in a stocked bed it heals to full and slowly drains the supply (legacy MoCEntityKitty
+        // state 4 set health = maxHealth; the bed drained milklevel in onUpdate). Legacy kitties only ever sat in a
+        // bed to eat; a kitty that merely sleeps in one (the port's night routine) leaves the bowl alone.
+        if ((getHasMilk() || getHasFood()) && this.getFirstPassenger() instanceof MoCEntityKitty kitty
+                && kitty.getKittyState() == MoCEntityKitty.STATE_EATING) {
+            kitty.heal(kitty.getMaxHealth());
             milkLevel += 0.003F;
             if (milkLevel > 2.0F) {
                 milkLevel = 0.0F;

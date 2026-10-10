@@ -5,7 +5,8 @@
     py tools/servertest/servertest.py cmd <rcon port> <command...>
     py tools/servertest/servertest.py stop <rcon port>
 
-`prepare` writes eula.txt (the user accepts the Minecraft EULA for every test server) and a server.properties bound to
+`prepare` writes eula.txt (the user accepts the Minecraft EULA for every test server), turns the whitelist off
+(white-list and enforce-whitelist, rewritten before every start) and writes a server.properties bound to
 127.0.0.1 on the given ports (other sessions run their own servers, so never 25565), with RCON enabled, a fixed seed and
 small view distances.
 
@@ -15,6 +16,10 @@ small view distances.
   - mechanics, each with a pass/fail:
       kitty_bed     a hungry tamed kitty walks to a bed stocked with pet food, climbs in, eats until the bed is empty
                     and is then fed (KittyState 4 while eating, back to 0 with its hunger reset; the bed's food gone),
+      kitty_night   at midnight, three fed tamed kitties and two empty beds: each bed takes one kitty, the third
+                    curls up on the floor; all stay asleep for a minute with no hunger rise; daybreak wakes
+                    them and they leave the beds,
+      kitty_unreachable  a kitty whose nearest bed is walled off sleeps in a reachable one further away,
       crossbreed    a tamed, pumpkin-fed black MoC horse in love next to a tamed black vanilla horse in love foals a
                     tamed black (TypeMoC 5) MoC foal (12.0.5's TranslateVanillaHorseType),
       lead_step     MoC horse, bear, elephant, ostrich and big cat led by a holder that keeps walking away over a
@@ -81,8 +86,8 @@ class Rcon:
                 if rid2 != rid:
                     break
                 out.append(more)
-        except (socket.timeout, TimeoutError):
-            pass
+        except (socket.timeout, TimeoutError, ConnectionError):
+            pass  # no more parts; or, after "stop", the server has already closed the connection
         finally:
             self.sock.settimeout(300)
         return ''.join(out)
@@ -134,7 +139,9 @@ def prepare(run_dir, server_port, rcon_port):
         'rcon.port': str(rcon_port), 'rcon.password': PASSWORD, 'online-mode': 'false',
         'level-seed': '262100', 'view-distance': '6', 'simulation-distance': '6', 'spawn-protection': '0',
         'max-players': '4', 'motd': "Mo'Creatures 26.2 test server", 'sync-chunk-writes': 'false',
-        'enforce-secure-profile': 'false', 'white-list': 'false', 'difficulty': 'easy',
+        'enforce-secure-profile': 'false', 'difficulty': 'easy',
+        # machine rule: the whitelist off before every start, both keys, whatever an earlier run left
+        'white-list': 'false', 'enforce-whitelist': 'false',
         # 26.2 stops ticking an empty server after 60 s ("Server empty for 60 seconds, pausing"), which froze every
         # mechanic checked here with no player online; 0 turns the pause off.
         'pause-when-empty-seconds': '0',
@@ -240,6 +247,115 @@ def check_kitty_bed(r, log):
         return False
     log(f'[kitty_bed] OK: bed emptied and the kitty was fed {fed_at:.0f}s later (KittyState 0, hunger {hunger:.0f}, '
         f'HasFood 0b)')
+    return True
+
+
+def check_kitty_night(r, log):
+    """At night every tamed, fed kitty turns in and stays asleep until morning: two empty beds for three kitties, so
+    each bed takes one kitty and the third curls up where it stands (no two kitties on one bed). The sleepers must
+    hold through a minute without getting hungrier, and daybreak must wake them all and get them out of the beds."""
+    for tag in ('mt_kitty', 'mt_bed', 'mt_nk', 'mt_nb'):
+        r.cmd(f'kill @e[tag={tag}]')
+    r.cmd('time set midnight')
+    r.cmd('summon mocreatures:kitty_bed 42.5 101 42.5 {SheetColour:1,Tags:["mt_nb","mt_nb1"]}')
+    r.cmd('summon mocreatures:kitty_bed 47.5 101 42.5 {SheetColour:5,Tags:["mt_nb","mt_nb2"]}')
+    for i, x in enumerate((41.5, 44.5, 47.5)):
+        r.cmd(f'summon mocreatures:kitty {x} 101 48.5 {{TypeMoC:{i + 1},Tamed:1b,Adult:1b,AgeMoC:100,'
+              f'OwnerName:"Tester",KittyHunger:0,PersistenceRequired:1b,Tags:["mt_nk","mt_nk{i + 1}"]}}')
+    kitties = [f'@e[tag=mt_nk{i},limit=1]' for i in (1, 2, 3)]
+
+    def passed(command):
+        m = re.search(r'Count: (\d+)', r.cmd(command), re.I)  # "Test passed. Count: 1"; "Test failed" -> 0
+        return int(m.group(1)) if m else 0
+
+    def picture():
+        """(each kitty's KittyState, how many ride a test bed, how many kitties ride each bed)"""
+        states = [nbt_value(r, k, 'KittyState') for k in kitties]
+        in_bed = sum(passed(f'execute as {k} on vehicle if entity @s[tag=mt_nb]') for k in kitties)
+        per_bed = [passed(f'execute as @e[tag={b},limit=1] on passengers if entity @s[tag=mt_nk]')
+                   for b in ('mt_nb1', 'mt_nb2')]
+        return states, in_bed, per_bed
+
+    settled_at = None
+    t0 = time.time()
+    while time.time() - t0 < 150:
+        states, in_bed, per_bed = picture()
+        if states == ['3', '3', '3'] and in_bed == 2 and per_bed == [1, 1]:
+            settled_at = time.time() - t0
+            break
+        time.sleep(2)
+    if settled_at is None:
+        log(f'[kitty_night] FAIL: not all settled in 150 s (KittyState {states}, in a bed {in_bed}, '
+            f'kitties per bed {per_bed})')
+        r.cmd('time set noon')
+        return False
+    hunger0 = [nbt_number(r, k, 'KittyHunger') for k in kitties]
+    log(f'[kitty_night] all three asleep after {settled_at:.0f}s: one in each bed, the third on the floor '
+        f'(hunger {hunger0})')
+    t1 = time.time()
+    while time.time() - t1 < 60:
+        states, in_bed, per_bed = picture()
+        if states != ['3', '3', '3'] or in_bed != 2 or per_bed != [1, 1]:
+            log(f'[kitty_night] FAIL: a sleeper got up after {time.time() - t1:.0f}s (KittyState {states}, '
+                f'in a bed {in_bed}, kitties per bed {per_bed})')
+            r.cmd('time set noon')
+            return False
+        time.sleep(3)
+    hunger1 = [nbt_number(r, k, 'KittyHunger') for k in kitties]
+    if hunger1 != hunger0:
+        log(f'[kitty_night] FAIL: hunger rose while asleep ({hunger0} -> {hunger1})')
+        r.cmd('time set noon')
+        return False
+    log(f'[kitty_night] all three stayed asleep for 60s, hunger unchanged {hunger1}')
+    r.cmd('time set noon')
+    woke_at = None
+    t2 = time.time()
+    while time.time() - t2 < 20:
+        states, in_bed, per_bed = picture()
+        if '3' not in states and in_bed == 0:
+            woke_at = time.time() - t2
+            break
+        time.sleep(1)
+    if woke_at is None:
+        log(f'[kitty_night] FAIL: not awake and out of bed 20 s after daybreak (KittyState {states}, in a bed '
+            f'{in_bed})')
+        return False
+    log(f'[kitty_night] OK: daybreak woke all three and got them out of bed within {woke_at:.0f}s')
+    r.cmd('kill @e[tag=mt_nk]')
+    r.cmd('kill @e[tag=mt_nb]')
+    return True
+
+
+def check_kitty_unreachable(r, log):
+    """A kitty whose nearest bed is walled off (a glass ring it cannot jump) gives that bed up and sleeps in a
+    reachable one further away, instead of standing awake all night facing the wall."""
+    for tag in ('mt_uk', 'mt_ub'):
+        r.cmd(f'kill @e[tag={tag}]')
+    r.cmd('fill 19 101 45 21 102 47 minecraft:glass')
+    r.cmd('fill 20 101 46 20 102 46 minecraft:air')
+    r.cmd('summon mocreatures:kitty_bed 20.5 101 46.5 {SheetColour:2,Tags:["mt_ub","mt_ub_walled"]}')
+    r.cmd('summon mocreatures:kitty_bed 30.5 101 52.5 {SheetColour:9,Tags:["mt_ub","mt_ub_open"]}')
+    r.cmd('summon mocreatures:kitty 22.5 101 50.5 {TypeMoC:4,Tamed:1b,Adult:1b,AgeMoC:100,OwnerName:"Tester",'
+          'KittyHunger:0,PersistenceRequired:1b,Tags:["mt_uk"]}')
+    r.cmd('time set midnight')
+    kitty = '@e[tag=mt_uk,limit=1]'
+    slept_at = None
+    t0 = time.time()
+    while time.time() - t0 < 150:
+        in_open = 'passed' in r.cmd(f'execute as {kitty} on vehicle if entity @s[tag=mt_ub_open]')
+        if in_open and nbt_value(r, kitty, 'KittyState') == '3':
+            slept_at = time.time() - t0
+            break
+        time.sleep(2)
+    state, pos = nbt_value(r, kitty, 'KittyState'), nbt_value(r, kitty, 'Pos')
+    r.cmd('time set noon')
+    r.cmd('kill @e[tag=mt_uk]')
+    r.cmd('kill @e[tag=mt_ub]')
+    r.cmd('fill 19 101 45 21 102 47 minecraft:air')
+    if slept_at is None:
+        log(f'[kitty_unreachable] FAIL: not asleep in the reachable bed after 150 s (KittyState {state}, at {pos})')
+        return False
+    log(f'[kitty_unreachable] OK: gave up the walled-off bed and fell asleep in the open one after {slept_at:.0f}s')
     return True
 
 
@@ -497,9 +613,31 @@ def check_biome_placement(r, log):
     return ok
 
 
-MECHANICS = (('kitty_bed', check_kitty_bed), ('crossbreed', check_crossbreed), ('lead_step', check_lead_step),
+MECHANICS = (('kitty_bed', check_kitty_bed), ('kitty_night', check_kitty_night),
+             ('kitty_unreachable', check_kitty_unreachable),
+             ('crossbreed', check_crossbreed), ('lead_step', check_lead_step),
              ('animal_cap', check_animal_cap), ('biome_placement', check_biome_placement),
              ('spawn_census', check_spawn_census))
+
+
+def platform(r):
+    """Calm weather and time, no stray mobs, and the stone platform in the sky (x 0-63, z 0-55, floor y 100) that
+    every check here and the client tour (tools/testclient/moctour.py) stand on."""
+    r.cmd('gamerule spawn_mobs false')
+    r.cmd('gamerule advance_time false')
+    r.cmd('time set noon')
+    r.cmd('weather clear')
+    r.cmd('kill @e[type=!minecraft:player]')  # nothing left over from an earlier run on this world
+    # a stone platform in the sky, away from spawn's terrain
+    r.cmd('forceload add 0 0 63 55')
+    # Cleared in two slabs: one fill may change at most 32768 blocks (gamerule max_block_modifications), and a single
+    # 64 x 15 x 56 fill was refused, which left the walls and the step of an earlier lead_step run standing on a
+    # reused world.
+    for y0, y1 in ((101, 107), (108, 115)):
+        out = r.cmd(f'fill 0 {y0} 0 63 {y1} 55 minecraft:air')
+        if 'Too many blocks' in out:
+            raise RuntimeError(f'platform not cleared: {out.strip()}')
+    r.cmd('fill 0 100 0 63 100 55 minecraft:stone')
 
 
 def run(port, run_dir, report=None):
@@ -509,15 +647,7 @@ def run(port, run_dir, report=None):
     def log(s):
         print(s, flush=True); lines.append(s)
     log('== server up: ' + r.cmd('list'))
-    r.cmd('gamerule spawn_mobs false')
-    r.cmd('gamerule advance_time false')
-    r.cmd('time set noon')
-    r.cmd('weather clear')
-    r.cmd('kill @e[type=!minecraft:player]')  # nothing left over from an earlier run on this world
-    # a stone platform in the sky, away from spawn's terrain
-    r.cmd('forceload add 0 0 63 55')
-    r.cmd('fill 0 101 0 63 115 55 minecraft:air')
-    r.cmd('fill 0 100 0 63 100 55 minecraft:stone')
+    platform(r)
     fails = {}
     # entities
     for e in entity_ids():
@@ -577,7 +707,7 @@ if __name__ == '__main__':
         sys.exit(1 if run(int(sys.argv[2]), sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None) else 0)
     elif sys.argv[1] == 'mechanic':  # one mechanic against a running server: mechanic <rcon port> <name>
         r = Rcon(int(sys.argv[2]))
-        r.cmd('kill @e[type=!minecraft:player]')
+        platform(r)
         sys.exit(0 if dict(MECHANICS)[sys.argv[3]](r, print) else 1)
     elif sys.argv[1] == 'cmd':
         print(Rcon(int(sys.argv[2])).cmd(' '.join(sys.argv[3:])))

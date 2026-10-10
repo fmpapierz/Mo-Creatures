@@ -44,6 +44,13 @@ public final class MoCreatures {
         // registers a serializer for but ships no entry for, so the NeoForge module supplies its own
         // BiomeModifier. Both feed MoCSpawns.addBiomeSpawns, so the rules themselves stay shared.
         drzhark.mocreatures.spawn.MoCMobCap.register();
+        // A click on a kitty bed's food bowl (drawn outside the bed's hitbox) with milk or pet food stocks the bed.
+        dev.architectury.event.events.common.InteractionEvent.RIGHT_CLICK_BLOCK.register((player, hand, pos, face) ->
+                drzhark.mocreatures.entity.passive.MoCEntityKittyBed.fillBowlUnderCrosshair(player, hand)
+                        ? dev.architectury.event.EventResult.interruptTrue() : dev.architectury.event.EventResult.pass());
+        dev.architectury.event.events.common.InteractionEvent.RIGHT_CLICK_ITEM.register((player, hand) ->
+                drzhark.mocreatures.entity.passive.MoCEntityKittyBed.fillBowlUnderCrosshair(player, hand)
+                        ? dev.architectury.event.EventResult.interruptTrue() : dev.architectury.event.EventResult.pass());
         drzhark.mocreatures.network.MoCNetwork.init();
 
         // Cross-loader /moc admin command. The register lambda receives the brigadier
