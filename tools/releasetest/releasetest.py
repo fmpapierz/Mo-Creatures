@@ -713,7 +713,14 @@ NOISE = re.compile(r'oshi|OSProcess|Perflib|SystemReport|Win32Exception: The par
                    r"|SQLException: stmt pointer is closed"
                    # BCLib/WorldWeaver (popular set) patching the level before a fresh world has its level.dat
                    r"|Failed fixing Level-Data|There were Errors while fixing the Level|WorldPresetInfoRegistry: Registry not read"
-                   r"|NoSuchFileException: \S*world\S*level\.dat")
+                   r"|NoSuchFileException: \S*world\S*level\.dat"
+                   # Distant Horizons x BetterEnd (popular set): BetterEnd's mixin on BiomeColors.getAverageWaterColor
+                   # asks DH's tint-only level for a block state while DH colours far-away vanilla water
+                   r"|getBlockState\(\) called on TintWithoutLevelOverrider"
+                   r"|Failed to get block color for block: \[Block\{minecraft:"
+                   # Distant Horizons generating far structures: a painting/item frame of a structure placed
+                   # without its wall (vanilla's check, on DH's own world-gen thread)
+                   r"|\[DH-World Gen Thread\[\d+\]/ERROR\]: Block-attached entity at invalid position")
 
 
 def scan_log(path):

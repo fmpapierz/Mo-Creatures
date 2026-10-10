@@ -184,9 +184,11 @@ def run(run_dir, log, prefix='client', watch=None, insects=True):
     pause(1)
     ridden = rearing = hurts = 0
     shot = 0
-    end = time.time() + 30
+    # until enough ridden samples and hurts are in (a loaded machine or a heavy mod set runs the game slower, and the
+    # horse keeps throwing the rider), at most 60 s
+    end = time.time() + 60
     next_hurt = time.time() + 2
-    while time.time() < end:
+    while time.time() < end and not (ridden >= 15 and hurts >= 5):
         mark = size(log)
         send('vehicle getRearing')
         pause(0.5)
