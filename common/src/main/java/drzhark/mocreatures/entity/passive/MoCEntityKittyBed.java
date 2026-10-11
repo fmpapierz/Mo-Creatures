@@ -277,6 +277,7 @@ public class MoCEntityKittyBed extends MoCAnimal {
                 }
                 this.playSound(SoundEvents.ITEM_PICKUP, 0.2F,
                         ((this.random.nextFloat() - this.random.nextFloat()) * 0.7F + 1.0F) * 2.0F);
+                breakEffects((ServerLevel) this.level());
                 this.discard();
             }
             return InteractionResult.SUCCESS;
@@ -418,9 +419,23 @@ public class MoCEntityKittyBed extends MoCAnimal {
             }
             this.playSound(SoundEvents.ITEM_PICKUP, 0.2F,
                     ((this.random.nextFloat() - this.random.nextFloat()) * 0.7F + 1.0F) * 2.0F);
+            breakEffects(serverLevel);
             this.discard();
         }
         return true;
+    }
+
+    /**
+     * Breaking the bed looks and sounds like breaking a block: a burst of break particles of the bed's own item
+     * (so they carry its sheet colour) and the wood break sound.
+     */
+    private void breakEffects(ServerLevel level) {
+        level.sendParticles(new net.minecraft.core.particles.ItemParticleOption(
+                        net.minecraft.core.particles.ParticleTypes.ITEM, bedItemForColour(getSheetColour())),
+                getX(), getY() + 0.2D, getZ(), 24, 0.3D, 0.12D, 0.3D, 0.06D);
+        level.playSound(null, getX(), getY(), getZ(),
+                net.minecraft.world.level.block.SoundType.WOOD.getBreakSound(), net.minecraft.sounds.SoundSource.BLOCKS,
+                1.0F, 0.8F + this.random.nextFloat() * 0.2F);
     }
 
     // ------------------------------------------------------------------------------ push behaviour

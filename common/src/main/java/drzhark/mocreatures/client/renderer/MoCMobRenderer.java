@@ -242,10 +242,30 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
             state.kittySitting = kitty.isSitting();
             state.kittyState = kitty.getKittyState();
             state.kittyTamed = kitty.getIsTamed();
+            if (kitty.isRotationLocked()) {
+                // Lying in its bed or asleep: drawn exactly at its seat, head straight and still (the server
+                // pins the same rotations; drawing them here keeps interpolation and look jitter out of it).
+                state.bodyRot = kitty.getSeatYaw();
+                state.yRot = 0.0F;
+                state.xRot = 0.0F;
+            }
+            state.kittyEmoticon = kittyEmoticon(kitty, state);
+            state.kittySleepZ = kitty.getKittyState() == drzhark.mocreatures.entity.passive.MoCEntityKitty.STATE_SLEEPING
+                    && !kitty.isBeingCarried();
+            if (state.kittySleepZ) {
+                // the head: a little ahead of the feet, the way the sleeper faces, and up at curled-up head height
+                float yaw = kitty.getSeatYaw() * net.minecraft.util.Mth.DEG_TO_RAD;
+                float size = kitty.getIsAdult() ? 1.0F : 0.6F;
+                state.kittyHeadX = -net.minecraft.util.Mth.sin(yaw) * 0.3F * size;
+                state.kittyHeadZ = net.minecraft.util.Mth.cos(yaw) * 0.3F * size;
+                state.kittyHeadY = 0.5F * size;
+            }
         } else {
             state.kittySitting = false;
             state.kittyState = 0;
             state.kittyTamed = false;
+            state.kittyEmoticon = null;
+            state.kittySleepZ = false;
         }
         state.attackSwing = entity.getAttackAnim(partialTick); // 0..1 melee swing progress for attack-lunge poses
         // Manticore, both forms (wild monster + tameable pet, via the shared IMoCManticore contract): wing
@@ -263,6 +283,112 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
         state.wingOpen = easeWingOpen(entity, state.flying || state.manticoreAirborne, partialTick);
         state.birdWingFlap = entity instanceof drzhark.mocreatures.entity.passive.MoCEntityBird flapper
                 ? flapper.getWingFlap(partialTick) : 0.0F;
+    }
+
+    /** Legacy MoCRenderKitty drew the mood face only within 12 blocks. */
+    private static final double EMOTICON_RANGE_SQ = 12.0D * 12.0D;
+    /** The floating mood face: half a block across, its centre this far above the top of the kitty. */
+    private static final float EMOTICON_HALF = 0.25F;
+    private static final float EMOTICON_LIFT = 0.45F;
+
+    /**
+     * The mood face a tamed kitty shows above its head (legacy MoCRenderKitty, {@code displayPetIcons}): hungry,
+     * playing or eating. Asleep it shows rising "z"s instead (MoCEntityKitty.tick), and a carried kitty none.
+     * Legacy also required a pet name and drew nothing on a kitty in its bed; the port shows it for every tamed
+     * kitty, in a bed too.
+     */
+    private static Identifier kittyEmoticon(drzhark.mocreatures.entity.passive.MoCEntityKitty kitty,
+            MoCEntityRenderState state) {
+        if (!drzhark.mocreatures.config.MoCConfig.get().displayPetIcons || !kitty.getIsTamed()
+                || kitty.isBeingCarried() || state.distanceToCameraSq > EMOTICON_RANGE_SQ) {
+            return null;
+        }
+        int mood = kitty.getKittyState();
+        return mood == drzhark.mocreatures.entity.passive.MoCEntityKitty.STATE_HUNGRY
+                || mood == drzhark.mocreatures.entity.passive.MoCEntityKitty.STATE_PLAYING
+                || mood == drzhark.mocreatures.entity.passive.MoCEntityKitty.STATE_EATING
+                ? kitty.getEmoticonTexture() : null;
+    }
+
+    @Override
+    public void submit(MoCEntityRenderState state, com.mojang.blaze3d.vertex.PoseStack poseStack,
+            net.minecraft.client.renderer.SubmitNodeCollector collector,
+            net.minecraft.client.renderer.state.level.CameraRenderState camera) {
+        super.submit(state, poseStack, collector, camera);
+        if (state.kittyEmoticon != null) {
+            // A camera-facing quad above the head, full-bright so it reads at night (DragonFireballRenderer's quad)
+            poseStack.pushPose();
+            poseStack.translate(0.0F, state.boundingBoxHeight + EMOTICON_LIFT, 0.0F);
+            poseStack.mulPose(camera.orientation);
+            collector.submitCustomGeometry(poseStack,
+                    net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(state.kittyEmoticon),
+                    (pose, buffer) -> {
+                        emoticonVertex(buffer, pose, -EMOTICON_HALF, -EMOTICON_HALF, 0.0F, 1.0F);
+                        emoticonVertex(buffer, pose, EMOTICON_HALF, -EMOTICON_HALF, 1.0F, 1.0F);
+                        emoticonVertex(buffer, pose, EMOTICON_HALF, EMOTICON_HALF, 1.0F, 0.0F);
+                        emoticonVertex(buffer, pose, -EMOTICON_HALF, EMOTICON_HALF, 0.0F, 0.0F);
+                    });
+            poseStack.popPose();
+        }
+        if (state.kittySleepZ) {
+            submitSleepZ(state, poseStack, collector, camera);
+        }
+    }
+
+    private static final Identifier SLEEP_Z =
+            Identifier.fromNamespaceAndPath(drzhark.mocreatures.MoCreatures.MOD_ID, "textures/misc/sleep_z.png");
+    /** One "z" rises for this many ticks; a second one follows half a cycle behind. */
+    private static final float SLEEP_Z_CYCLE = 60.0F;
+
+    /**
+     * A sleeping kitty's "z z": two small pale-blue letters taking turns to float up from its head, each rising
+     * about two-thirds of a block over 3 s, swaying a little, growing as it rises and fading out over its second
+     * half. Timed by the kitty's own age, so every sleeper breathes at its own pace and the letters stop while
+     * the game is paused.
+     */
+    private static void submitSleepZ(MoCEntityRenderState state, com.mojang.blaze3d.vertex.PoseStack poseStack,
+            net.minecraft.client.renderer.SubmitNodeCollector collector,
+            net.minecraft.client.renderer.state.level.CameraRenderState camera) {
+        for (int i = 0; i < 2; i++) {
+            float t = ((state.ageInTicks + i * SLEEP_Z_CYCLE / 2.0F) % SLEEP_Z_CYCLE) / SLEEP_Z_CYCLE;
+            float alpha = t < 0.1F ? t / 0.1F : t < 0.5F ? 1.0F : 1.0F - (t - 0.5F) / 0.5F;
+            float half = 0.05F * (1.0F + 0.7F * t);
+            float sway = net.minecraft.util.Mth.sin(t * (float) (Math.PI * 2.0D)) * 0.06F;
+            int color = net.minecraft.util.ARGB.colorFromFloat(alpha, 0.86F, 0.92F, 1.0F);
+            poseStack.pushPose();
+            poseStack.translate(state.kittyHeadX, state.kittyHeadY + 0.15F + t * 0.65F, state.kittyHeadZ);
+            poseStack.mulPose(camera.orientation);
+            poseStack.translate(sway + 0.08F * i, 0.0F, 0.0F);
+            collector.submitCustomGeometry(poseStack,
+                    net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(SLEEP_Z),
+                    (pose, buffer) -> {
+                        sleepVertex(buffer, pose, -half, -half, 0.0F, 1.0F, color);
+                        sleepVertex(buffer, pose, half, -half, 1.0F, 1.0F, color);
+                        sleepVertex(buffer, pose, half, half, 1.0F, 0.0F, color);
+                        sleepVertex(buffer, pose, -half, half, 0.0F, 0.0F, color);
+                    });
+            poseStack.popPose();
+        }
+    }
+
+    private static void sleepVertex(com.mojang.blaze3d.vertex.VertexConsumer buffer,
+            com.mojang.blaze3d.vertex.PoseStack.Pose pose, float x, float y, float u, float v, int color) {
+        buffer.addVertex(pose, x, y, 0.0F)
+                .setColor(color)
+                .setUv(u, v)
+                .setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY)
+                .setLight(net.minecraft.util.LightCoordsUtil.FULL_BRIGHT)
+                .setNormal(pose, 0.0F, 1.0F, 0.0F);
+    }
+
+    private static void emoticonVertex(com.mojang.blaze3d.vertex.VertexConsumer buffer,
+            com.mojang.blaze3d.vertex.PoseStack.Pose pose, float x, float y, float u, float v) {
+        buffer.addVertex(pose, x, y, 0.0F)
+                .setColor(-1)
+                .setUv(u, v)
+                .setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY)
+                .setLight(net.minecraft.util.LightCoordsUtil.FULL_BRIGHT)
+                .setNormal(pose, 0.0F, 1.0F, 0.0F);
     }
 
     /** Ticks for spread wings to fold down once a flyer lands (0.6 s), and to spread again on take-off. */

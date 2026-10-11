@@ -11,6 +11,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
@@ -74,6 +75,12 @@ public class MoCEntityKitty extends MoCAnimal {
 
     private static final EntityDataAccessor<Integer> KITTY_STATE =
             SynchedEntityData.defineId(MoCEntityKitty.class, EntityDataSerializers.INT);
+    /**
+     * The yaw a kitty holds while it lies in a bed or sleeps: chosen once when it climbs in (the bed's open side
+     * +/- 45 degrees) or lies down on the floor (the way it faced), synced so the client draws it exactly there.
+     */
+    private static final EntityDataAccessor<Float> SEAT_YAW =
+            SynchedEntityData.defineId(MoCEntityKitty.class, EntityDataSerializers.FLOAT);
 
     /** Server-side hunger accumulator; persisted so a reloaded kitty does not forget it is peckish. */
     private int hungerCounter;
@@ -92,6 +99,10 @@ public class MoCEntityKitty extends MoCAnimal {
     private final java.util.Set<java.util.UUID> unreachableBeds = new java.util.HashSet<>();
     /** 30 s: a bed within {@link #FURNITURE_RANGE} is a few seconds' walk, so this only trips on a bed out of reach. */
     private static final int BED_WALK_LIMIT = 600;
+    /** Whether {@link #SEAT_YAW} was chosen for the bed this kitty is in (cleared when it leaves). */
+    private boolean seatChosen;
+    /** How far either way of facing out of the bed's open side a kitty may settle, in degrees. */
+    private static final float SEAT_SPREAD = 45.0F;
 
     public MoCEntityKitty(EntityType<? extends MoCEntityKitty> type, Level level) {
         super(type, level);
@@ -158,10 +169,73 @@ public class MoCEntityKitty extends MoCAnimal {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(KITTY_STATE, STATE_CALM);
+        builder.define(SEAT_YAW, 0.0F);
     }
 
     public int getKittyState() {
         return this.entityData.get(KITTY_STATE);
+    }
+
+    public float getSeatYaw() {
+        return this.entityData.get(SEAT_YAW);
+    }
+
+    private void setSeatYaw(float yaw) {
+        this.entityData.set(SEAT_YAW, Mth.wrapDegrees(yaw));
+    }
+
+    /**
+     * A kitty lying in a kitty bed (eating or asleep) or asleep on the floor holds still: no turning, no head
+     * movement, at {@link #getSeatYaw}. Read on both sides: the server pins the rotations, the renderer draws them.
+     */
+    public boolean isRotationLocked() {
+        int state = getKittyState();
+        if (state == STATE_HELD_UPSIDE_DOWN || state == STATE_ON_SHOULDER) {
+            return false;
+        }
+        return state == STATE_SLEEPING || this.getVehicle() instanceof MoCEntityKittyBed;
+    }
+
+    /**
+     * The first tick in a bed picks the seat: facing out of the bed's open side (the bowl side, the model's -X,
+     * which faces world (-cos yaw, -sin yaw), i.e. bed yaw + 90; see MoCFurnitureItem.faceTowardPlacer), turned
+     * up to {@link #SEAT_SPREAD} either way.
+     */
+    private void chooseSeat() {
+        if (this.getVehicle() instanceof MoCEntityKittyBed bed) {
+            if (!seatChosen) {
+                setSeatYaw(bed.getYRot() + 90.0F + (getRandom().nextFloat() * 2.0F - 1.0F) * SEAT_SPREAD);
+                seatChosen = true;
+            }
+        } else {
+            seatChosen = false;
+        }
+    }
+
+    /** Holds a locked kitty at its seat yaw, head straight and level (the look goals are off, see below). */
+    private void holdSeat() {
+        if (!isRotationLocked()) {
+            return;
+        }
+        float yaw = getSeatYaw();
+        setYRot(yaw);
+        this.yRotO = yaw;
+        setXRot(0.0F);
+        this.xRotO = 0.0F;
+        setYHeadRot(yaw);
+        setYBodyRot(yaw);
+        getNavigation().stop();
+    }
+
+    /** No goal may turn the head or walk a kitty lying in its bed or asleep. */
+    @Override
+    protected void updateControlFlags() {
+        super.updateControlFlags();
+        if (isRotationLocked()) {
+            this.goalSelector.setControlFlag(net.minecraft.world.entity.ai.goal.Goal.Flag.LOOK, false);
+            this.goalSelector.setControlFlag(net.minecraft.world.entity.ai.goal.Goal.Flag.MOVE, false);
+            this.goalSelector.setControlFlag(net.minecraft.world.entity.ai.goal.Goal.Flag.JUMP, false);
+        }
     }
 
     public void setKittyState(int state) {
@@ -265,9 +339,14 @@ public class MoCEntityKitty extends MoCAnimal {
             // Legacy states 12/18 (content/sleeping) emitted 'kittypurr'; purr as the kitty settles to sleep.
             if (newState == STATE_SLEEPING) {
                 this.playSound(MoCSounds.KITTYPURR.get(), 1.0F, getRandom().nextFloat() * 0.2F + 0.9F);
+                if (!(this.getVehicle() instanceof MoCEntityKittyBed)) {
+                    setSeatYaw(this.yBodyRot); // curls up on the floor facing the way it stood
+                }
             }
             setKittyState(newState);
         }
+        chooseSeat();
+        holdSeat();
     }
 
     /**
@@ -364,9 +443,19 @@ public class MoCEntityKitty extends MoCAnimal {
                 }
                 return STATE_EATING;
             }
-            // Bowl licked clean (legacy :716-720): fed and healed, out of the bed.
+            // Bowl licked clean (legacy :716-720): fed and healed.
             hungerCounter = 0;
             heal(getMaxHealth());
+            if (!level.isBrightOutside()) {
+                // At night it stays in the bed it ate in and goes to sleep there (it used to climb out, and
+                // then often failed to settle again).
+                wantsToSleep = true;
+                if (!isSitting()) {
+                    setSitting(true);
+                }
+                return STATE_SLEEPING;
+            }
+            // By day, out of the bed.
             this.stopRiding();
             setSitting(false);
             targetBed = null;
@@ -731,6 +820,7 @@ public class MoCEntityKitty extends MoCAnimal {
         output.putInt("KittyState", getKittyState());
         output.putInt("KittyHunger", hungerCounter);
         output.putInt("KittyLitter", litterCounter);
+        output.putFloat("KittySeatYaw", getSeatYaw());
     }
 
     @Override
@@ -741,6 +831,9 @@ public class MoCEntityKitty extends MoCAnimal {
         wantsToSleep = getKittyState() == STATE_SLEEPING;
         hungerCounter = input.getIntOr("KittyHunger", 0);
         litterCounter = input.getIntOr("KittyLitter", 0);
+        // A kitty saved lying in its bed (or asleep) keeps the seat it had; the bed is re-mounted with it.
+        setSeatYaw(input.getFloatOr("KittySeatYaw", getYRot()));
+        seatChosen = getKittyState() == STATE_SLEEPING || getKittyState() == STATE_EATING;
     }
 
     // ------------------------------------------------------------------------------------ visuals
@@ -771,16 +864,19 @@ public class MoCEntityKitty extends MoCAnimal {
 
     @Override
     public Identifier getTexture() {
-        return switch (getTypeMoC()) {
-            case 2 -> modelTexture("pussycatb.png");
-            case 3 -> modelTexture("pussycatc.png");
-            case 4 -> modelTexture("pussycatd.png");
-            case 5 -> modelTexture("pussycate.png");
-            case 6 -> modelTexture("pussycatf.png");
-            case 7 -> modelTexture("pussycatg.png");
-            case 8 -> modelTexture("pussycath.png");
-            default -> modelTexture("pussycata.png");
+        String coat = switch (getTypeMoC()) {
+            case 2 -> "b";
+            case 3 -> "c";
+            case 4 -> "d";
+            case 5 -> "e";
+            case 6 -> "f";
+            case 7 -> "g";
+            case 8 -> "h";
+            default -> "a";
         };
+        // Asleep, the eyes are closed: pussycat<coat>_sleep.png is the same coat with each eye (one dark texel)
+        // drawn as a short shut line.
+        return modelTexture("pussycat" + coat + (getKittyState() == STATE_SLEEPING ? "_sleep.png" : ".png"));
     }
 
     /**

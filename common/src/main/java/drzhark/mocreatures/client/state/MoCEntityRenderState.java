@@ -130,6 +130,13 @@ public class MoCEntityRenderState extends LivingEntityRenderState {
     public boolean kittySitting;
     public int kittyState;
     public boolean kittyTamed;
+    /** The kitty's mood icon to float above its head (hungry, playing, eating), or null for none. */
+    public Identifier kittyEmoticon;
+    /** A sleeping kitty draws rising "z"s from its head, which sits at this offset from its feet (blocks). */
+    public boolean kittySleepZ;
+    public float kittyHeadX;
+    public float kittyHeadY;
+    public float kittyHeadZ;
     /**
      * Per-cube block render states for the golem's per-block cube rendering: index {@code i} holds the
      * moving-block state for cube {@code i}, or {@code null} for an empty cube. Built each frame from the
