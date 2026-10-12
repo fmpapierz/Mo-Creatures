@@ -190,6 +190,12 @@ def send(run_dir, lines):
 def prepare(run_dir, loader=None):
     build_agent()
     seed_options(run_dir)
+    # Commands left in the inbox by an earlier client that died before reading them (a 'quit' sent after a failed
+    # launch) would be the next client's first commands: it quit at once on 2026-10-12. Start with an empty inbox.
+    inbox = os.path.join(run_dir, 'testclient', 'inbox')
+    if os.path.isdir(inbox):
+        for stale in os.listdir(inbox):
+            os.remove(os.path.join(inbox, stale))
     if loader in ('forge', 'neoforge'):
         disable_early_window(run_dir)
     saves = os.path.join(run_dir, 'saves')

@@ -6,6 +6,7 @@ import drzhark.mocreatures.neoforge.client.MoCLairSkyboxRenderer;
 import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.RegisterCustomEnvironmentEffectRendererEvent;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
@@ -17,10 +18,11 @@ public final class MoCreaturesNeoForge {
     /**
      * FML injects a subset of {@code (IEventBus, ModContainer, Dist)} into the {@code @Mod} constructor
      * (verified via {@code javap} of {@code FMLModContainer} — it matches these three types by
-     * parameter class). We take the mod event bus + the running {@link Dist} so the client-only sky
-     * hook can be registered on the MOD bus without pulling any client class onto the dedicated server.
+     * parameter class). We take the mod event bus, our container (for the Mods screen's Config button) and the
+     * running {@link Dist}, so the client-only hooks are registered without pulling any client class onto the
+     * dedicated server.
      */
-    public MoCreaturesNeoForge(IEventBus modBus, Dist dist) {
+    public MoCreaturesNeoForge(IEventBus modBus, ModContainer container, Dist dist) {
         MoCreatures.init();
 
         // Biome spawn lists: register the serializer for our BiomeModifier. The datapack entry that instantiates
@@ -31,6 +33,8 @@ public final class MoCreaturesNeoForge {
         if (dist.isClient()) {
             // Client-only: register the Lair skybox renderers (Wyvern twin suns, Ogre ember sun).
             modBus.addListener(RegisterCustomEnvironmentEffectRendererEvent.class, this::onRegisterSky);
+            // The Mods screen's Config button opens the settings screen.
+            drzhark.mocreatures.neoforge.client.MoCNeoForgeClient.registerConfigScreen(container);
         }
     }
 

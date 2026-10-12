@@ -1,0 +1,34 @@
+// The Quilt jar. Quilt Loader runs Fabric mods through its Fabric compatibility layer, and Quilt's own standard
+// libraries stopped at 1.21 (Quilt Loom was never updated for 26.x), so Mo'Creatures runs on Quilt with the same
+// code as on Fabric, on Fabric API and Architectury API's Fabric build. The Quilt jar is therefore the Fabric release
+// jar with a quilt.mod.json in place of fabric.mod.json: Quilt Loader then reads Quilt's own metadata, with Quilt's
+// version syntax (one operator per string; see the version-range rule).
+
+tasks.named('jar') { enabled = false }
+tasks.named('sourcesJar') { enabled = false }
+
+def fabricJar = project(':fabric').tasks.named('shadowJar')
+
+def quiltMetadata = tasks.register('quiltMetadata', Copy) {
+    def props = [version: project.version, mod_id: mod_id, quilt_loader_version: quilt_loader_version,
+                 github_repo: 'https://github.com/' + github]
+    inputs.properties props
+    from('src/main/resources') { include 'quilt.mod.json' }
+    expand props
+    into layout.buildDirectory.dir('quilt-metadata')
+}
+
+def quiltJar = tasks.register('quiltJar', Jar) {
+    group = 'build'
+    description = 'The Fabric release jar with quilt.mod.json in place of fabric.mod.json'
+    dependsOn fabricJar
+    from(zipTree(fabricJar.flatMap { it.archiveFile })) {
+        exclude 'fabric.mod.json'
+        exclude 'META-INF/MANIFEST.MF'
+    }
+    from(quiltMetadata)
+    archiveFileName = "${mod_id}-quilt-${project.version}.jar"
+    destinationDirectory = layout.buildDirectory.dir('libs')
+}
+
+tasks.named('assemble') { dependsOn quiltJar }

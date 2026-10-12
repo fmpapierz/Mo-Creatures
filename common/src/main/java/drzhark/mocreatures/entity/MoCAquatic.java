@@ -241,6 +241,13 @@ public abstract class MoCAquatic extends WaterAnimal implements IMoCEntity {
         this.entityData.set(TAMED, tamed);
     }
 
+    /** Natural spawns stop at once for a creature switched off in the config (MoCSpawns.naturalSpawnAllowed). */
+    @Override
+    public boolean checkSpawnRules(net.minecraft.world.level.LevelAccessor level, EntitySpawnReason reason) {
+        return drzhark.mocreatures.registry.MoCSpawns.naturalSpawnAllowed(this.getType(), reason)
+                && super.checkSpawnRules(level, reason);
+    }
+
     /**
      * Legacy {@code MoCEntityAquatic.canDespawn() == !getIsTamed()}. Vanilla {@link WaterAnimal} inherits
      * {@code Mob.removeWhenFarAway == true}, so without this a tamed dolphin (or a fishy released from a

@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "drzhark.mocreatures.forge.mixin",
+  "mixins": [
+    "FishingHookMixin"
+  ],
+  "client": [
+    "HumanoidModelMixin",
+    "SkyRendererMixin",
+    "WorldOpenFlowsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

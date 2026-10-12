@@ -39,6 +39,9 @@ public final class MoCConfig {
     /** The active singleton. Written once by {@link #load()}; lazily defaulted by {@link #get()}. */
     private static volatile MoCConfig INSTANCE;
 
+    /** When the file was last read or written by the mod ({@link #reloadIfChanged()}); null before that. */
+    private static java.nio.file.attribute.@org.jspecify.annotations.Nullable FileTime fileStamp;
+
     // ------------------------------------------------------------------------------------------
     // General / behaviour toggles (booleans)
     //   Defaults follow the port contract in the flag list; where that diverges from the legacy
@@ -150,6 +153,18 @@ public final class MoCConfig {
     public int maxMobs;
     /** Cap on wild Mo'Creatures water mobs per dimension (MoCMobCap trims the excess; they respawn). Default 30. */
     public int maxWaterMobs;
+    /**
+     * Where Mo'Creatures sea life (fish, sharks, rays, jellyfish, dolphins) spawns. {@code own} (the default): in a
+     * pool of its own, outside vanilla's spawn lists and mob caps, spawned by {@code MoCAquaticSpawner} around each
+     * player up to {@link #aquaticsPerPlayer}, so it never takes spawns from vanilla's or other mods' sea mobs (a
+     * player report, 2026-10-12: in an ocean the fish alone were 74% of the sea-creature pool, whose cap of 5 they
+     * filled). {@code vanilla}: in vanilla's pools, the fish with vanilla's fish (water_ambient), sharks, rays,
+     * jellyfish and dolphins with the sea creatures (water_creature), at the spawn.<id> weights. Read at start-up
+     * ({@code MoCSpawns.aquaticsInOwnPool}): a change applies after a restart.
+     */
+    public String aquaticPool;
+    /** Own pool: the most wild Mo'Creatures sea creatures within 64 blocks of each player. Default 10. */
+    public int aquaticsPerPlayer;
     /** Max tamed creatures a normal player may own. Legacy maxTamedPerPlayer: 10 (flag list suggested 5). */
     public int maxTamed;
     /** Max tamed creatures an op may own. Legacy maxTamedPerOP: 20. */
@@ -332,6 +347,9 @@ public final class MoCConfig {
         // Its maxAnimals and maxAmbient are gone: see the note on the fields.
         this.maxMobs             = getInt(p, "maxMobs", 70);
         this.maxWaterMobs        = getInt(p, "maxWaterMobs", 30);
+        this.aquaticPool         = "vanilla".equalsIgnoreCase(p.getProperty("aquaticPool", "own").trim())
+                ? "vanilla" : "own";
+        this.aquaticsPerPlayer   = getInt(p, "aquaticsPerPlayer", 10);
         this.maxTamed            = getInt(p, "maxTamed", 10);
         this.maxOPTamed          = getInt(p, "maxOPTamed", 20);
     }
@@ -378,12 +396,15 @@ public final class MoCConfig {
                 try (InputStream in = Files.newInputStream(file)) {
                     p.load(in);
                 }
+                fileStamp = Files.getLastModifiedTime(file);
+                checkCreatureKeys(p);
             } else {
                 // First run: build defaults, expose them, then persist a documented file.
                 // writeTo emits the instance's current values, which here are exactly the defaults.
                 MoCConfig defaults = new MoCConfig(p);
                 INSTANCE = defaults;
                 defaults.writeTo(file);
+                fileStamp = Files.getLastModifiedTime(file);
                 MoCreatures.LOGGER.info("Mo'Creatures: wrote default config to {}", file);
                 return;
             }
@@ -392,6 +413,73 @@ public final class MoCConfig {
             p = new Properties();
         }
         INSTANCE = new MoCConfig(p);
+    }
+
+    /**
+     * Reads the file again if it changed on disk since the mod last read or wrote it. Called before the biome
+     * spawn lists are built ({@code MoCSpawns.addBiomeSpawns}, on every world load), so a hand edit made while
+     * the game runs takes effect at the next world load instead of needing a restart. Until 2026-10-12 the file
+     * was read once at start-up, and the next save from {@code /moc} or the settings screen wrote the old values
+     * back over the edit (a player report: "I tried doing it using the config file but it didn't work").
+     */
+    public static synchronized void reloadIfChanged() {
+        try {
+            Path file = Platform.getConfigFolder().resolve(FILE_NAME);
+            if (fileStamp != null && Files.exists(file) && !Files.getLastModifiedTime(file).equals(fileStamp)) {
+                MoCreatures.LOGGER.info("Mo'Creatures: {} changed on disk, reading it again", FILE_NAME);
+                load();
+            }
+        } catch (Exception e) {
+            MoCreatures.LOGGER.warn("Mo'Creatures: could not check {} for changes", FILE_NAME, e);
+        }
+    }
+
+    /**
+     * Lowercases the per-creature keys ({@code spawn.<id>.<field>}, {@code biomegroup.<id>}; ids are registry
+     * paths, always lowercase) and logs every key that names no creature or field, with the valid ids, so a typo
+     * or a 12.0.5 species name (anchovy, manta ray, green ogre...) is not silently ignored.
+     */
+    private static void checkCreatureKeys(Properties p) {
+        java.util.List<String> unknown = new java.util.ArrayList<>();
+        for (String key : new java.util.ArrayList<>(p.stringPropertyNames())) {
+            String lower = key.toLowerCase(java.util.Locale.ROOT);
+            String id;
+            if (lower.startsWith("spawn.")) {
+                int dot = lower.lastIndexOf('.');
+                id = dot > 6 ? lower.substring(6, dot) : "";
+                String field = lower.substring(dot + 1);
+                if (!field.equals("frequency") && !field.equals("min") && !field.equals("max")
+                        && !field.equals("enabled")) {
+                    id = "";
+                }
+            } else if (lower.startsWith("biomegroup.")) {
+                id = lower.substring("biomegroup.".length());
+            } else {
+                continue;
+            }
+            if (!key.equals(lower)) {
+                p.setProperty(lower, p.getProperty(key));
+                p.remove(key);
+            }
+            if (!DEFAULT_SPAWNS.containsKey(id)) {
+                unknown.add(key);
+            }
+        }
+        if (!unknown.isEmpty()) {
+            MoCreatures.LOGGER.warn("Mo'Creatures: {} has keys for no known creature, ignored: {}. Keys are "
+                    + "spawn.<id>.enabled|frequency|min|max and biomegroup.<id>, with <id> one of: {}", FILE_NAME,
+                    String.join(", ", unknown), creatureIds());
+        }
+    }
+
+    /** The ids of every creature that spawns naturally, for the file's comment and the warning above. */
+    private static String creatureIds() {
+        return String.join(", ", naturalCreatureIds());
+    }
+
+    /** Every creature that spawns naturally (the Creatures page of the settings screen lists them), sorted. */
+    public static java.util.SortedSet<String> naturalCreatureIds() {
+        return new java.util.TreeSet<>(DEFAULT_SPAWNS.keySet());
     }
 
     // ------------------------------------------------------------------------------------------
@@ -443,6 +531,9 @@ public final class MoCConfig {
      */
     private java.util.List<SpawnSub> spawnSubs(String entityId, java.util.Set<String> biomeTypes) {
         String id = entityId == null ? "" : entityId.toLowerCase(java.util.Locale.ROOT);
+        if (!spawnEnabled(id)) {
+            return java.util.List.of();
+        }
         java.util.List<SpawnSub> subs = DEFAULT_SPAWNS.getOrDefault(id, java.util.List.of(FALLBACK_SPAWN));
         java.util.List<SpawnSub> listed = new java.util.ArrayList<>();
         for (SpawnSub s : subs) {
@@ -489,6 +580,44 @@ public final class MoCConfig {
         }
         props.setProperty("spawn." + entityId.toLowerCase(java.util.Locale.ROOT) + "." + suffix,
                 String.valueOf(value));
+    }
+
+    /** Drops a {@code spawn.<id>.<suffix>} override, back to the 12.0.5 default. Call {@link #save()} to persist. */
+    public void clearSpawnValue(String entityId, String suffix) {
+        props.remove("spawn." + entityId.toLowerCase(java.util.Locale.ROOT) + "." + suffix);
+    }
+
+    /** A {@code spawn.<id>.<suffix>} override, or null where the 12.0.5 default applies. */
+    public java.lang.@org.jspecify.annotations.Nullable Integer spawnOverride(String entityId, String suffix) {
+        String v = props.getProperty("spawn." + entityId.toLowerCase(java.util.Locale.ROOT) + "." + suffix);
+        if (v == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a creature spawns naturally at all: {@code spawn.<id>.enabled}, true unless set to false (the
+     * Creatures page's switches). Off takes it out of the spawn lists at the next world load and stops its natural
+     * spawns at once ({@code MoCSpawns.naturalSpawnAllowed}); spawn eggs, spawners and breeding still work.
+     */
+    public boolean spawnEnabled(String entityId) {
+        String v = props.getProperty("spawn." + entityId.toLowerCase(java.util.Locale.ROOT) + ".enabled");
+        return v == null || !v.trim().equalsIgnoreCase("false");
+    }
+
+    /** Switches a creature's natural spawning on or off. Call {@link #save()} to persist. */
+    public void setSpawnEnabled(String entityId, boolean enabled) {
+        String key = "spawn." + entityId.toLowerCase(java.util.Locale.ROOT) + ".enabled";
+        if (enabled) {
+            props.remove(key);
+        } else {
+            props.setProperty(key, "false");
+        }
     }
 
     // ---- Per-entity biome restriction (12.0.5's per-species biome-type lists) -----------------------------
@@ -644,6 +773,7 @@ public final class MoCConfig {
         try {
             Path file = Platform.getConfigFolder().resolve(FILE_NAME);
             writeTo(file);
+            fileStamp = Files.getLastModifiedTime(file);
             MoCreatures.LOGGER.info("Mo'Creatures: saved config to {}", file);
         } catch (Exception e) {
             MoCreatures.LOGGER.warn("Mo'Creatures: failed to save {}", FILE_NAME, e);
@@ -707,6 +837,7 @@ public final class MoCConfig {
             case "monstereggdropchance": this.monsterEggDropChance = (int) Math.round(value); return true;
             case "maxmobs":              this.maxMobs = (int) Math.round(value);       return true;
             case "maxwatermobs":         this.maxWaterMobs = (int) Math.round(value);  return true;
+            case "aquaticsperplayer":    this.aquaticsPerPlayer = (int) Math.round(value); return true;
             case "maxtamed":             this.maxTamed = (int) Math.round(value);      return true;
             case "maxoptamed":           this.maxOPTamed = (int) Math.round(value);    return true;
             default:                     return false;
@@ -781,17 +912,29 @@ public final class MoCConfig {
         line(sb, "maxOPTamed", this.maxOPTamed);
         sb.append('\n');
 
-        sb.append("# --- Per-entity spawn tuning (optional) ---\n");
-        sb.append("# Uncomment and edit to override the default spawn weight / pack size for an\n");
-        sb.append("# entity. Key form: spawn.<id>.frequency, spawn.<id>.min, spawn.<id>.max\n");
-        sb.append("# where <id> is the lowercase entity id (e.g. elephant, shark, ogre).\n");
+        sb.append("# --- Sea life (fish, sharks, rays, jellyfish, dolphins) ---\n");
+        sb.append("# aquaticPool=own: a spawn pool of their own, outside vanilla's spawn lists and caps, so they never\n");
+        sb.append("# take spawns from vanilla or other mods; aquaticsPerPlayer is how many live around each player.\n");
+        sb.append("# aquaticPool=vanilla: in vanilla's pools (fish with vanilla's fish, the rest with the sea\n");
+        sb.append("# creatures). Changing the pool needs a restart.\n");
+        line(sb, "aquaticPool", this.aquaticPool);
+        line(sb, "aquaticsPerPlayer", this.aquaticsPerPlayer);
+        sb.append('\n');
+
+        sb.append("# --- Per-creature spawning (optional) ---\n");
+        sb.append("# spawn.<id>.enabled=false turns a creature's natural spawning off. spawn.<id>.frequency sets its\n");
+        sb.append("# spawn weight in every biome it spawns in; spawn.<id>.min / spawn.<id>.max set the group size, and\n");
+        sb.append("# biomegroup.<id> the biome types it spawns in (a comma list; /moc list biomegroups).\n");
+        sb.append("# Edits take effect at the next world load or server start. The ids:\n");
+        sb.append("# ").append(creatureIds()).append('\n');
         sb.append("# Defaults: Mo'Creatures 12.0.5's own per-species weights and pack sizes (e.g. bird 15,\n");
         sb.append("# horse 8, elephant 4, golem 3); a merged species such as the bear sums the subspecies\n");
         sb.append("# 12.0.5 had in each biome. An override here applies in every biome.\n");
-        // Round-trip any spawn.* overrides currently in the backing store so save() preserves them.
+        // Round-trip the spawn.* and biomegroup.* overrides in the backing store so save() keeps them (until
+        // 2026-10-12 it dropped every biomegroup.* line, including the ones /moc biomegroup had just set).
         boolean wroteOverride = false;
         for (String key : new java.util.TreeSet<>(this.props.stringPropertyNames())) {
-            if (key.startsWith("spawn.")) {
+            if (key.startsWith("spawn.") || key.startsWith("biomegroup.")) {
                 line(sb, key, this.props.getProperty(key));
                 wroteOverride = true;
             }

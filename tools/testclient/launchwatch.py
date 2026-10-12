@@ -28,7 +28,13 @@ FATAL = re.compile(
     r'|Encountered an unexpected exception|---- Minecraft Crash Report ----|This crash report has been saved to'
     r'|#@!@# Game crashed!|Exception in thread "main"|Could not find or load main class'
     r'|UnsupportedClassVersionError|Error occurred during initialization of VM'
-    r'|\[testclient\] ERROR SCREEN')
+    r'|\[testclient\] ERROR SCREEN'
+    # a server whose data packs fail stops loading but its JVM stays up (seen on Forge 65 with a mod pack missing
+    # its pack.mcmeta), so the log line is the only sign
+    r'|Failed to load datapacks, can.t proceed with server load'
+    # no window: the graphics driver refused OpenGL and Vulkan (seen 2026-10-12 while the GPU was briefly gone);
+    # the game logs it and stops, but no heartbeat ever comes
+    r'|No supported graphics backend was found')
 
 
 def check(console_text, guard_log=None):
@@ -38,10 +44,13 @@ def check(console_text, guard_log=None):
         lines = console_text[start:].splitlines()[:12]
         return 'fatal launch error in the log: ' + ' | '.join(l.strip() for l in lines if l.strip())[:1500]
     if guard_log and os.path.exists(guard_log):
-        with open(guard_log, encoding='utf-8', errors='replace') as f:
-            for line in f:
-                if ' DIALOG PID ' in line:
-                    return 'error window on screen: ' + line.strip()
+        try:
+            with open(guard_log, encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if ' DIALOG PID ' in line:
+                        return 'error window on screen: ' + line.strip()
+        except PermissionError:
+            pass  # windowguard.ps1 is appending (Add-Content locks the file for that instant): read it next time
     return None
 
 

@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="${forge_version_range}"
+license="GPL-3.0-only"
+issueTrackerURL="${github_repo}/issues"
+
+[[mods]]
+modId="mocreatures"
+version="${version}"
+displayName="DrZhark's Mo'Creatures"
+authors="DrZhark, BloodShot, BlockDaddy"
+displayURL="http://www.mocreatures.org"
+description='''
+Mo'Creatures ported to Minecraft 26.2 (Forge build; no Architectury API needed).
+'''
+
+[[dependencies.mocreatures]]
+    modId="forge"
+    mandatory=true
+    versionRange="${forge_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.mocreatures]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

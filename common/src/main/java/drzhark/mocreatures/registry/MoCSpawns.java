@@ -19,6 +19,51 @@ public final class MoCSpawns {
 
     private MoCSpawns() {}
 
+    /** {@link #aquaticsInOwnPool()}, latched at its first call (EntityType registration). */
+    private static @Nullable Boolean ownAquaticPool;
+
+    /**
+     * Whether Mo'Creatures sea life spawns in its own pool ({@code aquaticPool=own}, the default) rather than in
+     * vanilla's. Read once, when the entity types register, because the pool is the types' mob category: in the
+     * own pool they register as MISC, which vanilla's spawner neither spawns nor counts against any mob cap, and
+     * {@code MoCAquaticSpawner} keeps them around players instead; in vanilla's pools they register as
+     * water_ambient (the fish, with vanilla's fish) or water_creature (the rest) and join the biome spawn lists.
+     * So switching the pool takes a restart; the settings screen says so.
+     */
+    public static boolean aquaticsInOwnPool() {
+        Boolean own = ownAquaticPool;
+        if (own == null) {
+            own = !"vanilla".equals(MoCConfig.get().aquaticPool);
+            ownAquaticPool = own;
+        }
+        return own;
+    }
+
+    /** The mob category a sea creature registers with: MISC in the own pool, else its vanilla pool. */
+    public static MobCategory aquaticCategory(MobCategory vanillaPool) {
+        return aquaticsInOwnPool() ? MobCategory.MISC : vanillaPool;
+    }
+
+    /** Mo'Creatures' sea life: the creatures {@code aquaticPool} applies to. */
+    public static final java.util.List<java.util.function.Supplier<? extends EntityType<?>>> AQUATICS = java.util.List.of(
+            MoCEntities.DOLPHIN, MoCEntities.FISHY, MoCEntities.JELLYFISH, MoCEntities.RAY, MoCEntities.SHARK,
+            MoCEntities.SMALL_FISH, MoCEntities.MEDIUM_FISH);
+
+    /**
+     * A creature switched off on the Creatures page ({@code spawn.<id>.enabled=false}) has no natural spawns from
+     * that moment on, although its entry stays in the biome spawn lists until the next world load. Checked by
+     * {@code checkSpawnRules} of every Mo'Creatures mob; only natural and world-generation spawns are refused.
+     */
+    public static boolean naturalSpawnAllowed(EntityType<?> type, net.minecraft.world.entity.EntitySpawnReason reason) {
+        if (reason != net.minecraft.world.entity.EntitySpawnReason.NATURAL
+                && reason != net.minecraft.world.entity.EntitySpawnReason.CHUNK_GENERATION) {
+            return true;
+        }
+        net.minecraft.resources.Identifier key = EntityType.getKey(type);
+        return !drzhark.mocreatures.MoCreatures.MOD_ID.equals(key.getNamespace())
+                || MoCConfig.get().spawnEnabled(key.getPath());
+    }
+
     public static void register() {
         SpawnPlacementsRegistry.register(MoCEntities.BUNNY, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
         SpawnPlacementsRegistry.register(MoCEntities.BEAR, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, MoCSpawns::checkMoCAnimalSpawnRules);
@@ -195,8 +240,9 @@ public final class MoCSpawns {
     /**
      * Every Mo'Creatures entity that spawns naturally, in 12.0.5's own pools: CREATURE animals; AMBIENT insects and
      * critters, which spawn around players all the time with the bats under the ambient cap (12.0.5's
-     * {@code MoCEntityAmbient.isCreatureType} counted them as AMBIENT); WATER_CREATURE aquatics; MONSTERs. Where
-     * each spawns and how often comes from its 12.0.5 biome-type list and weights in {@link MoCConfig}.
+     * {@code MoCEntityAmbient.isCreatureType} counted them as AMBIENT); MONSTERs. Where each spawns and how often
+     * comes from its 12.0.5 biome-type list and weights in {@link MoCConfig}. The sea life ({@link #AQUATICS})
+     * joins these lists only in vanilla's pools ({@link #aquaticsInOwnPool}).
      *
      * <p>Not here: the pet scorpion (12.0.5 only got one from a mother scorpion), the wyvern and the Ogre Prince
      * (residents of the Wyvern and Ogre Lairs, listed in those biomes' json), and the pet manticore (hatched from
@@ -238,13 +284,6 @@ public final class MoCSpawns {
             new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.MAGGOT),
             new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.ROACH),
             new NaturalSpawn(MobCategory.AMBIENT, MoCEntities.SNAIL),
-            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.DOLPHIN),
-            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.FISHY),
-            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.JELLYFISH),
-            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.RAY),
-            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.SHARK),
-            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.SMALL_FISH),
-            new NaturalSpawn(MobCategory.WATER_CREATURE, MoCEntities.MEDIUM_FISH),
             new NaturalSpawn(MobCategory.MONSTER, MoCEntities.GOLEM),
             new NaturalSpawn(MobCategory.MONSTER, MoCEntities.OGRE),
             new NaturalSpawn(MobCategory.MONSTER, MoCEntities.RAT),
@@ -270,9 +309,17 @@ public final class MoCSpawns {
         if (!view.hasTag(BiomeTags.IS_OVERWORLD) && !view.hasTag(BiomeTags.IS_NETHER)) {
             return;
         }
+        MoCConfig.reloadIfChanged(); // a hand edit of the file applies at the next world load
         Set<String> types = drzhark.mocreatures.spawn.MoCBiomeTypes.of(view.biomeId(), view::hasTag);
         for (NaturalSpawn spawn : NATURAL_SPAWNS) {
             addSpawn(types, view, spawn.category(), spawn.type().get());
+        }
+        if (!aquaticsInOwnPool()) {
+            // in the vanilla pool each sea creature registered with: fish with vanilla's fish, the rest with the
+            // sea creatures (MoCEntities); in the own pool MoCAquaticSpawner places them instead
+            for (java.util.function.Supplier<? extends EntityType<?>> type : AQUATICS) {
+                addSpawn(types, view, type.get().getCategory(), type.get());
+            }
         }
     }
 

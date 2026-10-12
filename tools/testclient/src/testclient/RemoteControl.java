@@ -725,6 +725,57 @@ final class RemoteControl implements Runnable {
                     System.err.println("[testclient] camera " + mode + " failed: " + t);
                 }
             });
+        } else if (line.startsWith("modconfig ")) {
+            // Opens a mod's config screen the way the loader's mod list does: Mod Menu's config button (Fabric,
+            // Quilt), or the Mods screen's Config button (NeoForge IConfigScreenFactory, Forge ConfigScreenFactory).
+            String modId = line.substring("modconfig ".length()).trim();
+            execute.invoke(minecraft, (Runnable) () -> {
+                try {
+                    openModConfig(minecraftClass, minecraft, modId);
+                } catch (Throwable t) {
+                    Throwable cause = t.getCause() != null ? t.getCause() : t;
+                    System.err.println("[testclient] modconfig " + modId + " failed: " + cause);
+                }
+            });
+        } else if (line.startsWith("guibutton ") || line.startsWith("guitype ")) {
+            // guibutton <text>: a left click (press and release) on the middle of the first visible widget of the
+            // open screen whose label (or narration name) contains <text>; guitype <text>: types into the focused box.
+            execute.invoke(minecraft, (Runnable) () -> {
+                try {
+                    guiInput(minecraftClass, minecraft, line);
+                } catch (Throwable t) {
+                    Throwable cause = t.getCause() != null ? t.getCause() : t;
+                    System.err.println("[testclient] " + line + " failed: " + cause);
+                }
+            });
+        } else if (line.startsWith("soundlog ")) {
+            // Prints every sound the client plays whose id contains the given text ("all" for every sound), with its
+            // distance from the player: what a player hears, for checks like "flies 10 blocks away stay silent".
+            String filter = line.substring("soundlog ".length()).trim();
+            execute.invoke(minecraft, (Runnable) () -> {
+                try {
+                    ClassLoader loader = minecraftClass.getClassLoader();
+                    Class<?> listenerClass = Class.forName("net.minecraft.client.sounds.SoundEventListener", true, loader);
+                    Object soundManager = minecraftClass.getMethod("getSoundManager").invoke(minecraft);
+                    Object listener = java.lang.reflect.Proxy.newProxyInstance(loader, new Class<?>[] {listenerClass},
+                            (proxy, method, args) -> {
+                                if (method.getName().equals("onPlaySound")) {
+                                    logSound(minecraftClass, minecraft, args[0], filter);
+                                    return null;
+                                }
+                                return switch (method.getName()) {
+                                    case "hashCode" -> System.identityHashCode(proxy);
+                                    case "equals" -> proxy == args[0];
+                                    case "toString" -> "testclient soundlog";
+                                    default -> null;
+                                };
+                            });
+                    soundManager.getClass().getMethod("addListener", listenerClass).invoke(soundManager, listener);
+                    System.out.println("[testclient] soundlog on: " + filter);
+                } catch (Throwable t) {
+                    System.err.println("[testclient] soundlog failed: " + t);
+                }
+            });
         } else if (line.startsWith("invoke ")) {
             String[] parts = line.substring("invoke ".length()).trim().split("\\s+");
             execute.invoke(minecraft, (Runnable) () -> {
@@ -742,6 +793,161 @@ final class RemoteControl implements Runnable {
             });
         } else {
             System.err.println("[testclient] unknown remote command: " + line);
+        }
+    }
+
+    private void openModConfig(Class<?> minecraftClass, Object minecraft, String modId) throws Exception {
+        ClassLoader loader = minecraftClass.getClassLoader();
+        Class<?> screenClass = Class.forName("net.minecraft.client.gui.screens.Screen", false, loader);
+        Object parent = currentScreen(minecraftClass, minecraft);
+        Object screen = null;
+        String via;
+        if (classExists(loader, "com.terraformersmc.modmenu.ModMenu")) {
+            via = "Mod Menu";
+            screen = Class.forName("com.terraformersmc.modmenu.ModMenu", true, loader)
+                    .getMethod("getConfigScreen", String.class, screenClass).invoke(null, modId, parent);
+        } else {
+            boolean neo = classExists(loader, "net.neoforged.fml.ModList");
+            via = neo ? "NeoForge IConfigScreenFactory" : "Forge ConfigScreenFactory";
+            Class<?> modList = Class.forName(neo ? "net.neoforged.fml.ModList" : "net.minecraftforge.fml.ModList", true, loader);
+            Object list = null; // Forge 65 (26.2) made ModList's methods static; NeoForge and older Forge have get()
+            try {
+                list = modList.getMethod("get").invoke(null);
+            } catch (NoSuchMethodException staticModList) {
+                // call the static getModContainerById below
+            }
+            java.util.Optional<?> container = (java.util.Optional<?>) modList.getMethod("getModContainerById", String.class)
+                    .invoke(list, modId);
+            if (container.isPresent()) {
+                Object c = container.get();
+                Class<?> point = Class.forName(neo ? "net.neoforged.neoforge.client.gui.IConfigScreenFactory"
+                        : "net.minecraftforge.client.ConfigScreenHandler$ConfigScreenFactory", true, loader);
+                Method getExtension = null;
+                for (Class<?> k = c.getClass(); k != null && getExtension == null; k = k.getSuperclass()) {
+                    for (Method m : k.getDeclaredMethods()) {
+                        if (m.getName().equals("getCustomExtension") && m.getParameterCount() == 1) {
+                            getExtension = m;
+                        }
+                    }
+                }
+                getExtension.setAccessible(true);
+                java.util.Optional<?> factory = (java.util.Optional<?>) getExtension.invoke(c, point);
+                if (factory.isPresent()) {
+                    if (neo) {
+                        Class<?> containerClass = Class.forName("net.neoforged.fml.ModContainer", true, loader);
+                        screen = point.getMethod("createScreen", containerClass, screenClass).invoke(factory.get(), c, parent);
+                    } else {
+                        Object function = point.getMethod("screenFunction").invoke(factory.get());
+                        screen = ((java.util.function.BiFunction<Object, Object, Object>) function).apply(minecraft, parent);
+                    }
+                }
+            }
+        }
+        if (screen == null) {
+            System.err.println("[testclient] modconfig " + modId + ": no config screen via " + via);
+            return;
+        }
+        minecraftClass.getMethod("setScreenAndShow", screenClass).invoke(minecraft, screen);
+        System.out.println("[testclient] modconfig " + modId + " opened " + screen.getClass().getName() + " via " + via);
+    }
+
+    private static boolean hasVisibleWidget(Object screen, Class<?> widgetClass, Field visible, String wanted) throws Exception {
+        for (Object child : (List<?>) screen.getClass().getMethod("children").invoke(screen)) {
+            if (widgetClass.isInstance(child) && visible.getBoolean(child)) {
+                Object message = widgetClass.getMethod("getMessage").invoke(child);
+                if (((String) message.getClass().getMethod("getString").invoke(message)).contains(wanted)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean classExists(ClassLoader loader, String name) {
+        try {
+            Class.forName(name, false, loader);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private void guiInput(Class<?> minecraftClass, Object minecraft, String line) throws Exception {
+        ClassLoader loader = minecraftClass.getClassLoader();
+        Object screen = currentScreen(minecraftClass, minecraft);
+        if (screen == null) {
+            System.err.println("[testclient] " + line + ": no screen open");
+            return;
+        }
+        Class<?> listener = Class.forName("net.minecraft.client.gui.components.events.GuiEventListener", false, loader);
+        if (line.startsWith("guitype ")) {
+            Class<?> charEvent = Class.forName("net.minecraft.client.input.CharacterEvent", false, loader);
+            Method charTyped = listener.getMethod("charTyped", charEvent);
+            java.lang.reflect.Constructor<?> ctor = charEvent.getConstructor(int.class);
+            String text = line.substring("guitype ".length());
+            for (int cp : text.codePoints().toArray()) {
+                charTyped.invoke(screen, ctor.newInstance(cp));
+            }
+            System.out.println("[testclient] typed \"" + text + "\"");
+            return;
+        }
+        String wanted = line.substring("guibutton ".length()).trim();
+        Class<?> widgetClass = Class.forName("net.minecraft.client.gui.components.AbstractWidget", false, loader);
+        Field visible = widgetClass.getField("visible");
+        // A widget scrolled out of view is hidden: wheel the screen down a notch at a time until it shows.
+        Method scrolled = listener.getMethod("mouseScrolled", double.class, double.class, double.class, double.class);
+        for (int notch = 0; notch < 80 && !hasVisibleWidget(screen, widgetClass, visible, wanted); notch++) {
+            scrolled.invoke(screen, 1.0D, 1.0D, 0.0D, -1.0D);
+        }
+        List<String> seen = new java.util.ArrayList<>();
+        for (Object child : (List<?>) screen.getClass().getMethod("children").invoke(screen)) {
+            if (!widgetClass.isInstance(child) || !visible.getBoolean(child)) {
+                continue;
+            }
+            Object message = widgetClass.getMethod("getMessage").invoke(child);
+            String label = (String) message.getClass().getMethod("getString").invoke(message);
+            seen.add(label);
+            if (!label.contains(wanted)) {
+                continue;
+            }
+            int x = (Integer) widgetClass.getMethod("getX").invoke(child) + (Integer) widgetClass.getMethod("getWidth").invoke(child) / 2;
+            int y = (Integer) widgetClass.getMethod("getY").invoke(child) + (Integer) widgetClass.getMethod("getHeight").invoke(child) / 2;
+            Class<?> infoClass = Class.forName("net.minecraft.client.input.MouseButtonInfo", false, loader);
+            Class<?> eventClass = Class.forName("net.minecraft.client.input.MouseButtonEvent", false, loader);
+            Object info = infoClass.getConstructor(int.class, int.class).newInstance(0, 0);
+            Object event = eventClass.getConstructor(double.class, double.class, infoClass).newInstance((double) x, (double) y, info);
+            listener.getMethod("mouseClicked", eventClass, boolean.class).invoke(screen, event, false);
+            listener.getMethod("mouseReleased", eventClass).invoke(screen, event);
+            Object after = widgetClass.getMethod("getMessage").invoke(child);
+            System.out.println("[testclient] guibutton clicked \"" + label + "\" -> \""
+                    + after.getClass().getMethod("getString").invoke(after) + "\"");
+            return;
+        }
+        System.err.println("[testclient] guibutton " + wanted + ": no visible widget with that label; visible: " + seen);
+    }
+
+    private static void logSound(Class<?> minecraftClass, Object minecraft, Object sound, String filter) {
+        try {
+            String id = String.valueOf(sound.getClass().getMethod("getIdentifier").invoke(sound));
+            if (!filter.equals("all") && !id.contains(filter)) {
+                return;
+            }
+            double x = (Double) sound.getClass().getMethod("getX").invoke(sound);
+            double y = (Double) sound.getClass().getMethod("getY").invoke(sound);
+            double z = (Double) sound.getClass().getMethod("getZ").invoke(sound);
+            Object player = minecraftClass.getField("player").get(minecraft);
+            String distance = "?";
+            if (player != null) {
+                Class<?> entityClass = Class.forName("net.minecraft.world.entity.Entity", false, minecraftClass.getClassLoader());
+                double dx = x - (Double) entityClass.getMethod("getX").invoke(player);
+                double dy = y - (Double) entityClass.getMethod("getY").invoke(player);
+                double dz = z - (Double) entityClass.getMethod("getZ").invoke(player);
+                distance = String.format(java.util.Locale.ROOT, "%.1f", Math.sqrt(dx * dx + dy * dy + dz * dz));
+            }
+            System.out.printf(java.util.Locale.ROOT, "[testclient] sound %s at %.1f %.1f %.1f, %s blocks from the player%n",
+                    id, x, y, z, distance);
+        } catch (Throwable t) {
+            System.err.println("[testclient] soundlog: " + t);
         }
     }
 

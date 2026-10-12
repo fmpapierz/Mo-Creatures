@@ -482,8 +482,8 @@ public class MoCEntityKitty extends MoCAnimal {
         if (isSitting()) {
             setSitting(false);
         }
-        // Legacy climbed in within 2 blocks (its getDistance is not squared).
-        if (distanceToSqr(targetBed) >= 4.0D) {
+        // Legacy climbed in within 2 blocks (its getDistance is not squared); and only in sight of it (canReachBed).
+        if (!canReachBed(targetBed)) {
             getNavigation().moveTo(targetBed, 1.0D);
             return STATE_HUNGRY;
         }
@@ -532,10 +532,12 @@ public class MoCEntityKitty extends MoCAnimal {
         if (isSitting()) {
             setSitting(false);
         }
-        // Within 2 blocks, as legacy (1.5 squared left a kitty pathed to the next block standing beside the bed).
-        if (distanceToSqr(targetBed) >= 4.0D) {
-            boolean pathed = getNavigation().moveTo(targetBed, 1.0D);
-            // No path is only telling while standing: navigation refuses to plan in mid-air (a hop up a step).
+        // Within 2 blocks, as legacy (1.5 squared left a kitty pathed to the next block standing beside the bed), and in
+        // sight of it (canReachBed): pressed against a wall it is 1.8 from a bed behind it.
+        if (!canReachBed(targetBed)) {
+            boolean pathed = distanceToSqr(targetBed) >= 4.0D && getNavigation().moveTo(targetBed, 1.0D);
+            // No path is only telling while standing: navigation refuses to plan in mid-air (a hop up a step). Close
+            // but walled off counts as no path.
             bedNoPathTicks = pathed ? 0 : this.onGround() ? bedNoPathTicks + 1 : bedNoPathTicks;
             if (bedNoPathTicks > 40 || ++bedWalkTicks > BED_WALK_LIMIT) {
                 // No way there: give that bed up for the night and take another free one, or sleep here. A kitty
@@ -552,6 +554,15 @@ public class MoCEntityKitty extends MoCAnimal {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Close enough to climb in: within 2 blocks (legacy) and with nothing solid between the kitty and the bed. A
+     * kitty pressed against a glass wall is 1.8 blocks from a bed on the other side, and it used to climb in through
+     * the wall (found by servertest's kitty_unreachable on Forge, 2026-10-11).
+     */
+    private boolean canReachBed(MoCEntityKittyBed bed) {
+        return distanceToSqr(bed) < 4.0D && hasLineOfSight(bed);
     }
 
     /** Nobody in it, not being carried, and no other kitty heading for it. */

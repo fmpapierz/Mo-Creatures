@@ -16,7 +16,9 @@ Map<String, String> modProperties() {
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 
-subprojects {
+// The Architectury Loom modules. The quilt module only repackages the Fabric jar, and the forge module builds
+// with ForgeGradle (Architectury has no Forge support after 1.20.4), so neither gets Loom.
+configure(subprojects.findAll { it.name in ['common', 'fabric', 'neoforge'] }) {
     apply plugin: "dev.architectury.loom-no-remap"
     apply plugin: "architectury-plugin"
 
@@ -93,7 +95,7 @@ allprojects {
 // module folders. The root project has no sources of its own, so its empty jars are switched off: they
 // would land in the same folder the Sync owns.
 // ============================================================================================
-def loaderModules = ['fabric', 'neoforge'].collect { project(":$it") }
+def loaderModules = ['fabric', 'quilt', 'forge', 'neoforge'].collect { project(":$it") }
 
 tasks.named('jar') { enabled = false }
 tasks.named('sourcesJar') { enabled = false }

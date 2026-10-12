@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "quilt_loader": {
+    "group": "drzhark",
+    "id": "${mod_id}",
+    "version": "${version}",
+    "metadata": {
+      "name": "DrZhark's Mo'Creatures",
+      "description": "Mo'Creatures ported to Minecraft 26.2 (Architectury multi-loader).",
+      "contributors": {
+        "DrZhark": "Author",
+        "BloodShot": "Author",
+        "BlockDaddy": "Author"
+      },
+      "contact": {
+        "homepage": "http://www.mocreatures.org",
+        "sources": "${github_repo}",
+        "issues": "${github_repo}/issues"
+      },
+      "license": "GPL-3.0-only"
+    },
+    "intermediate_mappings": "net.fabricmc:intermediary",
+    "entrypoints": {
+      "main": [
+        "drzhark.mocreatures.fabric.MoCreaturesFabric"
+      ],
+      "modmenu": [
+        "drzhark.mocreatures.fabric.MoCModMenu"
+      ]
+    },
+    "depends": [
+      { "id": "quilt_loader", "versions": ">=${quilt_loader_version}" },
+      { "id": "minecraft", "versions": "~26.2" },
+      { "id": "java", "versions": ">=25" },
+      { "id": "architectury", "versions": ">=21.0.0" },
+      { "id": "fabric-api", "versions": "*" }
+    ]
+  },
+  "mixin": "mocreatures.mixins.json",
+  "minecraft": {
+    "environment": "*"
+  }
+}

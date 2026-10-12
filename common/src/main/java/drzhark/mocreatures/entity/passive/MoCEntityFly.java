@@ -3,6 +3,7 @@ package drzhark.mocreatures.entity.passive;
 import drzhark.mocreatures.entity.MoCFlyingInsect;
 import drzhark.mocreatures.registry.MoCSounds;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -33,7 +34,13 @@ public class MoCEntityFly extends MoCFlyingInsect {
     }
 
     @Override
+    protected void customServerAiStep(ServerLevel level) {
+        super.customServerAiStep(level);
+        buzzNearPlayer(level, MoCSounds.FLY.get(), 55); // 12.0.5 MoCEntityFly: soundCount = 55
+    }
+
+    @Override
     protected @Nullable SoundEvent getAmbientSound() {
-        return MoCSounds.FLY.get();
+        return null; // the buzz above, heard only up close
     }
 }

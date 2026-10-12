@@ -74,6 +74,8 @@ public class MoCEntityRenderState extends LivingEntityRenderState {
     public boolean crabClawsUp;
     /** Big cat drops its lower jaw for a roar/bite. */
     public boolean bigcatJawOpen;
+    /** Two-headed ogre: which side head looks around (0 = Head2, 1 = Head3; MoCEntityOgre.getHeadFocus). */
+    public float ogreHeadFocus;
     /** Melee swing progress 0..1 (from getAttackAnim); drives attack-lunge poses (e.g. the wraith). */
     public float attackSwing;
     /** Horse is grazing (head lowered to the ground) / rearing up on its hind legs. */

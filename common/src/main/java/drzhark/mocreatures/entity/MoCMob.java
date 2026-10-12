@@ -104,6 +104,13 @@ public abstract class MoCMob extends Monster implements IMoCEntity {
         this.entityData.set(TAMED, tamed);
     }
 
+    /** Natural spawns stop at once for a creature switched off in the config (MoCSpawns.naturalSpawnAllowed). */
+    @Override
+    public boolean checkSpawnRules(net.minecraft.world.level.LevelAccessor level, EntitySpawnReason reason) {
+        return drzhark.mocreatures.registry.MoCSpawns.naturalSpawnAllowed(this.getType(), reason)
+                && super.checkSpawnRules(level, reason);
+    }
+
     /**
      * Legacy {@code MoCEntityMob.canDespawn() == !getIsTamed()}. Vanilla {@code Monster} inherits
      * {@code Mob.removeWhenFarAway == true}, so a tamed Mo'Creatures monster (a tamed wild wolf, a

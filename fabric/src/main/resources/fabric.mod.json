@@ -13,7 +13,8 @@
   "license": "GPL-3.0-only",
   "environment": "*",
   "entrypoints": {
-    "main": ["drzhark.mocreatures.fabric.MoCreaturesFabric"]
+    "main": ["drzhark.mocreatures.fabric.MoCreaturesFabric"],
+    "modmenu": ["drzhark.mocreatures.fabric.MoCModMenu"]
   },
   "mixins": ["mocreatures.mixins.json"],
   "depends": {

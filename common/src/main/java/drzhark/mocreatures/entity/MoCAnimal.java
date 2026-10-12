@@ -1210,6 +1210,13 @@ public abstract class MoCAnimal extends Animal implements IMoCEntity {
         this.entityData.set(TAMED, tamed);
     }
 
+    /** Natural spawns stop at once for a creature switched off in the config (MoCSpawns.naturalSpawnAllowed). */
+    @Override
+    public boolean checkSpawnRules(net.minecraft.world.level.LevelAccessor level, EntitySpawnReason reason) {
+        return drzhark.mocreatures.registry.MoCSpawns.naturalSpawnAllowed(this.getType(), reason)
+                && super.checkSpawnRules(level, reason);
+    }
+
     /**
      * Mo'Creatures land animals persist exactly like vanilla ones ({@code Animal.removeWhenFarAway} is a hard
      * {@code false} in 26.2), rather than despawning like monsters.

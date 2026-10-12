@@ -104,6 +104,12 @@ public final class MoCMobCap {
             if (!isRemovable(e, moc)) {
                 continue;
             }
+            // Sea life by class, not category: its category is MISC in Mo'Creatures' own spawn pool and water_ambient
+            // or water_creature in vanilla's (MoCSpawns.aquaticsInOwnPool); maxWaterMobs caps it either way.
+            if (e instanceof drzhark.mocreatures.entity.MoCAquatic) {
+                (water != null ? water : (water = new ArrayList<>())).add(e);
+                continue;
+            }
             switch (e.getType().getCategory()) {
                 case MONSTER -> (monsters != null ? monsters : (monsters = new ArrayList<>())).add(e);
                 case WATER_CREATURE, UNDERGROUND_WATER_CREATURE ->

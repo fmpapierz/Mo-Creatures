@@ -1,12 +1,15 @@
 package drzhark.mocreatures.client.gui;
 
 import drzhark.mocreatures.config.MoCConfig;
+import drzhark.mocreatures.registry.MoCSpawns;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.screens.Screen;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,22 +18,27 @@ import java.util.function.Consumer;
 
 /**
  * In-game Mo'Creatures settings screen (the modern equivalent of the legacy F9 {@code MoCSettings}
- * GUI). Lists every {@code public boolean} flag on {@link MoCConfig} as an on/off toggle button laid
- * out in a simple two-column grid. Toggling a button writes the flag straight back onto the live
- * {@link MoCConfig} singleton; the <em>Done</em> button persists everything via
- * {@link MoCConfig#save()} and closes.
+ * GUI), in three pages switched by the button next to Done:
+ * <ul>
+ *   <li><b>Toggles</b>: every {@code public boolean} flag on {@link MoCConfig} as an on/off button in a
+ *       two-column grid, written straight onto the live {@link MoCConfig} singleton.</li>
+ *   <li><b>Creatures</b>: where Mo'Creatures sea life spawns ({@code aquaticPool}: its own pool or vanilla's,
+ *       see {@code MoCAquaticSpawner}) and how many live near each player, then every naturally spawning
+ *       creature with an on/off switch ({@code spawn.<id>.enabled}) and a weight box ({@code spawn.<id>.frequency};
+ *       empty = 12.0.5's own per-biome weights). Off stops a creature's natural spawns at once; weights apply at
+ *       the next world load (sea life in the own pool: at once). Also written straight onto {@link MoCConfig}, so
+ *       in singleplayer the game's own server follows them; on a multiplayer server only its own config counts.</li>
+ *   <li><b>Admin</b>: the legacy GUI's remaining editing surfaces, each wired through the
+ *       permission-checked {@code /moc} command tree: an insta-spawner ({@code /moc spawn}), a biome-group
+ *       editor ({@code /moc biomegroup}), a numeric tunables row cycling through every {@code /moc setnumber}
+ *       name, and a per-entity spawn-rate row ({@code /moc spawnrate <id> frequency|min|max <value>}).</li>
+ * </ul>
+ * {@link #applyPageLayout()} lays each page out on a fixed row pitch and scrolls rather than overlaps when the
+ * window is too short for a whole page. <em>Done</em> persists everything via {@link MoCConfig#save()}.
  *
- * <p>A second page ("Admin") holds the legacy GUI's remaining editing surfaces, each wired through
- * the already-permission-checked {@code /moc} command tree rather than a bespoke network channel:
- * an insta-spawner ({@code /moc spawn}), a biome-group editor ({@code /moc biomegroup}), a numeric
- * tunables row cycling through every {@code /moc setnumber} name, and a per-entity spawn-rate row
- * ({@code /moc spawnrate <id> frequency|min|max <value>}). A page-switch button next to Done flips
- * between the two pages; {@link #applyPageLayout()} lays each page out on a fixed row pitch and
- * scrolls rather than overlaps when the window is too short for a whole page.</p>
- *
- * <p>Opened client-side from {@link drzhark.mocreatures.client.MoCKeyMappings} when the
- * {@code key.mocreatures.settings} key (default F9) is pressed. Kept intentionally lightweight and
- * dependency-free so it compiles unchanged on both Fabric and NeoForge.</p>
+ * <p>Opened from {@link drzhark.mocreatures.client.MoCKeyMappings} ({@code key.mocreatures.settings}, default F9)
+ * and from each loader's mod list: Mod Menu on Fabric and Quilt, the Mods screen's Config button on NeoForge and
+ * Forge, which pass the screen to return to. Kept dependency-free so it compiles unchanged on every loader.</p>
  */
 public class MoCSettingsScreen extends Screen {
 
@@ -45,7 +53,9 @@ public class MoCSettingsScreen extends Screen {
             "ogreStrength", "caveOgreStrength", "fireOgreStrength", "ogreAttackRange",
             "caveOgreChance", "fireOgreChance", "sharkStrength", "zebraChance",
             "wyvernEggDropChance", "monsterEggDropChance", "maxMobs",
-            "maxWaterMobs", "maxTamed", "maxOPTamed"};
+            "maxWaterMobs", "aquaticsPerPlayer", "maxTamed", "maxOPTamed"};
+
+    private static final String[] PAGE_NAMES = {"Toggles", "Creatures", "Admin"};
 
     /** Shared widget metrics: every row is {@code ROW_H} tall on a {@code ROW_H + ROW_GAP} pitch. */
     private static final int BTN_W = 150;
@@ -54,7 +64,12 @@ public class MoCSettingsScreen extends Screen {
     private static final int ROW_GAP = 4;
     /** Top edge of the row area; rows flow down from here toward the bottom bar. */
     private static final int ROW_TOP = 40;
+    /** A creature's on/off switch and weight box share one {@link #BTN_W} column. */
+    private static final int CREATURE_BTN_W = 116;
+    private static final int WEIGHT_W = BTN_W - CREATURE_BTN_W - 2;
 
+    /** The screen to return to (a mod list), or null to close to the game. */
+    private final @Nullable Screen parent;
     private final List<Flag> flags = new ArrayList<>();
     /** Insta-spawner field: type a Mo'Creatures entity id and click Insta-Spawn (legacy F9 InstaSpawner). */
     private EditBox spawnField;
@@ -68,14 +83,15 @@ public class MoCSettingsScreen extends Screen {
     private EditBox srEntityField;
     private String srFieldName = "frequency";
     private EditBox srValueField;
-    /** Which page is showing: 0 = the toggle grid, 1 = the admin rows (a field so it survives resize). */
+    /** Which page is showing, an index into {@link #PAGE_NAMES} (a field so it survives resize). */
     private int page;
     /** Row-quantized scroll offset of the current page: the index of its first visible row. */
     private int scrollRow;
     /** Highest valid {@link #scrollRow} for the current page at the current window size. */
     private int maxScrollRow;
-    /** The two pages' widget rows, top to bottom; {@link #applyPageLayout()} shows/positions them. */
+    /** Each page's widget rows, top to bottom; {@link #applyPageLayout()} shows/positions them. */
     private final List<AbstractWidget[]> toggleRows = new ArrayList<>();
+    private final List<AbstractWidget[]> creatureRows = new ArrayList<>();
     private final List<AbstractWidget[]> adminRows = new ArrayList<>();
     /** Edit-box text mirrored out through responders so typed input survives the resize re-init. */
     private String spawnText = "";
@@ -85,7 +101,12 @@ public class MoCSettingsScreen extends Screen {
     private String srValueText = "";
 
     public MoCSettingsScreen() {
+        this(null);
+    }
+
+    public MoCSettingsScreen(@Nullable Screen parent) {
         super(Component.literal("Mo'Creatures Settings"));
+        this.parent = parent;
         MoCConfig c = MoCConfig.get();
         // Every public boolean field on MoCConfig, in the file's declared order.
         flags.add(new Flag("Elephant Bulldozer",   () -> c.elephantBulldozer,   v -> c.elephantBulldozer = v));
@@ -113,6 +134,7 @@ public class MoCSettingsScreen extends Screen {
     @Override
     protected void init() {
         this.toggleRows.clear();
+        this.creatureRows.clear();
         this.adminRows.clear();
 
         final int gridW = 2 * BTN_W + H_GAP;
@@ -131,7 +153,9 @@ public class MoCSettingsScreen extends Screen {
             this.toggleRows.add(row);
         }
 
-        // Page 2, row 1 - insta-spawner: an entity-id field + a Spawn button that runs "/moc spawn <id>"
+        initCreaturesPage(left, gridW);
+
+        // Page 3, row 1 - insta-spawner: an entity-id field + a Spawn button that runs "/moc spawn <id>"
         // (legacy F9 InstaSpawner).
         this.spawnField = new EditBox(this.font, left, 0, BTN_W, ROW_H, Component.literal("entity id"));
         this.spawnField.setHint(Component.literal("entity id e.g. wyvern"));
@@ -143,7 +167,7 @@ public class MoCSettingsScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("Insta-Spawn"), b -> instaSpawn())
                         .bounds(left + BTN_W + H_GAP, 0, BTN_W, ROW_H).build())});
 
-        // Page 2, row 2 - biome-group editor: entity id + group + Add/Remove (runs /moc biomegroup ...).
+        // Page 3, row 2 - biome-group editor: entity id + group + Add/Remove (runs /moc biomegroup ...).
         // Groups: forest, arctic, normal, mountain, jungle, desert, swamp.
         int fW = 88;
         int sbW = 62;
@@ -165,7 +189,7 @@ public class MoCSettingsScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("-Biome"), b -> biomeGroup(false))
                         .bounds(left + 2 * (fW + 4) + sbW + 4, 0, sbW, ROW_H).build())});
 
-        // Page 2, row 3 - numeric tunables: a dropdown cycling through every /moc setnumber name + a
+        // Page 3, row 3 - numeric tunables: a dropdown cycling through every /moc setnumber name + a
         // value field + Set (runs "/moc setnumber <name> <value>"; the legacy GUI's numeric text boxes).
         // The value field re-fills with the live MoCConfig value whenever the dropdown cycles.
         int valW = 90;
@@ -185,7 +209,7 @@ public class MoCSettingsScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("Set"), b -> sendSetNumber())
                         .bounds(left + BTN_W + 4 + valW + 4, 0, 56, ROW_H).build())});
 
-        // Page 2, row 4 - per-entity spawn rates: entity id + frequency|min|max + value + Set (runs
+        // Page 3, row 4 - per-entity spawn rates: entity id + frequency|min|max + value + Set (runs
         // "/moc spawnrate <id> <field> <value>"; legacy per-entity frequency/min/max editing).
         int srFieldW = 72;
         int srValW = 62;
@@ -211,11 +235,11 @@ public class MoCSettingsScreen extends Screen {
                 this.addRenderableWidget(Button.builder(Component.literal("Set"), b -> sendSpawnRate())
                         .bounds(left + fW + 4 + srFieldW + 4 + srValW + 4, 0, 56, ROW_H).build())});
 
-        // Bottom bar - the page switch and Done, always the bottom-most widgets on both pages. Flipping
+        // Bottom bar - the page switch and Done, always the bottom-most widgets on every page. Switching
         // the page only toggles visibility (no widget rebuild), so typed text and focus stay sane.
         int doneY = this.height - ROW_H - 6;
         this.addRenderableWidget(Button.builder(pageButtonLabel(), b -> {
-            this.page = this.page == 0 ? 1 : 0;
+            this.page = (this.page + 1) % PAGE_NAMES.length;
             this.scrollRow = 0;
             b.setMessage(pageButtonLabel());
             applyPageLayout();
@@ -226,23 +250,103 @@ public class MoCSettingsScreen extends Screen {
         applyPageLayout();
     }
 
+    /**
+     * Page 2 - creatures: the sea-life pool and its per-player count, a note row, then every naturally spawning
+     * creature, two per row, each an on/off switch plus a weight box.
+     */
+    private void initCreaturesPage(int left, int gridW) {
+        MoCConfig c = MoCConfig.get();
+        boolean ownAtStart = MoCSpawns.aquaticsInOwnPool();
+        this.creatureRows.add(new AbstractWidget[]{
+                this.addRenderableWidget(CycleButton.<String>builder(
+                                value -> Component.literal((value.equals("own") ? "Own pool" : "Vanilla's")
+                                        + (value.equals("own") != ownAtStart ? " (restart)" : "")),
+                                c.aquaticPool)
+                        .withValues("own", "vanilla")
+                        .create(left, 0, BTN_W, ROW_H, Component.literal("Sea life"),
+                                (button, value) -> c.aquaticPool = value)),
+                this.addRenderableWidget(new StringWidget(left + BTN_W + H_GAP, 0, BTN_W - WEIGHT_W - 2, ROW_H,
+                        Component.literal("Near each player:"), this.font)),
+                this.addRenderableWidget(numberBox(left + gridW - WEIGHT_W, Integer.toString(c.aquaticsPerPlayer),
+                        "10", Component.literal("Sea life near each player"), text -> {
+                            if (!text.isEmpty()) {
+                                c.aquaticsPerPlayer = Integer.parseInt(text);
+                            }
+                        }))});
+        boolean remote = this.minecraft != null && this.minecraft.getSingleplayerServer() == null
+                && this.minecraft.getConnection() != null;
+        this.creatureRows.add(new AbstractWidget[]{
+                this.addRenderableWidget(new StringWidget(left, 0, gridW, ROW_H, Component.literal(remote
+                        ? "On a server only the server's own config counts."
+                        : "Off: no new spawns. Weight: empty = 12.0.5's."), this.font))});
+
+        List<String> ids = new ArrayList<>(MoCConfig.naturalCreatureIds());
+        for (int i = 0; i < ids.size(); i += 2) {
+            List<AbstractWidget> row = new ArrayList<>();
+            for (int col = 0; col < 2 && i + col < ids.size(); col++) {
+                String id = ids.get(i + col);
+                int x = left + col * (BTN_W + H_GAP);
+                row.add(this.addRenderableWidget(CycleButton.onOffBuilder(c.spawnEnabled(id))
+                        .create(x, 0, CREATURE_BTN_W, ROW_H, Component.translatable("entity.mocreatures." + id),
+                                (button, value) -> c.setSpawnEnabled(id, value))));
+                Integer weight = c.spawnOverride(id, "frequency");
+                row.add(this.addRenderableWidget(numberBox(x + CREATURE_BTN_W + 2,
+                        weight == null ? "" : weight.toString(), "auto",
+                        Component.translatable("entity.mocreatures." + id).append(" weight"), text -> {
+                            if (text.isEmpty()) {
+                                c.clearSpawnValue(id, "frequency");
+                            } else {
+                                c.setSpawnValue(id, "frequency", Integer.parseInt(text));
+                            }
+                        })));
+            }
+            this.creatureRows.add(row.toArray(new AbstractWidget[0]));
+        }
+    }
+
+    /**
+     * A small box taking 0-4 digits (anything else typed is dropped); {@code onChange} gets each new value.
+     * {@code name} is what the narrator reads for it.
+     */
+    private EditBox numberBox(int x, String value, String hint, Component name, Consumer<String> onChange) {
+        EditBox box = new EditBox(this.font, x, 0, WEIGHT_W, ROW_H, name);
+        box.setMaxLength(4);
+        box.setHint(Component.literal(hint));
+        box.setValue(value);
+        box.setResponder(text -> {
+            String digits = text.chars().filter(Character::isDigit)
+                    .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString();
+            if (!digits.equals(text)) {
+                box.setValue(digits); // comes back here with the digits
+                return;
+            }
+            onChange.accept(digits);
+        });
+        return box;
+    }
+
     /** Label of the page-switch button: names the page it will switch to. */
     private Component pageButtonLabel() {
-        return Component.literal(this.page == 0 ? "Admin >" : "< Toggles");
+        int next = (this.page + 1) % PAGE_NAMES.length;
+        return Component.literal(next == 0 ? "< " + PAGE_NAMES[0] : PAGE_NAMES[next] + " >");
     }
 
     /**
      * Lays the current page's rows out top-down from {@link #ROW_TOP} on a fixed pitch and hides the
-     * other page entirely. Rows that cannot fit above the bottom bar are hidden instead of squeezed
+     * other pages entirely. Rows that cannot fit above the bottom bar are hidden instead of squeezed
      * (hidden widgets accept no clicks, keys, or focus), and {@link #mouseScrolled} pages them back
      * into view - so no window size or GUI scale can make widgets overlap.
      */
     private void applyPageLayout() {
-        List<AbstractWidget[]> shown = this.page == 0 ? this.toggleRows : this.adminRows;
-        List<AbstractWidget[]> other = this.page == 0 ? this.adminRows : this.toggleRows;
-        for (AbstractWidget[] row : other) {
-            for (AbstractWidget widget : row) {
-                widget.visible = false;
+        List<List<AbstractWidget[]>> pages = List.of(this.toggleRows, this.creatureRows, this.adminRows);
+        List<AbstractWidget[]> shown = pages.get(this.page);
+        for (List<AbstractWidget[]> other : pages) {
+            if (other != shown) {
+                for (AbstractWidget[] row : other) {
+                    for (AbstractWidget widget : row) {
+                        widget.visible = false;
+                    }
+                }
             }
         }
         int pitch = ROW_H + ROW_GAP;
@@ -362,6 +466,7 @@ public class MoCSettingsScreen extends Screen {
             case "monsterEggDropChance": return Integer.toString(c.monsterEggDropChance);
             case "maxMobs":              return Integer.toString(c.maxMobs);
             case "maxWaterMobs":         return Integer.toString(c.maxWaterMobs);
+            case "aquaticsPerPlayer":    return Integer.toString(c.aquaticsPerPlayer);
             case "maxTamed":             return Integer.toString(c.maxTamed);
             case "maxOPTamed":           return Integer.toString(c.maxOPTamed);
             default:                     return "";
@@ -375,9 +480,13 @@ public class MoCSettingsScreen extends Screen {
 
     @Override
     public void onClose() {
-        // Persist all live flag values (the toggles already wrote them onto the singleton).
+        // Persist all live values (the widgets already wrote them onto the singleton).
         MoCConfig.get().save();
-        super.onClose();
+        if (this.parent != null && this.minecraft != null) {
+            this.minecraft.setScreenAndShow(this.parent);
+        } else {
+            super.onClose();
+        }
     }
 
     @Override

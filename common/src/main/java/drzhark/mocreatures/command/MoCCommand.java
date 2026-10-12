@@ -123,7 +123,8 @@ public final class MoCCommand {
 
     private static int reload(CommandContext<CommandSourceStack> ctx) {
         MoCConfig.load();
-        ctx.getSource().sendSuccess(() -> Component.literal("Mo'Creatures config reloaded."), false);
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "Mo'Creatures config reloaded (spawn changes apply at the next world load or server start)."), false);
         return com.mojang.brigadier.Command.SINGLE_SUCCESS;
     }
 
@@ -287,6 +288,22 @@ public final class MoCCommand {
                                 100.0D * w.weight() / total, category.getName()));
             }
         }
+        // Sea life in Mo'Creatures' own pool is in none of the lists above (MoCAquaticSpawner places it): its weights here
+        if (drzhark.mocreatures.registry.MoCSpawns.aquaticsInOwnPool()) {
+            MoCConfig cfg = MoCConfig.get();
+            for (var supplier : drzhark.mocreatures.registry.MoCSpawns.AQUATICS) {
+                String aquatic = EntityType.getKey(supplier.get()).getPath();
+                int weight = cfg.spawnFrequency(aquatic, types);
+                if (weight > 0) {
+                    entries++;
+                    sb.append("\n  sea_life: ").append(aquatic).append(" weight ").append(weight)
+                            .append(", packs ").append(cfg.spawnMin(aquatic, types)).append('-')
+                            .append(cfg.spawnMax(aquatic, types))
+                            .append(" (Mo'Creatures' own pool, outside vanilla's lists and caps; up to ")
+                            .append(cfg.aquaticsPerPlayer).append(" near each player)");
+                }
+            }
+        }
         if (entries == 0) {
             sb.append("\n  no Mo'Creatures spawns here");
         }
@@ -401,7 +418,7 @@ public final class MoCCommand {
     private static final String SUPPORTED_NUMBERS =
             "ogreStrength, caveOgreStrength, fireOgreStrength, ogreAttackRange, caveOgreChance, "
             + "fireOgreChance, sharkStrength, zebraChance, wyvernEggDropChance, monsterEggDropChance, "
-            + "maxMobs, maxWaterMobs, maxTamed, maxOPTamed";
+            + "maxMobs, maxWaterMobs, aquaticsPerPlayer, maxTamed, maxOPTamed";
 
     private static int numberShow(CommandContext<CommandSourceStack> ctx) {
         String name = StringArgumentType.getString(ctx, "name");
@@ -466,6 +483,7 @@ public final class MoCCommand {
             case "monstereggdropchance": return (double) cfg.monsterEggDropChance;
             case "maxmobs":              return (double) cfg.maxMobs;
             case "maxwatermobs":         return (double) cfg.maxWaterMobs;
+            case "aquaticsperplayer":    return (double) cfg.aquaticsPerPlayer;
             case "maxtamed":             return (double) cfg.maxTamed;
             case "maxoptamed":           return (double) cfg.maxOPTamed;
             default:                     return null;

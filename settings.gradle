@@ -3,6 +3,7 @@ pluginManagement {
         maven { url "https://maven.fabricmc.net/" }
         maven { url "https://maven.architectury.dev/" }
         maven { url "https://maven.neoforged.net/releases/" }
+        maven { name = "MinecraftForge"; url = "https://maven.minecraftforge.net/" }
         gradlePluginPortal()
     }
 }
@@ -13,6 +14,8 @@ if (JavaVersion.current().ordinal() + 1 < 25) {
 
 include("common")
 include("fabric")
+include("quilt")
+include("forge")
 include("neoforge")
 
 rootProject.name = mod_id

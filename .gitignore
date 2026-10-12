@@ -24,3 +24,7 @@ classes/
 
 # Dev-run output when a loom run config uses the project root as its working directory.
 logs/
+
+# Python caches and the test tools' stall thread dumps
+__pycache__/
+moctour-stall-*.txt

@@ -69,8 +69,9 @@ public class MoCEntityFirefly extends MoCFlyingInsect {
         super.customServerAiStep(level);
 
         if (!getLanded()) {
-            // While airborne and a player is nearby, buzz the cricketfly loop every ~20 ticks.
-            Player near = level.getNearestPlayer(this, 8.0D);
+            // While airborne and a player is within 5 blocks, buzz the cricketfly loop every ~20 ticks (12.0.5
+            // MoCEntityFirefly; it is the firefly's only sound).
+            Player near = level.getNearestPlayer(this, 5.0D);
             if (near != null && --this.soundCount <= 0) {
                 level.playSound(null, this.blockPosition(), MoCSounds.CRICKETFLY.get(),
                         SoundSource.NEUTRAL, 1.0F, 1.0F);
@@ -113,6 +114,8 @@ public class MoCEntityFirefly extends MoCFlyingInsect {
 
     @Override
     protected @Nullable SoundEvent getAmbientSound() {
-        return MoCSounds.FIREFLY.get();
+        // None: 12.0.5's firefly only had the buzz in customServerAiStep. A vanilla ambient sound on top of it was
+        // heard by anyone within 16 blocks, from every firefly, all the time.
+        return null;
     }
 }

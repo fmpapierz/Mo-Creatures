@@ -1,0 +1,67 @@
+plugins {
+    // MinecraftForge 26.x builds with ForgeGradle 7, applied here only, so its classpath stays apart from the
+    // Architectury Loom modules'. (Architectury has no Forge support after 1.20.4, so Forge cannot be an
+    // Architectury Loom platform module.)
+    id 'net.minecraftforge.gradle' version "${forgegradle_version}"
+    id 'com.gradleup.shadow'
+}
+
+// Forge has no [[mixins]] table in mods.toml: Mixin finds configs through the jar manifest's MixinConfigs attribute.
+def mixinConfigs = ['mocreatures.forge.mixins.json']
+
+// The shared code, compiled for Forge together with this module's glue and a Forge implementation of the few
+// Architectury API classes the shared code calls (src/shim: same names, so the shared code compiles unchanged;
+// shadowJar relocates them into Mo'Creatures' own package).
+sourceSets {
+    main {
+        java {
+            srcDir project(':common').file('src/main/java')
+            srcDir 'src/shim/java'
+        }
+        resources {
+            srcDir project(':common').file('src/main/resources')
+        }
+    }
+}
+
+repositories {
+    // Must be first and must not sit behind an exclusiveContent filter for net.minecraftforge (ForgeGradle #1036).
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${minecraft_version}-${forge_version}")
+}
+
+processResources {
+    def props = [version: project.version, mod_id: mod_id, forge_version_range: forge_version_range,
+                 minecraft_version_range: minecraft_version_range, github_repo: 'https://github.com/' + github]
+    inputs.properties props
+    filesMatching(['META-INF/mods.toml']) {
+        expand props
+    }
+    exclude 'architectury.common.json'
+}
+
+tasks.named('jar', Jar) {
+    archiveClassifier = 'raw'
+    manifest {
+        attributes(['MixinConfigs': mixinConfigs.join(',')])
+    }
+}
+
+shadowJar {
+    // only the mod's own classes and resources: Minecraft and Forge come from the game
+    configurations = []
+    archiveAppendix = 'forge'
+    archiveClassifier = null
+    relocate 'dev.architectury', 'drzhark.mocreatures.forge.arch'
+    manifest {
+        attributes(['MixinConfigs': mixinConfigs.join(',')])
+    }
+}
+
+tasks.named('assemble') { dependsOn shadowJar }

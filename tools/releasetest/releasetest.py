@@ -31,6 +31,9 @@ them - no Gradle, no dev classpath, no merged client/server code.
     py tools/releasetest/releasetest.py server <loader> <server port> <rcon port>
     py tools/releasetest/releasetest.py client <loader> [--join <port>] [--world <name>]
         One server or client by hand (attached until it exits).
+    py tools/releasetest/releasetest.py play <loader>
+        A real client with the release jar for a person to play: its own folder (build/releasetest/<loader>/play),
+        no test agent (normal window, normal pausing, nothing scripted), open until closed by hand.
 
 Mod sets (shaders / performance rule; the lists are picked FRESH from Modrinth for 26.2 and the loader on every run,
 newest version, sha1-checked, required dependencies included):
@@ -44,8 +47,9 @@ newest version, sha1-checked, required dependencies included):
   popular         + the most popular mods in the mod's area (mobs) and the usual neighbours (JEI, Jade, ModMenu,
                   Xaero's Minimap, Distant Horizons)
 
-loader is fabric or neoforge (the loaders Mo'Creatures ships for; the quilt and forge code paths are kept from the
-script this was adapted from, Alex's Caves 26.2's, with the mod sets and probes from WaterBending 26.2's). Installs live
+loader is fabric, quilt, forge or neoforge (the Quilt jar is the Fabric jar with quilt.mod.json; the Forge jar is built
+with ForgeGradle and needs no Architectury API). Adapted from Alex's Caves 26.2's script, with the mod sets and probes
+from WaterBending 26.2's. Installs live
 in build/releasetest/<loader>/server and <results>/client; the vanilla client, the libraries and the loader profiles in
 build/releasetest/launcher (a .minecraft-like folder the Forge and NeoForge installers can install into). Mojang's
 files come from Loom's cache when it has them, everything else from the official sources (downloads are pre-approved by
@@ -315,7 +319,8 @@ def set_mods(loader, game_dir, extra=(), without_architectury=False):
         # Quilt Loader 0.31 fails to read a transform cache written before the mods changed; start from a clean one.
         shutil.rmtree(os.path.join(game_dir, '.cache', 'quilt_loader'), ignore_errors=True)
     shutil.copy(release_jar(loader), mods)
-    if not without_architectury:
+    # Forge has no Architectury API (its last Forge build is for 1.20.4): the Forge jar carries its own stand-in.
+    if not without_architectury and loader != 'forge':
         shutil.copy(architectury_jar('fabric' if loader in ('fabric', 'quilt') else loader), mods)
     if loader in ('fabric', 'quilt'):
         shutil.copy(fabric_api_jar(), mods)
@@ -616,7 +621,8 @@ def library_file(lib):
     return path
 
 
-def client(loader, game_dir=None, mods=(), pack=None, join_port=None, world=None, without_architectury=False):
+def client(loader, game_dir=None, mods=(), pack=None, join_port=None, world=None, without_architectury=False,
+           agent=True):
     os.makedirs(DOWNLOADS, exist_ok=True)
     vid = install_client(loader)
     version = resolve(vid)
@@ -658,7 +664,10 @@ def client(loader, game_dir=None, mods=(), pack=None, join_port=None, world=None
         extra_game += ['--quickPlayMultiplayer', f'127.0.0.1:{join_port}']
     if world:
         extra_game += ['--quickPlaySingleplayer', world]
-    args = ['-Xmx4G', MARKER, f'-javaagent:{testclient.build_agent()}'] + NO_GUI + expand(version['jvm']) \
+    # agent=False (the `play` command): a client for a person to play - no test agent, so a normal window that
+    # pauses as usual and nothing scripted; the loaders' error windows stay on too, someone is watching.
+    test_args = [f'-javaagent:{testclient.build_agent()}'] + NO_GUI if agent else []
+    args = ['-Xmx4G', MARKER] + test_args + expand(version['jvm']) \
         + [version['main']] + expand(version['game']) + extra_game
     lines = []
     for arg in args:
@@ -795,7 +804,8 @@ def check(loader, port, rcon_port, set_name='plain', tour_only=False):
     if loader == 'fabric':
         fabric_api_jar()
     set_notes = [f'loader: ' + (f'Fabric Loader {fabric_loader()}, Fabric API {_fabric_api[0][0]}'
-                                if loader == 'fabric' else f'NeoForge {NEOFORGE}')] + set_notes
+                                if loader == 'fabric' else f'Quilt Loader {QUILT_RUN}' if loader == 'quilt'
+                                else f'Forge {FORGE}' if loader == 'forge' else f'NeoForge {NEOFORGE}')] + set_notes
     guard, guard_log = start_guard(out_dir)
     for stale in ('screenshots',):
         shutil.rmtree(os.path.join(client_dir, stale), ignore_errors=True)
@@ -865,7 +875,9 @@ def check(loader, port, rcon_port, set_name='plain', tour_only=False):
         shutil.copy(os.path.join(client_dir, 'logs', 'latest.log'), os.path.join(out_dir, 'check-client-sp.log'))
         shutil.copy(os.path.join(client_dir, 'client.log'), os.path.join(out_dir, 'check-client-sp-console.log'))
     except Exception as e:
-        record('check ran to the end', False, repr(e)[:600])
+        import traceback
+        where = traceback.extract_tb(e.__traceback__)[-1]
+        record('check ran to the end', False, f'{e!r} at {os.path.basename(where.filename)}:{where.lineno}'[:600])
     finally:
         if srv is not None and srv.poll() is None:
             try:
@@ -1014,6 +1026,10 @@ if __name__ == '__main__':
     if len(args) == 4 and args[0] == 'server':
         code = server(args[1], args[2], args[3]).wait()
         print(f'[releasetest] server exited with code {code}')
+        sys.exit(0)
+    if len(args) == 2 and args[0] == 'play':
+        code = client(args[1], os.path.join(WORK, args[1], 'play'), agent=False).wait()
+        print(f'[releasetest] {args[1]} client closed (exit code {code})')
         sys.exit(0)
     if len(args) >= 2 and args[0] == 'client':
         opts = args[2:]

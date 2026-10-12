@@ -96,6 +96,8 @@ public class MoCMobRenderer<T extends Mob & IMoCEntity> extends MobRenderer<T, M
         }
         state.texture = entity.getTexture();
         state.typeMoC = entity.getTypeMoC();
+        state.ogreHeadFocus = entity instanceof drzhark.mocreatures.entity.monster.MoCEntityOgre ogre
+                ? ogre.getHeadFocus(partialTick) : 0.0F;
         state.baby = entity.isBaby();
         state.saddled = entity instanceof drzhark.mocreatures.entity.MoCAnimal animal && animal.isSaddled();
         if (entity instanceof drzhark.mocreatures.entity.passive.MoCEntityElephant elephant) {

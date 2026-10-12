@@ -88,9 +88,12 @@ def size(log):
 def read_from(log, start=0):
     if not log or not os.path.exists(log):
         return ''
-    with open(log, encoding='utf-8', errors='replace') as f:
-        f.seek(start)
-        return f.read()
+    try:
+        with open(log, encoding='utf-8', errors='replace') as f:
+            f.seek(start)
+            return f.read()
+    except PermissionError:
+        return ''  # another process holds the file for an instant (Windows); the next poll reads it
 
 
 def wait_for(log, pattern, timeout, start=0, watch=None):

@@ -182,11 +182,35 @@ public class MoCEntityOgre extends MoCMob {
         return !this.level().canSeeSky(this.blockPosition()) && this.getY() < 50.0D;
     }
 
-    // ------------------------------------------------------------------------ multi-head look clamps
+    // ------------------------------------------------------------------------ two-headed ogres
+
+    // 12.0.5 MoCEntityOgre.getMovingHead: a two-headed ogre looks around with one head at a time and now and then
+    // (1 in 60) switches to the other. Client-side and cosmetic; eased over a few ticks, so a switch reads as one
+    // head turning back and the other turning to look, not a snap.
+    private boolean focusOnHead3;
+    private float headFocus;
+    private float headFocusO;
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        if (this.level().isClientSide()) {
+            if (this.random.nextInt(60) == 0) {
+                this.focusOnHead3 = this.random.nextBoolean();
+            }
+            this.headFocusO = this.headFocus;
+            this.headFocus += ((this.focusOnHead3 ? 1.0F : 0.0F) - this.headFocus) * 0.25F;
+        }
+    }
+
+    /** Which side head looks around: 0 = the right one (12.0.5's Head2), 1 = the left one (Head3). */
+    public float getHeadFocus(float partialTick) {
+        return net.minecraft.util.Mth.lerp(partialTick, this.headFocusO, this.headFocus);
+    }
 
     /**
-     * Whether the current variant renders more than one head (types 2/4/6 for the common ogre; the
-     * Ogre Prince overrides this with its own variant mapping).
+     * Whether the current variant has two heads (types 2/4/6 for the common ogre; the Ogre Prince overrides this
+     * with its own variant mapping).
      */
     protected boolean isMultiHeaded() {
         int type = getTypeMoC();
@@ -204,12 +228,11 @@ public class MoCEntityOgre extends MoCMob {
     }
 
     /**
-     * Multi-head variants carry three heads shoulder to shoulder, and the fanned-out model only has
-     * interpenetration-free clearance inside a modest look cone (SAT-verified in {@code MoCModelOgre}
-     * across the clamped envelope plus interpolation margin). Clamping here is not a restriction on
-     * behaviour: beyond the head-body yaw limit, vanilla {@code BodyRotationControl.rotateBodyIfNecessary}
-     * swings the whole BODY to face the target, so a giant that turns bodily instead of owl-necking is
-     * exactly what these clamps produce. Single-head variants keep the vanilla 75°/40°.
+     * Two heads sit side by side, and a turning head stays clear of the other only inside a modest look cone (see
+     * {@code MoCModelOgre}). Clamping here is not a restriction on behaviour: beyond the head-body yaw limit,
+     * vanilla {@code BodyRotationControl.rotateBodyIfNecessary} swings the whole BODY to face the target, so a giant
+     * that turns bodily instead of owl-necking is exactly what these clamps produce. Single-head variants keep the
+     * vanilla 75°/40°.
      */
     @Override
     public int getMaxHeadYRot() {

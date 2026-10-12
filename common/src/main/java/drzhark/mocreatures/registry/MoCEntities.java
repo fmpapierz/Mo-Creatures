@@ -78,16 +78,18 @@ public final class MoCEntities {
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMaggot::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("maggot")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntitySnail>> SNAIL = ENTITIES.register("snail",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntitySnail::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("snail")));
+    // Sea life (MoCSpawns.AQUATICS) registers in the spawn pool aquaticPool picks: MISC for Mo'Creatures' own pool,
+    // or vanilla's water_ambient (fish) / water_creature (the rest). See MoCSpawns.aquaticsInOwnPool.
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityDolphin>> DOLPHIN = ENTITIES.register("dolphin",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityDolphin::new, MobCategory.WATER_CREATURE).sized(1.5F, 0.8F).clientTrackingRange(10).build(key("dolphin")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityDolphin::new, MoCSpawns.aquaticCategory(MobCategory.WATER_CREATURE)).sized(1.5F, 0.8F).clientTrackingRange(10).build(key("dolphin")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityFishy>> FISHY = ENTITIES.register("fishy",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityFishy::new, MobCategory.WATER_CREATURE).sized(0.3F, 0.3F).clientTrackingRange(10).build(key("fishy")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityFishy::new, MoCSpawns.aquaticCategory(MobCategory.WATER_AMBIENT)).sized(0.3F, 0.3F).clientTrackingRange(10).build(key("fishy")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityJellyFish>> JELLYFISH = ENTITIES.register("jellyfish",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityJellyFish::new, MobCategory.WATER_CREATURE).sized(0.3F, 0.5F).clientTrackingRange(10).build(key("jellyfish")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityJellyFish::new, MoCSpawns.aquaticCategory(MobCategory.WATER_CREATURE)).sized(0.3F, 0.5F).clientTrackingRange(10).build(key("jellyfish")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityRay>> RAY = ENTITIES.register("ray",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRay::new, MobCategory.WATER_CREATURE).sized(1.8F, 0.5F).clientTrackingRange(10).build(key("ray")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityRay::new, MoCSpawns.aquaticCategory(MobCategory.WATER_CREATURE)).sized(1.8F, 0.5F).clientTrackingRange(10).build(key("ray")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityShark>> SHARK = ENTITIES.register("shark",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityShark::new, MobCategory.WATER_CREATURE).sized(1.5F, 0.8F).clientTrackingRange(10).build(key("shark")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityShark::new, MoCSpawns.aquaticCategory(MobCategory.WATER_CREATURE)).sized(1.5F, 0.8F).clientTrackingRange(10).build(key("shark")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityBee>> BEE = ENTITIES.register("bee",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityBee::new, MobCategory.AMBIENT).sized(0.2F, 0.2F).clientTrackingRange(10).build(key("bee")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityButterfly>> BUTTERFLY = ENTITIES.register("butterfly",
@@ -142,9 +144,9 @@ public final class MoCEntities {
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityEnt>> ENT = ENTITIES.register("ent",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityEnt::new, MobCategory.CREATURE).sized(1.4F, 7.0F).clientTrackingRange(10).build(key("ent")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntitySmallFish>> SMALL_FISH = ENTITIES.register("small_fish",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntitySmallFish::new, MobCategory.WATER_CREATURE).sized(0.3F, 0.3F).clientTrackingRange(10).build(key("small_fish")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntitySmallFish::new, MoCSpawns.aquaticCategory(MobCategory.WATER_AMBIENT)).sized(0.3F, 0.3F).clientTrackingRange(10).build(key("small_fish")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.passive.MoCEntityMediumFish>> MEDIUM_FISH = ENTITIES.register("medium_fish",
-            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMediumFish::new, MobCategory.WATER_CREATURE).sized(0.6F, 0.3F).clientTrackingRange(10).build(key("medium_fish")));
+            () -> EntityType.Builder.of(drzhark.mocreatures.entity.passive.MoCEntityMediumFish::new, MoCSpawns.aquaticCategory(MobCategory.WATER_AMBIENT)).sized(0.6F, 0.3F).clientTrackingRange(10).build(key("medium_fish")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton>> SILVER_SKELETON = ENTITIES.register("silver_skeleton",
             () -> EntityType.Builder.of(drzhark.mocreatures.entity.monster.MoCEntitySilverSkeleton::new, MobCategory.MONSTER).sized(0.9F, 1.4F).clientTrackingRange(10).notInPeaceful().build(key("silver_skeleton")));
     public static final RegistrySupplier<EntityType<drzhark.mocreatures.entity.monster.MoCEntityMiniGolem>> MINI_GOLEM = ENTITIES.register("mini_golem",

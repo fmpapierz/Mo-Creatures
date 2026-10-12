@@ -1,5 +1,7 @@
 package drzhark.mocreatures.entity;
 
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -50,6 +52,23 @@ public abstract class MoCFlyingInsect extends MoCAnimal {
     @Override
     public boolean onClimbable() {
         return false;
+    }
+
+    /** Ticks until this insect may buzz again ({@link #buzzNearPlayer}). */
+    private int buzzCountdown;
+
+    /**
+     * 12.0.5's insect buzz ({@code onLivingUpdate} of its fly and dragonfly): only while a player is within 5 blocks,
+     * at most once every {@code interval} ticks. The port used to give them vanilla's ambient sound instead, which
+     * every insect plays every few seconds to anyone within 16 blocks; insects never despawn, so the fields buzzed
+     * without end while the tiny flies making it stayed out of sight (player report 2026-10-12). Call from
+     * {@code customServerAiStep}, and return no ambient sound.
+     */
+    protected void buzzNearPlayer(ServerLevel level, SoundEvent sound, int interval) {
+        if (--this.buzzCountdown <= 0 && level.getNearestPlayer(this, 5.0D) != null) {
+            playSound(sound, 1.0F, 1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.2F);
+            this.buzzCountdown = interval;
+        }
     }
 
     @Override

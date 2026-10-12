@@ -18,34 +18,20 @@ import net.minecraft.util.Mth;
  * the whole face turns as one; the arms drive a melee smash from the swing progress and the legs add a
  * running kick — matching the legacy {@code setRotationAngles}.
  *
- * <p>One deliberate divergence from legacy: the multi-head variants (type 2/4/6) show all three heads,
- * and legacy parked the two extra 10-wide heads only 7px off-centre, burying 4px of each inside the
- * 12-wide centre head. Here they are fanned out — pivots pushed over the shoulders (x ±12.4) with a
- * baked ±3° outward yaw, and dropped 0.2 so their bottom faces sink into the shoulder tops instead of
- * z-fighting them. Clearance in MOTION (not just at rest) is guaranteed by three coupled choices,
- * SAT-verified across the whole reachable envelope plus interpolation margin (yaw ±21°, pitch ±30°):
- * the ±12.4/±3° fan, the side clusters taking the look pitch at half rate ({@link #SIDE_PITCH_FACTOR} —
- * a 12x12x12 head pitched 40° and yawed sweeps a ~10.4px radius, more than any wearable fan can
- * absorb at full rate), and {@code MoCEntityOgre} clamping the look envelope for multi-head types
- * ({@code getMaxHeadYRot} 15 / {@code getMaxHeadXRot} 25) so vanilla {@code BodyRotationControl}
- * swings the whole body around beyond that instead of owl-necking the heads into each other. The
- * residual contact left anywhere in the envelope is the accepted ~2-3px ear/ring seam class (see
- * HANDOFF_CONTINUE §3d); head boxes and faces never interpenetrate.
+ * <p>Heads as in 12.0.5 ({@code MoCModelOgre.render}): types 1/3/5 have the one centre head, types 2/4/6 the two
+ * side heads at x ±7 and no centre head. Only one of the two looks around at a time and the other rests,
+ * switching now and then ({@code MoCEntityOgre.getHeadFocus}, 12.0.5's {@code getMovingHead}). The side heads sit
+ * 0.2 lower than 12.0.5's so their bottom faces sink into the chest top instead of z-fighting it. Until
+ * 2026-10-12 every type drew all three heads, the side pair fanned out over the shoulders (a player report:
+ * "3 heads instead of the classic 2 or 1").</p>
+ *
+ * <p>Clearance: within {@code MoCEntityOgre}'s look clamps for two-headed types (yaw 15°, pitch 25°) a side
+ * head turning about its pivot reaches at most 7.6 px towards the other head, whose inner face is 9 px away
+ * (pivots 14 apart, half-width 5), so the head boxes never meet; Head3's inner ear comes within 0.1 px.</p>
  */
 public class MoCModelOgre extends EntityModel<MoCEntityRenderState> {
 
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
-
-    // Baked outward fan of the two extra heads (multi-head variants): pivots at x ±12.4 over the
-    // shoulders plus ±3° of yaw (user feedback: ±13.5/±10° read too spread; this is the tightest
-    // zero-clip candidate from the SAT search). The look yaw is added on top of these in setupAnim,
-    // for the head cube and every flat sub-cube of its cluster alike, so each cluster stays rigid at
-    // every look angle; the look PITCH reaches the side clusters at half rate (SIDE_PITCH_FACTOR),
-    // which the clearance sweep needs (see the class javadoc) and which reads as the flanking heads
-    // lazily half-following the centre head's gaze.
-    private static final float HEAD2_BASE_YAW = 0.0523599F;
-    private static final float HEAD3_BASE_YAW = -0.0523599F;
-    private static final float SIDE_PITCH_FACTOR = 0.5F;
 
     private final ModelPart head;
     private final ModelPart head2;
@@ -58,6 +44,7 @@ public class MoCModelOgre extends EntityModel<MoCEntityRenderState> {
     private final ModelPart lftShoulder;
     private final ModelPart loinCloth;
     private final ModelPart buttCover;
+    private final ModelPart lftWeapon;
 
     // Head sub-cubes grouped by head, with each part's baked base pitch, so they can track the look
     // direction about the shared head pivot without detaching from the head cube.
@@ -90,6 +77,7 @@ public class MoCModelOgre extends EntityModel<MoCEntityRenderState> {
         this.lftLeg = this.lftThigh.getChild("LftLeg");
         this.rgtShoulder = root.getChild("RgtShoulder");
         this.lftShoulder = root.getChild("LftShoulder");
+        this.lftWeapon = this.lftShoulder.getChild("LftArm").getChild("LftHand").getChild("LftWeaponRoot");
         this.loinCloth = root.getChild("LoinCloth");
         this.buttCover = root.getChild("ButtCover");
 
@@ -117,7 +105,7 @@ public class MoCModelOgre extends EntityModel<MoCEntityRenderState> {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
 
-        // ---- Single head (type 1/3/5) ----
+        // ---- The one head (types 1/3/5) ----
         root.addOrReplaceChild("Head",
                 CubeListBuilder.create().texOffs(80, 0).addBox(-6.0F, -12.0F, -6.0F, 12.0F, 12.0F, 12.0F),
                 PartPose.offset(0.0F, -13.0F, 0.0F));
@@ -348,84 +336,84 @@ public class MoCModelOgre extends EntityModel<MoCEntityRenderState> {
                 CubeListBuilder.create().texOffs(52, 118).addBox(-1.0F, -3.0F, -1.0F, 2.0F, 3.0F, 2.0F),
                 PartPose.offset(0.0F, -2.5F, -3.0F));
 
-        // ---- Third head (multi-head variant, type 2/4/6) ----
+        // ---- Left head of the two-headed ogre (types 2/4/6), "Head3" in 12.0.5 ----
         root.addOrReplaceChild("Head3RgtEar",
                 CubeListBuilder.create().texOffs(110, 24).addBox(-8.0F, -9.0F, -1.0F, 3.0F, 5.0F, 2.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.0F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offset(7.0F, -12.8F, 0.0F));
         root.addOrReplaceChild("Head3LftEar",
                 CubeListBuilder.create().texOffs(100, 24).addBox(5.0F, -9.0F, -1.0F, 3.0F, 5.0F, 2.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.0F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offset(7.0F, -12.8F, 0.0F));
         root.addOrReplaceChild("Head3Eyelid",
                 CubeListBuilder.create().texOffs(46, 3).addBox(-3.0F, -8.0F, -4.5F, 6.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.2617994F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, 0.2617994F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3Nose",
                 CubeListBuilder.create().texOffs(60, 9).addBox(-1.5F, -8.5F, -3.5F, 3.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.4886922F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, 0.4886922F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3",
                 CubeListBuilder.create().texOffs(42, 83).addBox(-5.0F, -12.0F, -6.0F, 10.0F, 12.0F, 12.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.0F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offset(7.0F, -12.8F, 0.0F));
         root.addOrReplaceChild("Head3Brow",
                 CubeListBuilder.create().texOffs(46, 0).addBox(-3.0F, -9.0F, -8.5F, 6.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, -0.2617994F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, -0.2617994F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3Hair",
                 CubeListBuilder.create().texOffs(80, 118).addBox(-2.0F, -17.0F, -5.0F, 4.0F, 6.0F, 4.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, -0.6108652F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, -0.6108652F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3Lip",
                 CubeListBuilder.create().texOffs(22, 68).addBox(-4.0F, -4.0F, -7.0F, 8.0F, 2.0F, 2.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.1745329F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, 0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3RgtTusk",
                 CubeListBuilder.create().texOffs(83, 34).addBox(-3.5F, -6.0F, -6.5F, 1.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.1745329F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, 0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3RgtTooth",
                 CubeListBuilder.create().texOffs(87, 34).addBox(-1.5F, -5.0F, -6.5F, 1.0F, 1.0F, 1.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.1745329F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, 0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3LftTooth",
                 CubeListBuilder.create().texOffs(96, 34).addBox(0.5F, -5.0F, -6.5F, 1.0F, 1.0F, 1.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.1745329F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, 0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3LftTusk",
                 CubeListBuilder.create().texOffs(100, 34).addBox(2.5F, -6.0F, -6.5F, 1.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.1745329F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(7.0F, -12.8F, 0.0F, 0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head3RingHole",
                 CubeListBuilder.create().texOffs(26, 50).addBox(6.0F, -5.0F, -1.0F, 1.0F, 2.0F, 2.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.0F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offset(7.0F, -12.8F, 0.0F));
         root.addOrReplaceChild("Head3Ring",
                 CubeListBuilder.create().texOffs(32, 58).addBox(6.0F, -6.0F, -2.0F, 1.0F, 4.0F, 4.0F),
-                PartPose.offsetAndRotation(12.4F, -12.8F, 0.0F, 0.0F, HEAD3_BASE_YAW, 0.0F));
+                PartPose.offset(7.0F, -12.8F, 0.0F));
 
-        // ---- Second head (multi-head variant, type 2/4/6) ----
+        // ---- Right head of the two-headed ogre (types 2/4/6), "Head2" in 12.0.5 ----
         root.addOrReplaceChild("Head2Chin",
                 CubeListBuilder.create().texOffs(21, 24).addBox(-3.0F, -5.0F, -8.0F, 6.0F, 3.0F, 3.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.2617994F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, 0.2617994F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2",
                 CubeListBuilder.create().texOffs(0, 0).addBox(-5.0F, -12.0F, -6.0F, 10.0F, 12.0F, 12.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.0F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offset(-7.0F, -12.8F, 0.0F));
         root.addOrReplaceChild("Head2Lip",
                 CubeListBuilder.create().texOffs(0, 24).addBox(-4.0F, -5.0F, -8.0F, 8.0F, 2.0F, 2.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.0F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offset(-7.0F, -12.8F, 0.0F));
         root.addOrReplaceChild("Head2LftTusk",
                 CubeListBuilder.create().texOffs(46, 28).addBox(2.5F, -8.0F, -6.5F, 1.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.1745329F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, 0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2RgtTusk",
                 CubeListBuilder.create().texOffs(39, 28).addBox(-3.5F, -8.0F, -6.5F, 1.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.1745329F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, 0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2Nose",
                 CubeListBuilder.create().texOffs(116, 0).addBox(-2.0F, -7.0F, -7.0F, 4.0F, 2.0F, 2.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.0872665F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, 0.0872665F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2NoseBridge",
                 CubeListBuilder.create().texOffs(116, 4).addBox(-1.0F, -7.0F, -8.0F, 2.0F, 2.0F, 1.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, -0.1745329F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, -0.1745329F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2Brow",
                 CubeListBuilder.create().texOffs(80, 24).addBox(-4.0F, -10.5F, -8.0F, 8.0F, 3.0F, 2.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, -0.0872665F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, -0.0872665F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2RgtHorn",
                 CubeListBuilder.create().texOffs(24, 30).addBox(-4.0F, -8.0F, -15.0F, 2.0F, 2.0F, 5.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, -0.5235988F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, -0.5235988F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2LftHorn",
                 CubeListBuilder.create().texOffs(24, 30).addBox(2.0F, -8.0F, -15.0F, 2.0F, 2.0F, 5.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, -0.5235988F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, -0.5235988F, 0.0F, 0.0F));
         root.addOrReplaceChild("Head2DiamondHorn",
                 CubeListBuilder.create().texOffs(120, 46).addBox(-1.0F, -17.0F, -6.0F, 2.0F, 6.0F, 2.0F),
-                PartPose.offsetAndRotation(-12.4F, -12.8F, 0.0F, 0.0872665F, HEAD2_BASE_YAW, 0.0F));
+                PartPose.offsetAndRotation(-7.0F, -12.8F, 0.0F, 0.0872665F, 0.0F, 0.0F));
 
         // Back faces 1.12 drew with culling off (see MoCBackFaces): the red ogre's hair tuft (Hair3), the hair rope
         // and the ear-ring holes are painted on open boxes, whose inner walls showed through the empty faces. Each
@@ -470,32 +458,45 @@ public class MoCModelOgre extends EntityModel<MoCEntityRenderState> {
         float limbAmount = state.walkAnimationSpeed;
         float ageInTicks = state.ageInTicks;
 
-        // head look tracking (single head + both extra heads follow the look direction; the extra
-        // heads swivel around their baked outward yaw and take the pitch at half rate — both are part
-        // of the verified clearance budget, see the class javadoc)
-        float sidePitch = headPitch * SIDE_PITCH_FACTOR;
+        // Which heads exist (12.0.5 MoCModelOgre.render): one centre head, or two side heads and no centre one.
+        boolean twoHeads = state.typeMoC == 2 || state.typeMoC == 4 || state.typeMoC == 6;
+        this.head.visible = !twoHeads;
+        for (ModelPart part : this.head1Sub) {
+            part.visible = !twoHeads;
+        }
+        this.head2.visible = twoHeads;
+        for (ModelPart part : this.head2Sub) {
+            part.visible = twoHeads;
+        }
+        this.head3.visible = twoHeads;
+        for (ModelPart part : this.head3Sub) {
+            part.visible = twoHeads;
+        }
+        // and only a two-headed ogre carries a club in its left hand too (12.0.5 hid LftWeaponRoot for type 1)
+        this.lftWeapon.visible = twoHeads;
+
+        // Look tracking: the one head, or the side head in focus (0 = Head2, 1 = Head3, eased between them) while
+        // the other rests. The sub-cubes (brows, tusks, ears, hair, horns) share their head's pivot, so each takes
+        // its base pitch plus the head's look angles and the face turns as one.
+        float focus3 = twoHeads ? state.ogreHeadFocus : 0.0F;
+        float focus2 = twoHeads ? 1.0F - focus3 : 0.0F;
         this.head.xRot = headPitch;
         this.head.yRot = headYaw;
-        this.head2.xRot = sidePitch;
-        this.head2.yRot = HEAD2_BASE_YAW + headYaw;
-        this.head3.xRot = sidePitch;
-        this.head3.yRot = HEAD3_BASE_YAW + headYaw;
-
-        // The head sub-cubes (brows/tusks/ears/hair/horns) share their head's pivot, so rotate them with
-        // the look direction (base pitch + look pitch, base yaw + look yaw) to keep the whole face
-        // turning as one — the base yaw and pitch rate match their head's, keeping each cluster rigid
-        // at every angle.
+        this.head2.xRot = headPitch * focus2;
+        this.head2.yRot = headYaw * focus2;
+        this.head3.xRot = headPitch * focus3;
+        this.head3.yRot = headYaw * focus3;
         for (int i = 0; i < this.head1Sub.length; i++) {
             this.head1Sub[i].xRot = this.head1BaseX[i] + headPitch;
             this.head1Sub[i].yRot = headYaw;
         }
         for (int i = 0; i < this.head2Sub.length; i++) {
-            this.head2Sub[i].xRot = this.head2BaseX[i] + sidePitch;
-            this.head2Sub[i].yRot = HEAD2_BASE_YAW + headYaw;
+            this.head2Sub[i].xRot = this.head2BaseX[i] + this.head2.xRot;
+            this.head2Sub[i].yRot = this.head2.yRot;
         }
         for (int i = 0; i < this.head3Sub.length; i++) {
-            this.head3Sub[i].xRot = this.head3BaseX[i] + sidePitch;
-            this.head3Sub[i].yRot = HEAD3_BASE_YAW + headYaw;
+            this.head3Sub[i].xRot = this.head3BaseX[i] + this.head3.xRot;
+            this.head3Sub[i].yRot = this.head3.yRot;
         }
 
         // leg gait — with a stomping running kick that lifts the trailing leg higher at speed (legacy: an

@@ -33,7 +33,7 @@ small view distances.
                     12.0.5 spawn weights), then no Mo'Creatures animal may vanish over three mob-cap sweeps,
   - finally scans logs/latest.log for errors, exceptions and mixin failures.
 """
-import os, re, socket, struct, sys, time
+import os, re, select, socket, struct, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RES = os.path.join(ROOT, 'common', 'src', 'main', 'resources')
@@ -72,24 +72,41 @@ class Rcon:
         rid, kind = struct.unpack('<ii', body[:8])
         return rid, kind, body[8:-2].decode('utf-8', 'replace')
 
-    def cmd(self, command):
+    def _ready(self, seconds):
+        """Whether a reply has started to arrive within the given time (select, so no read is ever cut in half)."""
+        return bool(select.select([self.sock], [], [], seconds)[0])
+
+    def cmd(self, command, quiet_wait=5.0):
         # One packet per TCP read: vanilla's RconClient drops the connection if a single read holds more than one
-        # packet, so no trailing marker command. Output longer than 4096 bytes arrives as several packets with the
-        # same id; collect them with a short follow-up timeout.
+        # packet, so no trailing marker command in the same write. Output longer than 4096 bytes arrives as several
+        # packets with the same id; collect them while more keep arriving.
+        #
+        # Forge 65's RCON sends NO reply at all for a command without output (vanilla sends an empty one), e.g.
+        # "execute as <kitty> on vehicle ..." for a kitty riding nothing: a reader waiting for it waits forever
+        # (2026-10-11). So if nothing has arrived after quiet_wait, ask for a sentinel ("list", a request of its own):
+        # the server answers requests in order, so whatever arrives before the sentinel's id answers the command.
         self._send(2, command)
-        rid, _, text = self._recv()
-        out = [text]
-        self.sock.settimeout(0.4)
+        rid = self.req
+        out = []
         try:
-            while True:
+            if not self._ready(quiet_wait):
+                self._send(2, 'list')
+                sentinel = self.req
+                while True:
+                    rid2, _, text = self._recv()
+                    if rid2 == sentinel:
+                        return ''.join(out)
+                    if rid2 == rid:
+                        out.append(text)
+            _, _, text = self._recv()
+            out.append(text)
+            while self._ready(0.4):
                 rid2, _, more = self._recv()
                 if rid2 != rid:
                     break
                 out.append(more)
-        except (socket.timeout, TimeoutError, ConnectionError):
-            pass  # no more parts; or, after "stop", the server has already closed the connection
-        finally:
-            self.sock.settimeout(300)
+        except ConnectionError:
+            pass  # after "stop", the server has already closed the connection
         return ''.join(out)
 
 
@@ -556,7 +573,8 @@ def spawn_list(r, biome):
 
 
 # 12.0.5's biome placement and weights, as the live spawn lists must show them: (biome, present {id: (category,
-# weight)}, absent ids). Each line is a fact from 12.0.5's MoCEntities lists + Forge 1.12.2's biome types.
+# weight)}, absent ids). Sea life is in Mo'Creatures' own pool by default (aquaticPool=own), which
+# /moc spawnlist shows as sea_life. Each line is a fact from 12.0.5's MoCEntities lists + Forge 1.12.2's biome types.
 PLACEMENT = [
     ('minecraft:plains', {'kitty': ('creature', 8), 'bear': ('creature', 18), 'bird': ('creature', 15),
                           'big_cat': ('creature', 12), 'turkey': ('creature', 8), 'butterfly': ('ambient', 8),
@@ -574,17 +592,17 @@ PLACEMENT = [
      ['ent', 'mole', 'raccoon', 'kitty']),
     ('minecraft:jungle', {'big_cat': ('creature', 24), 'turtle': ('creature', 6), 'chimpanzee': ('creature', 8)},
      ['elephant', 'kitty', 'bear']),
-    ('minecraft:beach', {'crab': ('ambient', 8), 'dragonfly': ('ambient', 6), 'dolphin': ('water_creature', 6),
-                         'small_fish': ('water_creature', 88), 'fishy': ('water_creature', 12)},
+    ('minecraft:beach', {'crab': ('ambient', 8), 'dragonfly': ('ambient', 6), 'dolphin': ('sea_life', 6),
+                         'small_fish': ('sea_life', 88), 'fishy': ('sea_life', 12)},
      ['bear', 'kitty', 'horse', 'shark']),
-    ('minecraft:river', {'crab': ('ambient', 8), 'shark': ('water_creature', 6), 'ray': ('water_creature', 10),
-                         'small_fish': ('water_creature', 88), 'medium_fish': ('water_creature', 30)},
+    ('minecraft:river', {'crab': ('ambient', 8), 'shark': ('sea_life', 6), 'ray': ('sea_life', 10),
+                         'small_fish': ('sea_life', 88), 'medium_fish': ('sea_life', 30)},
      ['bear', 'kitty']),
-    ('minecraft:ocean', {'ray': ('water_creature', 20), 'jellyfish': ('water_creature', 8),
-                         'small_fish': ('water_creature', 88), 'dolphin': ('water_creature', 6)},
+    ('minecraft:ocean', {'ray': ('sea_life', 20), 'jellyfish': ('sea_life', 8),
+                         'small_fish': ('sea_life', 88), 'dolphin': ('sea_life', 6)},
      ['bear']),
     ('minecraft:swamp', {'crocodile': ('creature', 6), 'komodo': ('creature', 8), 'turtle': ('creature', 6),
-                         'ray': ('water_creature', 10), 'fishy': ('water_creature', 12)},
+                         'ray': ('sea_life', 10), 'fishy': ('sea_life', 12)},
      ['kitty', 'bear']),
     ('minecraft:dark_forest', {'hell_rat': ('monster', 6), 'bear': ('creature', 18)}, []),
     ('minecraft:nether_wastes', {'ogre': ('monster', 6), 'horse_mob': ('monster', 8), 'hell_rat': ('monster', 6),
